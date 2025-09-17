@@ -12,7 +12,7 @@ This guide helps you deploy Warp Mobile AI IDE to production using Google Cloud 
 - ✅ **No Docker Required**: Users connect directly via web/mobile app
 - ✅ **Auto-scaling**: Scales based on demand
 - ✅ **Security**: Command filtering, resource limits, sandboxed execution
-- ✅ **Quotas**: 100MB storage per user, 30s command timeout
+- ✅ **Quotas**: 500MB storage per user, 2min command timeout
 - ✅ **Persistent Workspaces**: User files persist between sessions
 
 ### Technology Stack
@@ -99,7 +99,7 @@ Blocked commands include:
 - Non-root container execution
 - Helmet.js security headers
 - Environment variable isolation
-- Process timeout limits (30s)
+- Process timeout limits (2min)
 
 ## 📊 Monitoring & Management
 
@@ -221,9 +221,9 @@ Google Cloud Run pricing (approximate):
 - **Requests**: $0.40 per million requests
 
 **Example monthly cost for moderate usage:**
-- 10,000 sessions/month
-- 30 seconds average session
-- ~$5-15/month
+- 5,000 sessions/month (higher resource usage)
+- 60 seconds average session
+- ~$15-35/month
 
 ## 📞 Support
 

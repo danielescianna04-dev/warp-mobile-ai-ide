@@ -66,8 +66,8 @@ class ProductionTerminalSession {
     this.lastActivity = Date.now();
     this.webSockets = new Set();
     this.processes = new Map();
-    this.fileQuota = 100 * 1024 * 1024; // 100MB per user
-    this.processTimeout = 30 * 1000; // 30 seconds max per command
+    this.fileQuota = 500 * 1024 * 1024; // 500MB per user
+    this.processTimeout = 120 * 1000; // 2 minutes max per command
   }
 
   sanitizeUserId(userId) {

@@ -72,11 +72,11 @@ gcloud run deploy $SERVICE_NAME \
     --platform managed \
     --region $REGION \
     --allow-unauthenticated \
-    --memory 1Gi \
-    --cpu 1 \
-    --concurrency 100 \
+    --memory 4Gi \
+    --cpu 2 \
+    --concurrency 50 \
     --timeout 3600 \
-    --max-instances 10 \
+    --max-instances 20 \
     --set-env-vars NODE_ENV=production \
     --set-env-vars PORT=8080
 
