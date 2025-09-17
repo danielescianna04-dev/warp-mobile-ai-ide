@@ -1,0 +1,52 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: warp-mobile-ai-ide
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/ingress-status: all
+spec:
+  template:
+    metadata:
+      annotations:
+        # Configurazione per WebSocket support
+        run.googleapis.com/execution-environment: gen2
+        # Timeout esteso per sessioni lunghe
+        run.googleapis.com/timeout: '3600s'
+        # CPU always allocated per WebSocket persistenti
+        run.googleapis.com/cpu-throttling: 'false'
+    spec:
+      # Configurazione container
+      containerConcurrency: 100
+      timeoutSeconds: 3600
+      containers:
+      - image: gcr.io/YOUR_PROJECT_ID/warp-mobile-ai-ide:latest
+        ports:
+        - containerPort: 3001
+        env:
+        # API Keys (configura in Cloud Run console)
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              key: OPENAI_API_KEY
+              name: ai-api-keys
+        - name: GOOGLE_AI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              key: GOOGLE_AI_API_KEY  
+              name: ai-api-keys
+        - name: ANTHROPIC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              key: ANTHROPIC_API_KEY
+              name: ai-api-keys
+        - name: ENVIRONMENT
+          value: "production"
+        resources:
+          limits:
+            # 2GB RAM, 2 vCPU per gestire AI + execution
+            memory: 2Gi
+            cpu: 2000m
+          requests:
+            memory: 1Gi
+            cpu: 1000m

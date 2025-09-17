@@ -9,7 +9,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 class AIAgent {
   constructor() {
     this.services = {};
-    this.activeProvider = null; // Disabled - no credits
+    this.activeProvider = 'gemini'; // Fallback to available provider
     this.maxIterations = parseInt(process.env.AGENT_MAX_ITERATIONS) || 10;
     this.timeoutSeconds = parseInt(process.env.AGENT_TIMEOUT_SECONDS) || 300;
     this.autoApprove = process.env.AGENT_AUTO_APPROVE === 'true';
