@@ -5,9 +5,9 @@ class AppColors {
   AppColors._();
 
   // Primary brand colors
-  static const Color primary = Color(0xFF00D4AA);
-  static const Color primaryDark = Color(0xFF00A080);
-  static const Color primaryLight = Color(0xFF33E0BB);
+  static const Color primary = Color(0xFF007AFF);
+  static const Color primaryDark = Color(0xFF0056CC);
+  static const Color primaryLight = Color(0xFF3395FF);
 
   // Background colors
   static const Color background = Color(0xFF0D1117);
@@ -33,7 +33,7 @@ class AppColors {
   static const Color terminalRed = Color(0xFFFF6B6B);
   static const Color terminalBlue = Color(0xFF409CFF);
   static const Color terminalMagenta = Color(0xFFFF7CE0);
-  static const Color terminalCyan = Color(0xFF00D4AA);
+  static const Color terminalCyan = Color(0xFF007AFF);
 
   // Status colors
   static const Color success = Color(0xFF3FB950);
@@ -42,10 +42,10 @@ class AppColors {
   static const Color info = Color(0xFF0969DA);
 
   // AI-specific colors
-  static const Color aiAccent = Color(0xFF8B5CF6);
-  static const Color aiSecondary = Color(0xFFEC4899);
-  static const Color aiGradientStart = Color(0xFF8B5CF6);
-  static const Color aiGradientEnd = Color(0xFFEC4899);
+  static const Color aiAccent = Color(0xFF007AFF);
+  static const Color aiSecondary = Color(0xFF0056CC);
+  static const Color aiGradientStart = Color(0xFF007AFF);
+  static const Color aiGradientEnd = Color(0xFF3395FF);
 
   // Syntax highlighting colors
   static const Color syntaxKeyword = Color(0xFFFF7B72);
@@ -76,18 +76,18 @@ class AppColors {
 
   // Material color swatch for theme integration
   static const MaterialColor primarySwatch = MaterialColor(
-    0xFF00D4AA,
+    0xFF007AFF,
     <int, Color>{
-      50: Color(0xFFE0FFF9),
-      100: Color(0xFFB3FFF0),
-      200: Color(0xFF80FFE6),
-      300: Color(0xFF4DFFDB),
-      400: Color(0xFF26FFD3),
-      500: Color(0xFF00D4AA),
-      600: Color(0xFF00C29A),
-      700: Color(0xFF00A080),
-      800: Color(0xFF008066),
-      900: Color(0xFF00543D),
+      50: Color(0xFFE3F2FF),
+      100: Color(0xFFBBDEFF),
+      200: Color(0xFF90C9FF),
+      300: Color(0xFF64B3FF),
+      400: Color(0xFF42A4FF),
+      500: Color(0xFF007AFF),
+      600: Color(0xFF0072F5),
+      700: Color(0xFF0067EA),
+      800: Color(0xFF005CE0),
+      900: Color(0xFF004AD1),
     },
   );
 

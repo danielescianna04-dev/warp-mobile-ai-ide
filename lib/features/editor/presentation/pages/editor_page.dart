@@ -1,1 +1,307 @@
-import 'package:flutter/material.dart';\nimport '../../../../shared/constants/app_colors.dart';\n\nclass EditorPage extends StatefulWidget {\n  const EditorPage({super.key});\n\n  @override\n  State<EditorPage> createState() => _EditorPageState();\n}\n\nclass _EditorPageState extends State<EditorPage> {\n  final TextEditingController _codeController = TextEditingController(\n    text: '''// Welcome to Warp Mobile AI IDE! 🚀\n// Start coding with AI assistance\n\nvoid main() {\n  print('Hello, Mobile Developer!');\n  \n  // AI-powered features coming soon:\n  // • Code completion\n  // • Code explanation\n  // • Bug fixing\n  // • Refactoring suggestions\n}\n\nclass WarpMobileIDE {\n  final String version = '1.0.0';\n  final bool isAwesome = true;\n  \n  void startCoding() {\n    print('Let\\'s build amazing mobile apps!');\n  }\n}''',\n  );\n\n  @override\n  void dispose() {\n    _codeController.dispose();\n    super.dispose();\n  }\n\n  @override\n  Widget build(BuildContext context) {\n    return Scaffold(\n      backgroundColor: AppColors.editorBackground,\n      appBar: AppBar(\n        backgroundColor: AppColors.surface,\n        elevation: 0,\n        title: Row(\n          children: [\n            Container(\n              padding: const EdgeInsets.symmetric(\n                horizontal: 8,\n                vertical: 4,\n              ),\n              decoration: BoxDecoration(\n                color: AppColors.primary.withOpacity(0.2),\n                borderRadius: BorderRadius.circular(8),\n              ),\n              child: Row(\n                mainAxisSize: MainAxisSize.min,\n                children: [\n                  Icon(\n                    Icons.code,\n                    size: 16,\n                    color: AppColors.primary,\n                  ),\n                  const SizedBox(width: 4),\n                  Text(\n                    'main.dart',\n                    style: TextStyle(\n                      fontSize: 12,\n                      color: AppColors.primary,\n                      fontWeight: FontWeight.w500,\n                    ),\n                  ),\n                ],\n              ),\n            ),\n          ],\n        ),\n        actions: [\n          IconButton(\n            onPressed: () {\n              // TODO: Implement AI assistance\n              ScaffoldMessenger.of(context).showSnackBar(\n                SnackBar(\n                  content: Text('AI assistance coming soon! 🤖'),\n                  backgroundColor: AppColors.aiAccent,\n                ),\n              );\n            },\n            icon: Container(\n              padding: const EdgeInsets.all(6),\n              decoration: BoxDecoration(\n                gradient: AppColors.aiGradient,\n                borderRadius: BorderRadius.circular(8),\n              ),\n              child: Icon(\n                Icons.auto_awesome,\n                size: 16,\n                color: Colors.white,\n              ),\n            ),\n            tooltip: 'Ask AI',\n          ),\n          IconButton(\n            onPressed: () {\n              // TODO: Implement file operations\n            },\n            icon: Icon(\n              Icons.save,\n              color: AppColors.textSecondary,\n            ),\n            tooltip: 'Save',\n          ),\n          IconButton(\n            onPressed: () {\n              // TODO: Implement settings\n            },\n            icon: Icon(\n              Icons.more_vert,\n              color: AppColors.textSecondary,\n            ),\n          ),\n        ],\n      ),\n      body: Column(\n        children: [\n          // File tabs (placeholder)\n          Container(\n            height: 40,\n            color: AppColors.surface,\n            child: ListView(\n              scrollDirection: Axis.horizontal,\n              padding: const EdgeInsets.symmetric(horizontal: 16),\n              children: [\n                _buildFileTab('main.dart', true),\n                _buildFileTab('utils.dart', false),\n                _buildFileTab('models.dart', false),\n              ],\n            ),\n          ),\n          // Code editor\n          Expanded(\n            child: Container(\n              padding: const EdgeInsets.all(16),\n              child: Row(\n                crossAxisAlignment: CrossAxisAlignment.start,\n                children: [\n                  // Line numbers\n                  Container(\n                    width: 40,\n                    child: Column(\n                      crossAxisAlignment: CrossAxisAlignment.end,\n                      children: List.generate(\n                        _codeController.text.split('\\n').length,\n                        (index) => Container(\n                          height: 20,\n                          alignment: Alignment.centerRight,\n                          child: Text(\n                            '${index + 1}',\n                            style: TextStyle(\n                              fontSize: 12,\n                              color: AppColors.editorLineNumbers,\n                              fontFamily: 'monospace',\n                            ),\n                          ),\n                        ),\n                      ),\n                    ),\n                  ),\n                  const SizedBox(width: 12),\n                  // Code input\n                  Expanded(\n                    child: TextField(\n                      controller: _codeController,\n                      maxLines: null,\n                      expands: true,\n                      style: TextStyle(\n                        fontSize: 14,\n                        color: AppColors.textPrimary,\n                        fontFamily: 'monospace',\n                        height: 1.4,\n                      ),\n                      decoration: InputDecoration(\n                        border: InputBorder.none,\n                        contentPadding: EdgeInsets.zero,\n                        hintText: 'Start typing code...',\n                        hintStyle: TextStyle(\n                          color: AppColors.textTertiary,\n                        ),\n                      ),\n                    ),\n                  ),\n                ],\n              ),\n            ),\n          ),\n          // Status bar\n          Container(\n            height: 32,\n            color: AppColors.surface,\n            padding: const EdgeInsets.symmetric(horizontal: 16),\n            child: Row(\n              children: [\n                Icon(\n                  Icons.check_circle,\n                  size: 16,\n                  color: AppColors.success,\n                ),\n                const SizedBox(width: 8),\n                Text(\n                  'Ready',\n                  style: TextStyle(\n                    fontSize: 12,\n                    color: AppColors.textSecondary,\n                  ),\n                ),\n                const Spacer(),\n                Text(\n                  'Dart',\n                  style: TextStyle(\n                    fontSize: 12,\n                    color: AppColors.textSecondary,\n                  ),\n                ),\n                const SizedBox(width: 16),\n                Text(\n                  'UTF-8',\n                  style: TextStyle(\n                    fontSize: 12,\n                    color: AppColors.textSecondary,\n                  ),\n                ),\n              ],\n            ),\n          ),\n        ],\n      ),\n      floatingActionButton: Container(\n        decoration: BoxDecoration(\n          gradient: AppColors.aiGradient,\n          borderRadius: BorderRadius.circular(16),\n        ),\n        child: FloatingActionButton(\n          onPressed: () {\n            // TODO: Implement AI chat\n            ScaffoldMessenger.of(context).showSnackBar(\n              SnackBar(\n                content: Text('AI Chat coming soon! 💬'),\n                backgroundColor: AppColors.aiAccent,\n              ),\n            );\n          },\n          backgroundColor: Colors.transparent,\n          elevation: 0,\n          child: Icon(\n            Icons.smart_toy,\n            color: Colors.white,\n          ),\n        ),\n      ),\n    );\n  }\n\n  Widget _buildFileTab(String fileName, bool isActive) {\n    return Container(\n      margin: const EdgeInsets.only(right: 8, top: 8, bottom: 8),\n      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),\n      decoration: BoxDecoration(\n        color: isActive ? AppColors.background : Colors.transparent,\n        borderRadius: BorderRadius.circular(6),\n        border: isActive\n            ? Border.all(color: AppColors.primary.withOpacity(0.3))\n            : null,\n      ),\n      child: Row(\n        mainAxisSize: MainAxisSize.min,\n        children: [\n          Icon(\n            Icons.code_outlined,\n            size: 12,\n            color: isActive ? AppColors.primary : AppColors.textSecondary,\n          ),\n          const SizedBox(width: 4),\n          Text(\n            fileName,\n            style: TextStyle(\n              fontSize: 12,\n              color: isActive ? AppColors.primary : AppColors.textSecondary,\n              fontWeight: isActive ? FontWeight.w500 : FontWeight.normal,\n            ),\n          ),\n          if (isActive) ..[\n            const SizedBox(width: 4),\n            Icon(\n              Icons.close,\n              size: 12,\n              color: AppColors.textSecondary,\n            ),\n          ],\n        ],\n      ),\n    );\n  }\n}
+import 'package:flutter/material.dart';
+import '../../../../shared/constants/app_colors.dart';
+
+class EditorPage extends StatefulWidget {
+  const EditorPage({super.key});
+
+  @override
+  State<EditorPage> createState() => _EditorPageState();
+}
+
+class _EditorPageState extends State<EditorPage> {
+  final TextEditingController _codeController = TextEditingController(
+    text: '''// Welcome to Warp Mobile AI IDE! 🚀
+// Start coding with AI assistance
+
+void main() {
+  print('Hello, Mobile Developer!');
+  
+  // AI-powered features coming soon:
+  // • Code completion
+  // • Code explanation
+  // • Bug fixing
+  // • Refactoring suggestions
+}
+
+class WarpMobileIDE {
+  final String version = '1.0.0';
+  final bool isAwesome = true;
+  
+  void startCoding() {
+    print("Let's build amazing mobile apps!");
+  }
+}''',
+  );
+
+  @override
+  void dispose() {
+    _codeController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.editorBackground,
+      appBar: AppBar(
+        backgroundColor: AppColors.surface,
+        elevation: 0,
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 4,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.code,
+                    size: 16,
+                    color: AppColors.primary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'main.dart',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            onPressed: () {
+              // TODO: Implement AI assistance
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('AI assistance coming soon! 🤖'),
+                  backgroundColor: AppColors.aiAccent,
+                ),
+              );
+            },
+            icon: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                gradient: AppColors.aiGradient,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.auto_awesome,
+                size: 16,
+                color: Colors.white,
+              ),
+            ),
+            tooltip: 'Ask AI',
+          ),
+          IconButton(
+            onPressed: () {
+              // TODO: Implement file operations
+            },
+            icon: Icon(
+              Icons.save,
+              color: AppColors.textSecondary,
+            ),
+            tooltip: 'Save',
+          ),
+          IconButton(
+            onPressed: () {
+              // TODO: Implement settings
+            },
+            icon: Icon(
+              Icons.more_vert,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // File tabs (placeholder)
+          Container(
+            height: 40,
+            color: AppColors.surface,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              children: [
+                _buildFileTab('main.dart', true),
+                _buildFileTab('utils.dart', false),
+                _buildFileTab('models.dart', false),
+              ],
+            ),
+          ),
+          // Code editor
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Line numbers
+                  SizedBox(
+                    width: 40,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: List.generate(
+                        _codeController.text.split('\n').length,
+                        (index) => Container(
+                          height: 20,
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            '${index + 1}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.editorLineNumbers,
+                              fontFamily: 'monospace',
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Code input
+                  Expanded(
+                    child: TextField(
+                      controller: _codeController,
+                      maxLines: null,
+                      expands: true,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppColors.textPrimary,
+                        fontFamily: 'monospace',
+                        height: 1.4,
+                      ),
+                      decoration: InputDecoration(
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.zero,
+                        hintText: 'Start typing code...',
+                        hintStyle: TextStyle(
+                          color: AppColors.textTertiary,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Status bar
+          Container(
+            height: 32,
+            color: AppColors.surface,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.check_circle,
+                  size: 16,
+                  color: AppColors.success,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Ready',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  'Dart',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Text(
+                  'UTF-8',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      floatingActionButton: Container(
+        decoration: BoxDecoration(
+          gradient: AppColors.aiGradient,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: FloatingActionButton(
+          onPressed: () {
+            // TODO: Implement AI chat
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('AI Chat coming soon! 💬'),
+                backgroundColor: AppColors.aiAccent,
+              ),
+            );
+          },
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: Icon(
+            Icons.smart_toy,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFileTab(String fileName, bool isActive) {
+    return Container(
+      margin: const EdgeInsets.only(right: 8, top: 8, bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: isActive ? AppColors.background : Colors.transparent,
+        borderRadius: BorderRadius.circular(6),
+        border: isActive
+            ? Border.all(color: AppColors.primary.withValues(alpha: 0.3))
+            : null,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.code_outlined,
+            size: 12,
+            color: isActive ? AppColors.primary : AppColors.textSecondary,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            fileName,
+            style: TextStyle(
+              fontSize: 12,
+              color: isActive ? AppColors.primary : AppColors.textSecondary,
+              fontWeight: isActive ? FontWeight.w500 : FontWeight.normal,
+            ),
+          ),
+          if (isActive) ...[
+            const SizedBox(width: 4),
+            Icon(
+              Icons.close,
+              size: 12,
+              color: AppColors.textSecondary,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}

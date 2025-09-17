@@ -168,7 +168,8 @@ $code
     );
 
     if (response.statusCode != 200) {
-      throw AIServiceException('Stream completion failed: ${response.body}');
+      final errorBody = await response.stream.bytesToString();
+      throw AIServiceException('Stream completion failed: $errorBody');
     }
 
     await for (final line in response.stream.transform(utf8.decoder).transform(const LineSplitter())) {
@@ -367,11 +368,15 @@ Provide multiple completion options.
     final responseBody = await response.stream.bytesToString();
     
     if (response.statusCode != 200) {
-      final error = jsonDecode(responseBody);
-      throw AIServiceException(
-        'OpenAI API error: ${error['error']?['message'] ?? 'Unknown error'}',
-        errorCode: error['error']?['code'],
-      );
+      try {
+        final error = jsonDecode(responseBody);
+        throw AIServiceException(
+          'OpenAI API error: ${error['error']?['message'] ?? 'Unknown error'}',
+          errorCode: error['error']?['code'],
+        );
+      } catch (_) {
+        throw AIServiceException('OpenAI API error: $responseBody');
+      }
     }
 
     final jsonResponse = jsonDecode(responseBody);

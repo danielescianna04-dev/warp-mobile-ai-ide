@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  # Backend Node.js server
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.simple
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+    volumes:
+      - ./backend:/workspace/backend
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - warp-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # React Unsplash Gallery
+  unsplash-gallery:
+    build:
+      context: ./unsplash-gallery
+      dockerfile: Dockerfile
+    ports:
+      - "5174:5174"
+    environment:
+      - NODE_ENV=development
+      - VITE_BACKEND_URL=http://backend:3001
+    volumes:
+      - ./unsplash-gallery:/app
+      - /app/node_modules
+    networks:
+      - warp-network
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5174"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Development environment (full stack)
+  dev-environment:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8080:8080"
+      - "3000:3000"
+      - "4200:4200"
+      - "5000:5000"
+      - "8000:8000"
+      - "8888:8888"
+      - "9000:9000"
+    volumes:
+      - ./:/workspace
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - warp-network
+    stdin_open: true
+    tty: true
+    command: /bin/bash
+
+networks:
+  warp-network:
+    driver: bridge
+
+volumes:
+  node_modules:

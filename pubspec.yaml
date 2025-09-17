@@ -21,6 +21,7 @@ dependencies:
   # Networking & API
   http: ^1.1.2
   dio: ^5.4.0
+  web_socket_channel: ^3.0.3
   
   # Local Storage
   shared_preferences: ^2.2.2
@@ -32,7 +33,15 @@ dependencies:
   
   # File System
   path_provider: ^2.1.2
-  file_picker: ^6.1.1
+  file_picker: ^8.1.2
+  
+  # Audio Recording
+  record: ^4.4.4
+  audioplayers: ^5.2.1
+  permission_handler: ^11.3.0
+  
+  # Image Handling
+  image: ^4.1.6
   
   # Code Editor
   flutter_code_editor: ^0.3.0
@@ -50,7 +59,9 @@ dependencies:
   # Utils
   uuid: ^4.3.3
   intl: ^0.19.0
+  path: ^1.8.3
   url_launcher: ^6.2.4
+  flutter_dotenv: ^5.1.0
   
   # Development Tools
   logger: ^2.0.2+1
@@ -90,9 +101,8 @@ flutter:
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
-  #   - images/a_dot_ham.jpeg
+  assets:
+    - .env
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

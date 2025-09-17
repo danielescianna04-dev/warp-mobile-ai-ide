@@ -45,7 +45,7 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.2),
+                color: AppColors.primary.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Row(
@@ -247,7 +247,7 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: _isRunning ? AppColors.success.withOpacity(0.2) : AppColors.textTertiary.withOpacity(0.2),
+                  color: _isRunning ? AppColors.success.withValues(alpha: 0.2) : AppColors.textTertiary.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -289,7 +289,7 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
+                      color: Colors.black.withValues(alpha: 0.3),
                       blurRadius: 20,
                       spreadRadius: 2,
                     ),
@@ -390,7 +390,7 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
                       decoration: BoxDecoration(
                         color: AppColors.editorBackground,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
                       ),
                       padding: const EdgeInsets.all(12),
                       child: Column(

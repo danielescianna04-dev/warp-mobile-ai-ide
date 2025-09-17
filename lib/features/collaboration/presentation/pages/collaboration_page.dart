@@ -930,7 +930,7 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
           Row(
             children: [
               Icon(
-                isOpen ? Icons.issue_opened : Icons.check_circle,
+                isOpen ? Icons.error_outline : Icons.check_circle,
                 color: isOpen ? AppColors.success : AppColors.textTertiary,
                 size: 16,
               ),

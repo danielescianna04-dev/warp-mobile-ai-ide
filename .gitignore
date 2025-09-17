@@ -43,3 +43,21 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# 🔐 API Keys e Secrets - NON COMMITTARE!
+.env
+.env.local
+.env.production
+.env.staging
+backend/.env
+backend/.env.local
+
+# 🖥️ Node.js Backend
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 🧪 Test files temporanei
+test-api-keys.js
+setup-api-keys.sh
