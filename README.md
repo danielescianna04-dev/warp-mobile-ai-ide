@@ -29,8 +29,10 @@ A mobile-first AI IDE combining:
 - Code refactoring, debugging, and explanations
 - Multi-language support (Flutter/Dart, C, C#, Python, JS...)
 
-### 🤖 Multi-AI Integration
-- User choice between ChatGPT, Claude, Gemini
+### 🤖 Multi-AI Integration + Agent Mode
+- User choice between GPT-5, Claude, Gemini
+- **Agent Mode**: Autonomous task execution with step-by-step AI planning
+- AI can execute complex tasks independently (create apps, debug code, setup environments)
 - Fallback to free on-device models
 - Freemium model: limited free prompts, unlimited with subscription
 
