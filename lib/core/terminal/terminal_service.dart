@@ -5,6 +5,8 @@ import 'package:path/path.dart' as path;
 import 'dart:async';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:uuid/uuid.dart';
+import 'package:http/http.dart' as http;
+import '../../config/aws_config.dart';
 
 // Terminal output stream controller for real-time updates
 StreamController<CommandResult> terminalOutputStreamController = StreamController<CommandResult>.broadcast();
@@ -15,8 +17,9 @@ class TerminalService {
   TerminalService._internal();
 
   // Configuration
-  bool _useRemoteTerminal = true; // Now default to true for Docker backend
-  String _backendUrl = 'ws://192.168.0.229:3001';
+  bool _useRemoteTerminal = true; // Now default to true for AWS backend
+  String _backendUrl = AWSConfig.useAWS ? AWSConfig.apiBaseUrl : 'ws://localhost:3001';
+  String _userId = 'flutter-user-${const Uuid().v4()}';
   
   // Local terminal state (fallback)
   String _currentDirectory = Directory.current.path;
@@ -40,10 +43,41 @@ class TerminalService {
   Future<void> initialize({bool useRemoteTerminal = true}) async {
     _useRemoteTerminal = useRemoteTerminal;
     
-    if (_useRemoteTerminal) {
+    if (_useRemoteTerminal && AWSConfig.useAWS) {
+      await _initializeAWSSession();
+    } else if (_useRemoteTerminal) {
       await _connectToBackend();
     } else {
       print('📱 Local terminal initialized');
+    }
+  }
+  
+  // AWS Session Management
+  Future<void> _initializeAWSSession() async {
+    try {
+      print('🌐 Initializing AWS session for user: $_userId');
+      
+      final response = await http.post(
+        Uri.parse(AWSConfig.getEndpointUrl(AWSConfig.sessionCreateEndpoint)),
+        headers: AWSConfig.getHeaders(userId: _userId),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          _sessionId = data['session']['sessionId'];
+          _isConnected = true;
+          print('✅ AWS session initialized: $_sessionId');
+          print('💾 Workspace: ${data['session']['workspaceDir']}');
+        } else {
+          throw Exception('Session creation failed: ${data['error']}');
+        }
+      } else {
+        throw Exception('HTTP ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      print('❌ AWS session initialization failed: $e');
+      _useRemoteTerminal = false;
     }
   }
   
@@ -233,15 +267,24 @@ class TerminalService {
   }
 
   Future<CommandResult> executeCommand(String command) async {
-    if (_useRemoteTerminal && _isConnected && _channel != null) {
-      return _executeRemoteCommand(command);
-    } else {
-      return _executeLocalCommand(command);
+    if (_useRemoteTerminal && _isConnected) {
+      // For AWS, we use HTTP instead of WebSocket
+      if (AWSConfig.useAWS) {
+        return await _executeAWSCommand(command);
+      }
+      // For local development, we use WebSocket
+      else if (_channel != null) {
+        return _executeRemoteCommand(command);
+      }
     }
+    
+    // Fallback to local execution
+    return _executeLocalCommand(command);
   }
   
   Future<CommandResult> _executeRemoteCommand(String command) async {
     try {
+      // Use WebSocket for local development
       if (_channel == null || !_isConnected) {
         throw Exception('WebSocket connection not available');
       }
@@ -266,6 +309,223 @@ class TerminalService {
         isSuccess: false,
         isClearCommand: false,
       );
+    }
+  }
+
+  Future<CommandResult> _executeAWSCommand(String command) async {
+    try {
+      if (_sessionId == null) {
+        throw Exception('No AWS session available');
+      }
+
+      final url = AWSConfig.getEndpointUrl(AWSConfig.commandExecuteEndpoint);
+      final headers = AWSConfig.getHeaders(
+        sessionId: _sessionId,
+        userId: _userId,
+      );
+
+      final requestBody = <String, dynamic>{
+        'command': command,
+        'sessionId': _sessionId,
+      };
+
+      print('🚀 Executing AWS command: $command');
+      
+      final response = await http.post(
+        Uri.parse(url),
+        headers: headers,
+        body: json.encode(requestBody),
+      ).timeout(
+        AWSConfig.commandTimeout,
+        onTimeout: () {
+          throw Exception('Command execution timed out');
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        
+        // Handle successful command execution
+        if (responseData['success'] == true) {
+          final result = CommandResult(
+            output: responseData['output'] ?? '',
+            isSuccess: true,
+            isClearCommand: command.trim() == 'clear',
+          );
+
+          // Update exposed ports if provided
+          if (responseData['exposedPorts'] != null) {
+            _exposedPorts = Map<String, String>.from(responseData['exposedPorts']);
+          }
+
+          // Check if web server was detected
+          if (responseData['webServerDetected'] == true) {
+            print('🚀 Web server detected! Ports: $_exposedPorts');
+          }
+
+          return result;
+        } else {
+          return CommandResult(
+            output: responseData['error'] ?? 'Command execution failed',
+            isSuccess: false,
+            isClearCommand: false,
+          );
+        }
+      } else {
+        final errorData = json.decode(response.body);
+        return CommandResult(
+          output: 'AWS API Error (${response.statusCode}): ${errorData['error'] ?? 'Unknown error'}',
+          isSuccess: false,
+          isClearCommand: false,
+        );
+      }
+    } catch (e) {
+      print('❌ AWS command execution error: $e');
+      return CommandResult(
+        output: 'AWS command execution error: $e',
+        isSuccess: false,
+        isClearCommand: false,
+      );
+    }
+  }
+
+  Future<void> _sendAWSAIChat(String prompt, {String? model, double? temperature}) async {
+    try {
+      if (_sessionId == null) {
+        print('⚠️ Cannot send AI chat: no AWS session available');
+        return;
+      }
+
+      final url = AWSConfig.getEndpointUrl(AWSConfig.aiChatEndpoint);
+      final headers = AWSConfig.getHeaders(
+        sessionId: _sessionId,
+        userId: _userId,
+      );
+
+      final requestBody = <String, dynamic>{
+        'prompt': prompt,
+        'sessionId': _sessionId,
+      };
+
+      if (model != null) requestBody['model'] = model;
+      if (temperature != null) requestBody['temperature'] = temperature;
+
+      print('🤖 Sending AI chat request');
+      
+      final response = await http.post(
+        Uri.parse(url),
+        headers: headers,
+        body: json.encode(requestBody),
+      ).timeout(
+        AWSConfig.aiTimeout,
+        onTimeout: () {
+          throw Exception('AI chat request timed out');
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        
+        if (responseData['success'] == true) {
+          _handleAIChatResponse(responseData['response']);
+        } else {
+          print('❌ AI chat error: ${responseData['error']}');
+          final result = CommandResult(
+            output: '🤖 AI Chat Error: ${responseData['error']}',
+            isSuccess: false,
+            isClearCommand: false,
+          );
+          terminalOutputStreamController.add(result);
+        }
+      } else {
+        final errorData = json.decode(response.body);
+        print('❌ AI chat API error: ${errorData['error']}');
+        final result = CommandResult(
+          output: '🤖 AI Chat API Error (${response.statusCode}): ${errorData['error'] ?? 'Unknown error'}',
+          isSuccess: false,
+          isClearCommand: false,
+        );
+        terminalOutputStreamController.add(result);
+      }
+    } catch (e) {
+      print('❌ AWS AI chat error: $e');
+      final result = CommandResult(
+        output: '🤖 AI Chat Error: $e',
+        isSuccess: false,
+        isClearCommand: false,
+      );
+      terminalOutputStreamController.add(result);
+    }
+  }
+
+  Future<void> _executeAWSAgentTask(String task) async {
+    try {
+      if (_sessionId == null) {
+        print('⚠️ Cannot execute agent task: no AWS session available');
+        return;
+      }
+
+      final url = AWSConfig.getEndpointUrl(AWSConfig.aiAgentEndpoint);
+      final headers = AWSConfig.getHeaders(
+        sessionId: _sessionId,
+        userId: _userId,
+      );
+
+      final requestBody = <String, dynamic>{
+        'task': task,
+        'sessionId': _sessionId,
+      };
+
+      print('🤖 Requesting autonomous task: $task');
+      
+      final response = await http.post(
+        Uri.parse(url),
+        headers: headers,
+        body: json.encode(requestBody),
+      ).timeout(
+        AWSConfig.aiTimeout,
+        onTimeout: () {
+          throw Exception('Agent task request timed out');
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        
+        if (responseData['success'] == true) {
+          final result = CommandResult(
+            output: '🤖 Agent Task Started: $task\nStatus: ${responseData['status']}',
+            isSuccess: true,
+            isClearCommand: false,
+          );
+          terminalOutputStreamController.add(result);
+        } else {
+          print('❌ Agent task error: ${responseData['error']}');
+          final result = CommandResult(
+            output: '🤖 Agent Task Error: ${responseData['error']}',
+            isSuccess: false,
+            isClearCommand: false,
+          );
+          terminalOutputStreamController.add(result);
+        }
+      } else {
+        final errorData = json.decode(response.body);
+        print('❌ Agent task API error: ${errorData['error']}');
+        final result = CommandResult(
+          output: '🤖 Agent Task API Error (${response.statusCode}): ${errorData['error'] ?? 'Unknown error'}',
+          isSuccess: false,
+          isClearCommand: false,
+        );
+        terminalOutputStreamController.add(result);
+      }
+    } catch (e) {
+      print('❌ AWS agent task error: $e');
+      final result = CommandResult(
+        output: '🤖 Agent Task Error: $e',
+        isSuccess: false,
+        isClearCommand: false,
+      );
+      terminalOutputStreamController.add(result);
     }
   }
   
@@ -476,6 +736,11 @@ class TerminalService {
       
   // AI Agent methods
   Future<void> sendAIChat(String prompt, {String? model, double? temperature}) async {
+    if (AWSConfig.useAWS) {
+      await _sendAWSAIChat(prompt, model: model, temperature: temperature);
+      return;
+    }
+    
     if (!_isConnected || _channel == null) {
       print('⚠️ Cannot send AI chat: not connected to backend');
       return;
@@ -490,6 +755,11 @@ class TerminalService {
   }
   
   Future<void> executeAgentTask(String task) async {
+    if (AWSConfig.useAWS) {
+      await _executeAWSAgentTask(task);
+      return;
+    }
+    
     if (!_isConnected || _channel == null) {
       print('⚠️ Cannot execute agent task: not connected to backend');
       return;

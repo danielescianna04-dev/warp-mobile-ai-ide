@@ -7,10 +7,34 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     git \
     curl \
+    wget \
+    vim \
+    nano \
+    htop \
+    tree \
     python3 \
     python3-pip \
+    python3-venv \
+    nodejs \
+    npm \
     build-essential \
+    pkg-config \
+    libssl-dev \
+    ca-certificates \
+    cmake \
     && rm -rf /var/lib/apt/lists/*
+
+# Install useful Python packages (using --break-system-packages for Docker)
+RUN pip3 install --no-cache-dir --break-system-packages \
+    requests \
+    flask \
+    fastapi \
+    uvicorn \
+    pandas \
+    numpy
+
+# Create python3 alias if needed
+RUN ln -sf /usr/bin/python3 /usr/local/bin/python
 
 # Copy package files
 COPY package*.json ./
@@ -36,5 +60,5 @@ USER warpuser
 # Expose port
 EXPOSE 8080
 
-# Start production server
-CMD ["node", "backend/server-production.js"]
+# Lambda handler entry point - use node directly
+CMD ["node", "lambda-handler.js"]

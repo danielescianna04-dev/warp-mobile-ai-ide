@@ -54,6 +54,48 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Minimal HTTP endpoints for Lambda API Gateway
+app.get('/health', (req, res) => {
+  res.json({ ok: true, service: 'warp-mobile-ai-ide', timestamp: Date.now() });
+});
+
+app.post('/session/create', async (req, res) => {
+  try {
+    const userId = (req.headers['x-user-id'] || 'anonymous').toString();
+    const session = new ProductionTerminalSession(userId);
+    const result = await session.initialize();
+    // Store session by ID
+    sessions.set(result.sessionId, session);
+    res.json({ success: true, session: result });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.post('/command/execute', async (req, res) => {
+  try {
+    const { command, sessionId } = req.body || {};
+    if (!command) return res.status(400).json({ success: false, error: 'Missing command' });
+
+    // Resolve session
+    let session = null;
+    if (sessionId && sessions.has(sessionId)) {
+      session = sessions.get(sessionId);
+    } else {
+      // Fallback: use or create a session per user
+      const userId = (req.headers['x-user-id'] || 'anonymous').toString();
+      session = new ProductionTerminalSession(userId);
+      await session.initialize();
+      sessions.set(session.sessionId, session);
+    }
+
+    const result = await session.executeCommand(command, false);
+    res.json({ success: result.success, output: result.output, sessionId: session.sessionId });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 // Production Terminal Session with User Isolation
 class ProductionTerminalSession {
   constructor(userId) {
@@ -438,13 +480,21 @@ class ProductionTerminalSession {
 
 // ... (resto del codice WebSocket handlers uguale ma usa ProductionTerminalSession)
 
-// Start server
-const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => {
-  console.log('🚀 Warp Mobile AI IDE - PRODUCTION Server');
-  console.log('📡 WebSocket server running on ws://localhost:' + PORT);
-  console.log('🌐 HTTP server running on http://localhost:' + PORT);
-  console.log('🔒 Running in PRODUCTION mode with user isolation');
-  console.log('👥 Multi-tenant ready');
-  console.log('💾 User workspaces: /tmp/warp-users/');
-});
+// Export app for Lambda or start server for standalone mode
+if (process.env.AWS_LAMBDA_RUNTIME_API || process.env.AWS_EXECUTION_ENV || process.env._LAMBDA_SERVER_PORT) {
+  // Running in Lambda - export app
+  console.log('🔥 Lambda mode detected - exporting Express app');
+  module.exports = app;
+} else {
+  // Running standalone - start server
+  console.log('🔥 Standalone mode detected - starting HTTP server');
+  const PORT = process.env.PORT || 3001;
+  server.listen(PORT, () => {
+    console.log('🚀 Warp Mobile AI IDE - PRODUCTION Server');
+    console.log('📡 WebSocket server running on ws://localhost:' + PORT);
+    console.log('🌐 HTTP server running on http://localhost:' + PORT);
+    console.log('🔒 Running in PRODUCTION mode with user isolation');
+    console.log('👥 Multi-tenant ready');
+    console.log('💾 User workspaces: /tmp/warp-users/');
+  });
+}
