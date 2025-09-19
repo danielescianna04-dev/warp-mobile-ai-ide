@@ -1,9 +1,10 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:record/record.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'dart:io';
-import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../../shared/constants/app_colors.dart';
@@ -14,6 +15,8 @@ import '../../../../core/terminal/terminal_service.dart';
 import '../../../../core/terminal/autocomplete_service.dart';
 import '../../../../core/terminal/syntax_highlighter.dart';
 import '../../../../core/terminal/syntax_text_field.dart';
+import '../../../../core/github/github_service.dart' as github_service;
+import '../../../../core/github/deep_link_handler.dart';
 
 // Terminal item type
 enum TerminalItemType {
@@ -137,12 +140,14 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   
   // GitHub integration
   static const _secureStorage = FlutterSecureStorage();
+  final github_service.GitHubService _gitHubService = github_service.GitHubService();
   bool _isGitHubConnected = false;
   bool _isConnectingToGitHub = false;
   String? _gitHubUsername;
   String? _gitHubToken;
-  List<GitHubRepository> _gitHubRepositories = [];
-  GitHubRepository? _selectedRepository;
+  List<github_service.GitHubRepository> _gitHubRepositories = [];
+  github_service.GitHubRepository? _selectedRepository;
+  github_service.GitHubUser? _gitHubUser;
   
   // Chat search functionality
   final TextEditingController _searchController = TextEditingController();
@@ -504,71 +509,370 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Icon(Icons.code, color: AppColors.textSecondary, size: 16),
-            const SizedBox(width: 8),
-            Text(
-              'GitHub',
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.5,
-              ),
+            Row(
+              children: [
+                Icon(Icons.code, color: AppColors.textSecondary, size: 16),
+                const SizedBox(width: 8),
+                Text(
+                  'GitHub',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                if (_gitHubRepositories.isNotEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(left: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '${_gitHubRepositories.length}',
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+              ],
             ),
+            if (_isGitHubConnected)
+              PopupMenuButton<String>(
+                onSelected: (value) {
+                  if (value == 'disconnect') {
+                    _disconnectGitHub();
+                  } else if (value == 'refresh') {
+                    _loadGitHubRepositories();
+                  }
+                },
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: 'refresh',
+                    child: Row(
+                      children: [
+                        Icon(Icons.refresh, size: 16, color: AppColors.textSecondary),
+                        const SizedBox(width: 8),
+                        Text('Ricarica', style: TextStyle(color: AppColors.textPrimary)),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'disconnect',
+                    child: Row(
+                      children: [
+                        Icon(Icons.logout, size: 16, color: AppColors.textSecondary),
+                        const SizedBox(width: 8),
+                        Text('Disconnetti', style: TextStyle(color: AppColors.textPrimary)),
+                      ],
+                    ),
+                  ),
+                ],
+                child: Icon(
+                  Icons.more_vert,
+                  color: AppColors.textSecondary,
+                  size: 16,
+                ),
+              ),
           ],
         ),
         const SizedBox(height: 12),
-        if (_isGitHubConnected && _gitHubUsername != null)
+        if (_isGitHubConnected && _gitHubUsername != null) ...[
+          // User info
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: AppColors.success.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 16,
+                  backgroundColor: AppColors.primary,
+                  backgroundImage: _gitHubUser?.avatarUrl != null 
+                      ? NetworkImage(_gitHubUser!.avatarUrl) 
+                      : null,
+                  child: _gitHubUser?.avatarUrl == null 
+                      ? Text(
+                          _gitHubUsername?.substring(0, 1).toUpperCase() ?? 'U',
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        )
+                      : null,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _gitHubUser?.name ?? '@$_gitHubUsername',
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (_gitHubUser?.name != null)
+                        Text(
+                          '@$_gitHubUsername',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 10,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.check_circle, color: AppColors.success, size: 16),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Repositories list
+          if (_isConnectingToGitHub)
+            Container(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Caricamento repository...',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else if (_gitHubRepositories.isNotEmpty) ...
+            _gitHubRepositories.take(5).map((repo) => _buildRepositoryItem(repo)).toList()
+          else
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.surface.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'Nessuna repository trovata',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 11,
+                ),
+              ),
+            ),
+          if (_gitHubRepositories.length > 5)
+            TextButton(
+              onPressed: () {
+                // TODO: Show all repositories dialog
+              },
+              child: Text(
+                'Mostra tutte (${_gitHubRepositories.length})',
+                style: TextStyle(
+                  color: AppColors.primary,
+                  fontSize: 10,
+                ),
+              ),
+            ),
+        ] else
+          Column(
+            children: [
+              ElevatedButton.icon(
+                onPressed: _isConnectingToGitHub ? null : _connectGitHub,
+                icon: _isConnectingToGitHub 
+                    ? SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(AppColors.textSecondary),
+                        ),
+                      )
+                    : Icon(Icons.link, size: 16),
+                label: Text(_isConnectingToGitHub ? 'Connessione...' : 'Connetti GitHub'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.surface.withValues(alpha: 0.5),
+                  foregroundColor: _isConnectingToGitHub ? AppColors.textSecondary : AppColors.textPrimary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Debug button for manual testing
+              TextButton(
+                onPressed: _testOAuthCallback,
+                child: Text(
+                  'Test OAuth (Debug)',
+                  style: TextStyle(
+                    color: AppColors.textTertiary,
+                    fontSize: 10,
+                  ),
+                ),
+              ),
+            ],
+          ),
+      ],
+    );
+  }
+  
+  Widget _buildRepositoryItem(github_service.GitHubRepository repo) {
+    final isSelected = _selectedRepository?.id == repo.id;
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () {
+            setState(() {
+              _selectedRepository = isSelected ? null : repo;
+            });
+            if (!isSelected) {
+              _showSnackBar('📁 Selezionata repository: ${repo.name}');
+            }
+          },
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isSelected 
+                  ? AppColors.primary.withValues(alpha: 0.1)
+                  : AppColors.surface.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isSelected 
+                    ? AppColors.primary.withValues(alpha: 0.3)
+                    : Colors.transparent,
+              ),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Icon(Icons.check_circle, color: AppColors.success, size: 16),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Connesso',
-                      style: TextStyle(
-                        color: AppColors.success,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                    Icon(
+                      repo.isPrivate ? Icons.lock : Icons.public,
+                      size: 12,
+                      color: repo.isPrivate ? AppColors.primary : AppColors.success,
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        repo.name,
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    if (isSelected)
+                      Icon(
+                        Icons.check,
+                        size: 12,
+                        color: AppColors.primary,
+                      ),
                   ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '@$_gitHubUsername',
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 10,
+                if (repo.description != null && repo.description!.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    repo.description!,
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 9,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
+                ],
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    if (repo.language != null) ...[
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: _getLanguageColor(repo.language!),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        repo.language!,
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 9,
+                        ),
+                      ),
+                    ],
+                    const Spacer(),
+                    if (repo.stargazersCount > 0) ...[
+                      Icon(Icons.star_outline, size: 10, color: AppColors.textTertiary),
+                      const SizedBox(width: 2),
+                      Text(
+                        '${repo.stargazersCount}',
+                        style: TextStyle(
+                          color: AppColors.textTertiary,
+                          fontSize: 9,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),
-          )
-        else
-          ElevatedButton.icon(
-            onPressed: _connectGitHub,
-            icon: Icon(Icons.link, size: 16),
-            label: const Text('Connetti GitHub'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.surface.withValues(alpha: 0.5),
-              foregroundColor: AppColors.textPrimary,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
           ),
-      ],
+        ),
+      ),
     );
+  }
+  
+  Color _getLanguageColor(String language) {
+    switch (language.toLowerCase()) {
+      case 'dart':
+        return const Color(0xFF0175C2);
+      case 'javascript':
+        return const Color(0xFFF7DF1E);
+      case 'typescript':
+        return const Color(0xFF3178C6);
+      case 'python':
+        return const Color(0xFF3776AB);
+      case 'java':
+        return const Color(0xFFED8B00);
+      case 'go':
+        return const Color(0xFF00ADD8);
+      case 'rust':
+        return const Color(0xFF000000);
+      case 'swift':
+        return const Color(0xFFFA7343);
+      case 'kotlin':
+        return const Color(0xFF7F52FF);
+      default:
+        return AppColors.textSecondary;
+    }
   }
 
   Widget _buildWelcomeView(BuildContext context) {
@@ -1469,6 +1773,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
     _loadGitHubCredentials();
     _initializeTerminal();
     _setupTerminalOutputListener();
+    _initializeDeepLinkHandler();
   }
   
   @override
@@ -1882,11 +2187,386 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   }
 
   void _loadGitHubCredentials() async {
-    // TODO: Implement GitHub credentials loading
+    try {
+      final isAuthenticated = await _gitHubService.isAuthenticated();
+      if (isAuthenticated) {
+        final user = await _gitHubService.getStoredUser();
+        if (user != null) {
+          setState(() {
+            _isGitHubConnected = true;
+            _gitHubUser = user;
+            _gitHubUsername = user.login;
+          });
+          
+          // Load repositories in background
+          _loadGitHubRepositories();
+        }
+      }
+    } catch (e) {
+      print('Error loading GitHub credentials: $e');
+    }
   }
 
+  /// Initialize deep link handler for OAuth callbacks
+  void _initializeDeepLinkHandler() {
+    try {
+      DeepLinkHandler.initialize();
+      
+      // Listen for GitHub OAuth callbacks
+      DeepLinkHandler.linkStream.listen((Uri uri) async {
+        print('🔗 Received deep link: $uri');
+        
+        if (uri.scheme == 'warp-mobile' && uri.host == 'oauth' && uri.pathSegments.contains('github')) {
+          print('🔗 Processing GitHub OAuth callback: $uri');
+          
+          final success = await DeepLinkHandler.handleGitHubCallback(uri);
+          
+          if (success) {
+            print('✅ OAuth callback successful, updating UI');
+            _loadGitHubCredentials();
+            _loadGitHubRepositories();
+            _showSnackBar('✅ Connesso a GitHub con successo!');
+          } else {
+            print('❌ OAuth callback failed');
+            _showSnackBar('❌ Errore durante la connessione a GitHub');
+          }
+          
+          setState(() {
+            _isConnectingToGitHub = false;
+          });
+        }
+      }, onError: (error) {
+        print('❌ Deep link stream error: $error');
+        setState(() {
+          _isConnectingToGitHub = false;
+        });
+      });
+      
+      // Start a polling mechanism to check if GitHub authentication succeeded
+      _startOAuthPolling();
+      
+    } catch (e) {
+      print('❌ Error initializing deep link handler: $e');
+    }
+  }
+  
+  /// Start polling to check if OAuth completed successfully
+  void _startOAuthPolling() {
+    Timer.periodic(const Duration(seconds: 2), (timer) {
+      if (!_isConnectingToGitHub) {
+        timer.cancel();
+        return;
+      }
+      
+      // Check if we suddenly have a GitHub token (OAuth completed)
+      _gitHubService.isAuthenticated().then((isAuthenticated) {
+        if (isAuthenticated && _isConnectingToGitHub) {
+          print('🔄 Polling detected OAuth success!');
+          timer.cancel();
+          _loadGitHubCredentials();
+          _loadGitHubRepositories();
+          _showSnackBar('✅ Connesso a GitHub con successo!');
+          setState(() {
+            _isConnectingToGitHub = false;
+          });
+        }
+      }).catchError((error) {
+        print('❌ OAuth polling error: $error');
+      });
+    });
+  }
+  
+  /// Test OAuth callback manually (for debugging)
+  void _testOAuthCallback() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text(
+          'Test OAuth Callback',
+          style: TextStyle(color: AppColors.textPrimary),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Per testare il callback OAuth, copia l\'URL dal browser dopo l\'autorizzazione e incollalo qui:',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              style: TextStyle(color: AppColors.textPrimary),
+              decoration: InputDecoration(
+                labelText: 'URL Callback',
+                labelStyle: TextStyle(color: AppColors.textSecondary),
+                hintText: 'warp-mobile://oauth/github?code=...',
+                hintStyle: TextStyle(color: AppColors.textSecondary.withOpacity(0.5)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: AppColors.textSecondary),
+                ),
+                filled: true,
+                fillColor: AppColors.background.withOpacity(0.3),
+              ),
+              onSubmitted: (url) async {
+                Navigator.of(context).pop();
+                if (url.isNotEmpty) {
+                  try {
+                    final uri = Uri.parse(url);
+                    setState(() {
+                      _isConnectingToGitHub = true;
+                    });
+                    
+                    final success = await DeepLinkHandler.handleGitHubCallback(uri);
+                    
+                    if (success) {
+                      _loadGitHubCredentials();
+                      _loadGitHubRepositories();
+                      _showSnackBar('✅ Test OAuth completato con successo!');
+                    } else {
+                      _showSnackBar('❌ Test OAuth fallito');
+                    }
+                    
+                    setState(() {
+                      _isConnectingToGitHub = false;
+                    });
+                  } catch (e) {
+                    _showSnackBar('❌ URL non valido: $e');
+                    setState(() {
+                      _isConnectingToGitHub = false;
+                    });
+                  }
+                }
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              'Annulla',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
   void _connectGitHub() async {
-    // TODO: Implement GitHub connection
+    // Try OAuth first, fallback to token dialog if it fails
+    setState(() {
+      _isConnectingToGitHub = true;
+    });
+    
+    try {
+      final success = await _gitHubService.startOAuthFlow();
+      
+      if (!success) {
+        _showSnackBar('❌ Impossibile avviare OAuth, prova con il token');
+        setState(() {
+          _isConnectingToGitHub = false;
+        });
+        _showGitHubConnectionDialog();
+        return;
+      }
+      
+      // Set a timeout to reset loading state if callback doesn't arrive
+      Timer(const Duration(seconds: 30), () {
+        if (_isConnectingToGitHub) {
+          print('⏰ OAuth timeout - showing fallback options');
+          setState(() {
+            _isConnectingToGitHub = false;
+          });
+          _showSnackBar('⏰ Timeout OAuth - puoi usare il token manuale');
+          _showGitHubConnectionDialog();
+        }
+      });
+      
+    } catch (e) {
+      print('❌ GitHub connection error: $e');
+      _showSnackBar('❌ Errore OAuth: $e');
+      setState(() {
+        _isConnectingToGitHub = false;
+      });
+      _showGitHubConnectionDialog();
+    }
+  }
+  
+  void _showGitHubConnectionDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Row(
+          children: [
+            Icon(Icons.code, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Text(
+              'Connetti a GitHub',
+              style: TextStyle(color: AppColors.textPrimary),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // OAuth Option (now available but may have deep link issues)
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.shield_outlined, size: 16, color: AppColors.primary),
+                      const SizedBox(width: 8),
+                      Text(
+                        'OAuth (Disponibile)',
+                        style: TextStyle(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Configurato con GitHub OAuth App reale. Potrebbe richiedere test manual su simulatore iOS.',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Personal Access Token Option  
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _showTokenDialog();
+              },
+              icon: Icon(Icons.key, size: 16),
+              label: const Text('Usa Personal Access Token'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.textPrimary,
+                minimumSize: const Size(double.infinity, 40),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              'Annulla',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  void _showTokenDialog() {
+    final tokenController = TextEditingController();
+    
+    showDialog(
+      context: context,
+      builder: (context) => _buildGitHubAuthDialog(),
+    );
+  }
+  
+  Future<void> _loadGitHubRepositories() async {
+    try {
+      setState(() {
+        _isConnectingToGitHub = true;
+      });
+      
+      final repositories = await _gitHubService.fetchUserRepositories(
+        sort: 'updated',
+        direction: 'desc',
+        perPage: 100,
+      );
+      
+      setState(() {
+        _gitHubRepositories = repositories;
+        _isConnectingToGitHub = false;
+      });
+      
+      if (repositories.isNotEmpty) {
+        _showSnackBar('✅ Caricate ${repositories.length} repository da GitHub!');
+      }
+    } catch (e) {
+      setState(() {
+        _isConnectingToGitHub = false;
+      });
+      _showSnackBar('❌ Errore nel caricamento repository: $e');
+    }
+  }
+  
+  Future<void> _authenticateWithToken(String token) async {
+    try {
+      setState(() {
+        _isConnectingToGitHub = true;
+      });
+      
+      final success = await _gitHubService.authenticateWithToken(token);
+      if (success) {
+        final user = await _gitHubService.getStoredUser();
+        setState(() {
+          _isGitHubConnected = true;
+          _gitHubUser = user;
+          _gitHubUsername = user?.login;
+          _isConnectingToGitHub = false;
+        });
+        
+        Navigator.of(context).pop(); // Close dialog
+        _showSnackBar('✅ Connesso a GitHub come @${user?.login}!');
+        
+        // Load repositories
+        await _loadGitHubRepositories();
+      } else {
+        setState(() {
+          _isConnectingToGitHub = false;
+        });
+        _showSnackBar('❌ Token non valido. Verifica il tuo Personal Access Token.');
+      }
+    } catch (e) {
+      setState(() {
+        _isConnectingToGitHub = false;
+      });
+      _showSnackBar('❌ Errore di autenticazione: $e');
+    }
+  }
+  
+  Future<void> _disconnectGitHub() async {
+    try {
+      await _gitHubService.logout();
+      setState(() {
+        _isGitHubConnected = false;
+        _gitHubUser = null;
+        _gitHubUsername = null;
+        _gitHubRepositories.clear();
+        _selectedRepository = null;
+      });
+      _showSnackBar('GitHub disconnesso');
+    } catch (e) {
+      _showSnackBar('Errore disconnessione GitHub: $e');
+    }
   }
 
   void _startNewChat() {
@@ -2080,6 +2760,145 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
         ),
       );
     }
+  }
+  
+  Widget _buildGitHubAuthDialog() {
+    final tokenController = TextEditingController();
+    
+    return AlertDialog(
+      backgroundColor: AppColors.surface,
+      title: Row(
+        children: [
+          Icon(Icons.code, color: AppColors.primary),
+          const SizedBox(width: 8),
+          Text(
+            'Connetti a GitHub',
+            style: TextStyle(color: AppColors.textPrimary),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Per connettere Warp alle tue repository GitHub, hai bisogno di un Personal Access Token.',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.background.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.info.withOpacity(0.2)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.info_outline, 
+                           size: 16, color: AppColors.info),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Come creare il token:',
+                        style: TextStyle(
+                          color: AppColors.info,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '1. Vai su github.com/settings/tokens\n'
+                    '2. Clicca "Generate new token (classic)"\n'
+                    '3. Seleziona scopes: repo, user:email\n'
+                    '4. Copia e incolla il token qui sotto',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 11,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: tokenController,
+              obscureText: true,
+              style: TextStyle(color: AppColors.textPrimary),
+              decoration: InputDecoration(
+                labelText: 'Personal Access Token',
+                labelStyle: TextStyle(color: AppColors.textSecondary),
+                hintText: 'ghp_xxxxxxxxxxxxxxxxxxxx',
+                hintStyle: TextStyle(color: AppColors.textSecondary.withOpacity(0.5)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: AppColors.textSecondary),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: AppColors.primary),
+                ),
+                filled: true,
+                fillColor: AppColors.background.withOpacity(0.3),
+                prefixIcon: Icon(Icons.key, color: AppColors.textSecondary),
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (_isConnectingToGitHub)
+              LinearProgressIndicator(
+                backgroundColor: AppColors.surface,
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isConnectingToGitHub ? null : () {
+            Navigator.of(context).pop();
+          },
+          child: Text(
+            'Annulla',
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
+        ),
+        ElevatedButton(
+          onPressed: _isConnectingToGitHub ? null : () {
+            final token = tokenController.text.trim();
+            if (token.isNotEmpty) {
+              _authenticateWithToken(token);
+            } else {
+              _showSnackBar('⚠️ Inserisci un token valido');
+            }
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: AppColors.textPrimary,
+          ),
+          child: _isConnectingToGitHub
+              ? SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(AppColors.textPrimary),
+                  ),
+                )
+              : const Text('Connetti'),
+        ),
+      ],
+    );
   }
 
   Future<void> _initializeTerminal() async {
