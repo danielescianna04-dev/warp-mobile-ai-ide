@@ -1,6 +1,7 @@
 const serverlessExpress = require('@vendia/serverless-express');
-const fetch = require('node-fetch');
+// Using native fetch in Node.js 18
 const app = require('./backend/server-production');
+const ecsApp = require('./backend/ecs-server');
 
 // Create Lambda handler
 const handler = serverlessExpress({ app });
@@ -41,6 +42,18 @@ if (process.env.AWS_LAMBDA_RUNTIME_API) {
   };
   lambdaRuntime();
 } else {
-  // Export handler for zip packaging
-  module.exports = { handler };
+  // No Lambda runtime API - this is either zip packaging or ECS container
+  // Check if we're in a container environment (ECS)
+  if (process.env.ECS_CONTAINER_METADATA_URI || process.env.ECS_CONTAINER_METADATA_URI_V4 || process.env.PORT) {
+    console.log('🚀 ECS container mode detected - starting ECS server');
+    const port = process.env.PORT || 3000;
+    // Use the dedicated ECS server instead of production server
+    const ecsServerApp = require('./backend/ecs-server');
+    console.log('✅ ECS server started on port', port);
+    console.log('🎯 Ready to handle heavy commands from Lambda hybrid backend');
+  } else {
+    // Export handler for zip packaging
+    console.log('📦 Lambda zip mode - exporting handler');
+    module.exports.handler = handler;
+  }
 }

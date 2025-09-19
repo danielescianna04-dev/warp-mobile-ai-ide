@@ -55,12 +55,7 @@ FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=UTC
 
-# Copia solo i binari necessari dal builder
-COPY --from=builder /opt/flutter /opt/flutter
-COPY --from=builder /usr/bin/python3 /usr/bin/python3
-COPY --from=builder /usr/bin/pip3 /usr/bin/pip3
-
-# Installa runtime essenziali + Node.js
+# Installa runtime essenziali prima di copiare
 RUN apt-get update && apt-get install -y \
     git \
     curl \
@@ -70,8 +65,14 @@ RUN apt-get update && apt-get install -y \
     vim \
     ca-certificates \
     libglu1-mesa \
+    python3 \
+    python3-pip \
     python3-distutils \
+    python3-venv \
     && rm -rf /var/lib/apt/lists/*
+
+# Copia Flutter SDK dal builder
+COPY --from=builder /opt/flutter /opt/flutter
 
 # Installa Node.js 18.x
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
@@ -79,9 +80,22 @@ RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
 
 # Setup environment
 ENV FLUTTER_HOME="/opt/flutter"
-ENV PATH="$FLUTTER_HOME/bin:$PATH"
+ENV DART_HOME="$FLUTTER_HOME/bin/cache/dart-sdk"
+ENV PATH="$FLUTTER_HOME/bin:$DART_HOME/bin:$PATH"
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV PUB_CACHE="/tmp/.pub-cache"
+
+# Crea utente non-root per sicurezza
+RUN groupadd -r warpuser && useradd -r -g warpuser warpuser \
+    && mkdir -p /tmp/warp-users \
+    && chown -R warpuser:warpuser /tmp/warp-users \
+    && chmod -R 755 /opt/flutter
+
+# Configura Flutter per container come root (poi switcha a warpuser)
+RUN $FLUTTER_HOME/bin/flutter config --no-analytics \
+    && $FLUTTER_HOME/bin/flutter precache --no-ios --no-android --no-web \
+    && $FLUTTER_HOME/bin/flutter --version
 
 # Crea directory di lavoro
 WORKDIR /workspace

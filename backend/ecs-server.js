@@ -61,7 +61,7 @@ app.get('/health', (req, res) => {
 
 // Endpoint per eseguire comandi pesanti
 app.post('/execute-heavy', async (req, res) => {
-    const { command, workingDir = '/workspace' } = req.body;
+    const { command, workingDir = '/tmp' } = req.body;
     
     if (!command) {
         return res.status(400).json({ error: 'Command is required' });
@@ -102,7 +102,7 @@ app.get('/flutter/doctor', async (req, res) => {
     resetIdleTimer();
     
     try {
-        const result = await executeCommand('flutter doctor -v', '/workspace');
+        const result = await executeCommand('flutter doctor -v', '/tmp');
         res.json({
             success: true,
             output: result.stdout,
@@ -139,7 +139,7 @@ app.get('/system/info', (req, res) => {
 });
 
 // Funzione per eseguire comandi con timeout esteso
-function executeCommand(command, cwd = '/workspace') {
+function executeCommand(command, cwd = '/tmp') {
     return new Promise((resolve, reject) => {
         const startTime = Date.now();
         

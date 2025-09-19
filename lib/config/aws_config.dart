@@ -1,8 +1,8 @@
 /// AWS Configuration for Production Deployment
 class AWSConfig {
-  // AWS API Gateway Configuration (back to working stack)
-  static const String apiBaseUrl = 'https://nhhn9ts9j9.execute-api.us-east-1.amazonaws.com/prod';
-  static const String wsBaseUrl = 'wss://nhhn9ts9j9.execute-api.us-east-1.amazonaws.com/prod';
+  // AWS API Gateway Configuration - NEW HYBRID BACKEND
+  static const String apiBaseUrl = 'https://o571gs6nb7.execute-api.us-east-1.amazonaws.com/prod';
+  static const String wsBaseUrl = 'wss://o571gs6nb7.execute-api.us-east-1.amazonaws.com/prod';
   
   // API Endpoints
   static const String healthEndpoint = '/health';

@@ -39,6 +39,9 @@ class TerminalService {
   
   // Exposed ports from container
   Map<String, String> _exposedPorts = {};
+  
+  // Current repository context
+  String? _currentRepository;
 
   Future<void> initialize({bool useRemoteTerminal = true}) async {
     _useRemoteTerminal = useRemoteTerminal;
@@ -328,6 +331,12 @@ class TerminalService {
         'command': command,
         'sessionId': _sessionId,
       };
+      
+      // Include repository context if available
+      if (_currentRepository != null) {
+        requestBody['repository'] = _currentRepository;
+        print('📁 Using repository context: $_currentRepository');
+      }
 
       print('🚀 Executing AWS command: $command');
       
@@ -345,32 +354,45 @@ class TerminalService {
       if (response.statusCode == 200) {
         final responseData = json.decode(response.body);
         
-        // Handle successful command execution
-        if (responseData['success'] == true) {
-          final result = CommandResult(
-            output: responseData['output'] ?? '',
-            isSuccess: true,
-            isClearCommand: command.trim() == 'clear',
-          );
-
-          // Update exposed ports if provided
-          if (responseData['exposedPorts'] != null) {
-            _exposedPorts = Map<String, String>.from(responseData['exposedPorts']);
-          }
-
-          // Check if web server was detected
-          if (responseData['webServerDetected'] == true) {
-            print('🚀 Web server detected! Ports: $_exposedPorts');
-          }
-
-          return result;
-        } else {
-          return CommandResult(
-            output: responseData['error'] ?? 'Command execution failed',
-            isSuccess: false,
-            isClearCommand: false,
-          );
+        // Handle both successful and failed command execution
+        final isSuccess = responseData['success'] == true;
+        final executor = responseData['executor'] ?? 'unknown';
+        final routing = responseData['routing'] ?? 'unknown';
+        final executionTime = responseData['executionTime'] ?? 0;
+        final exitCode = responseData['exitCode'] ?? (isSuccess ? 0 : 1);
+        
+        // Show execution info
+        String executionInfo = '';
+        if (executor == 'ecs-fargate') {
+          final status = isSuccess ? '✅' : '❌';
+          executionInfo = '\n$status Executed on ECS Fargate (${executionTime}ms) - Smart Routing: $routing - Exit Code: $exitCode';
+        } else if (executor == 'lambda') {
+          final status = isSuccess ? '✅' : '❌';
+          executionInfo = '\n$status Executed on AWS Lambda (${executionTime}ms) - Smart Routing: $routing - Exit Code: $exitCode';
+        } else if (executor == 'validation') {
+          executionInfo = '\n⚠️  Validation Error - $routing';
         }
+        
+        // Get output, fallback to error if no output available
+        String commandOutput = responseData['output'] ?? responseData['error'] ?? 'No output';
+        
+        final result = CommandResult(
+          output: commandOutput + executionInfo,
+          isSuccess: isSuccess,
+          isClearCommand: command.trim() == 'clear',
+        );
+
+        // Update exposed ports if provided
+        if (responseData['exposedPorts'] != null) {
+          _exposedPorts = Map<String, String>.from(responseData['exposedPorts']);
+        }
+
+        // Check if web server was detected
+        if (responseData['webServerDetected'] == true) {
+          print('🚀 Web server detected! Ports: $_exposedPorts');
+        }
+
+        return result;
       } else {
         final errorData = json.decode(response.body);
         return CommandResult(
@@ -798,11 +820,19 @@ class TerminalService {
   void _handleAIChatResponse(Map<String, dynamic> response) {
     // Create a terminal item for AI response
     final result = CommandResult(
-      output: '🤖 AI: ${response['content']}\n\nProvider: ${response['provider']} | Model: ${response['model']} | Tokens: ${response['tokensUsed']}',
+      output: '🤖 AI: ${response['content']}\\n\\nProvider: ${response['provider']} | Model: ${response['model']} | Tokens: ${response['tokensUsed']}',
       isSuccess: true,
       isClearCommand: false,
     );
     terminalOutputStreamController.add(result);
+  }
+  
+  // Repository context management
+  String? get currentRepository => _currentRepository;
+  
+  void setCurrentRepository(String? repository) {
+    _currentRepository = repository;
+    print('📁 Terminal repository context set to: ${repository ?? 'none'}');
   }
   
   void dispose() {

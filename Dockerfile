@@ -50,7 +50,7 @@ RUN mkdir -p /tmp/warp-users && chmod 755 /tmp/warp-users
 
 # Environment setup
 ENV NODE_ENV=production
-ENV PORT=8080
+ENV PORT=3000
 
 # Run as non-root user for better security
 RUN groupadd -r warpuser && useradd -r -g warpuser warpuser
@@ -58,7 +58,7 @@ RUN chown -R warpuser:warpuser /app /tmp/warp-users
 USER warpuser
 
 # Expose port
-EXPOSE 8080
+EXPOSE 3000
 
 # Lambda handler entry point - use node directly
 CMD ["node", "lambda-handler.js"]

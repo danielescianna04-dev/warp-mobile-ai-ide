@@ -1520,6 +1520,9 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
     
     try {
       if (_isTerminalMode) {
+        // Set repository context before executing command
+        TerminalService().setCurrentRepository(_selectedRepository?.name);
+        
         // Execute real terminal command
         final result = await TerminalService().executeCommand(command);
         

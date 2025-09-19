@@ -15,10 +15,19 @@ class UserManager {
   }
 
   async createUserSession(userId) {
+    console.log('🔍 DEBUG UserManager.createUserSession called with userId:', userId);
+    
     const sanitizedUserId = this.sanitizeUserId(userId);
+    console.log('🔍 DEBUG: sanitizedUserId:', sanitizedUserId);
+    
     const sessionId = uuidv4();
+    console.log('🔍 DEBUG: generated sessionId:', sessionId);
+    
     const userHash = crypto.createHash('sha256').update(sanitizedUserId).digest('hex').substring(0, 12);
+    console.log('🔍 DEBUG: userHash:', userHash);
+    
     const workspaceDir = path.join(this.efsPath, 'users', userHash);
+    console.log('🔍 DEBUG: workspaceDir:', workspaceDir);
 
     const session = {
       userId: sanitizedUserId,
@@ -35,8 +44,12 @@ class UserManager {
     await this.initializeUserWorkspace(session);
     
     // Store session (in Lambda sarà DynamoDB)
+    console.log('🔍 DEBUG: Storing session in memory map. Current sessions count:', this.sessions.size);
     this.sessions.set(sessionId, session);
+    console.log('🔍 DEBUG: Session stored. New sessions count:', this.sessions.size);
+    console.log('🔍 DEBUG: Session keys in map:', Array.from(this.sessions.keys()));
     
+    console.log('🔍 DEBUG: Returning session object:', JSON.stringify(session, null, 2));
     return session;
   }
 
@@ -80,13 +93,23 @@ node --version
   }
 
   async getUserSession(sessionId) {
+    console.log('🔍 DEBUG UserManager.getUserSession called with sessionId:', sessionId);
+    console.log('🔍 DEBUG: Current sessions in memory map:', this.sessions.size);
+    console.log('🔍 DEBUG: Session keys in map:', Array.from(this.sessions.keys()));
+    
     const session = this.sessions.get(sessionId);
+    console.log('🔍 DEBUG: Retrieved session from map:', session ? 'FOUND' : 'NOT FOUND');
+    
     if (!session) {
+      console.error('❌ DEBUG: Session not found in memory map!');
+      console.error('❌ DEBUG: Looking for sessionId:', sessionId);
+      console.error('❌ DEBUG: Available sessions:', Array.from(this.sessions.keys()));
       throw new Error('Session not found');
     }
 
     // Update last activity
     session.lastActivity = Date.now();
+    console.log('🔍 DEBUG: Updated session lastActivity, returning session');
     return session;
   }
 

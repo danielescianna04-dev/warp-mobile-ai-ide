@@ -90,7 +90,14 @@ app.post('/command/execute', async (req, res) => {
     }
 
     const result = await session.executeCommand(command, false);
-    res.json({ success: result.success, output: result.output, sessionId: session.sessionId });
+    res.json({ 
+      success: result.success, 
+      output: result.output, 
+      sessionId: session.sessionId,
+      executor: result.executor || 'lambda',
+      routing: result.routing || 'smart',
+      executionTime: result.executionTime || 0
+    });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
@@ -186,20 +193,91 @@ class ProductionTerminalSession {
   }
 
   async executeCommand(command, streaming = true) {
-    return new Promise((resolve, reject) => {
-      this.lastActivity = Date.now();
-      
-      const startTime = Date.now();
-      console.log(`🔧 [${this.userId}] Executing: ${command}`);
+    const startTime = Date.now();
+    this.lastActivity = Date.now();
+    
+    console.log(`🔧 [${this.userId}] Executing: ${command}`);
 
-      // Security checks
-      if (this.isCommandBlocked(command)) {
-        return resolve({
-          success: false,
-          output: `🚫 Command blocked for security: ${command}`,
-          executionTime: Date.now() - startTime
-        });
+    // Security checks
+    if (this.isCommandBlocked(command)) {
+      return {
+        success: false,
+        output: `🚫 Command blocked for security: ${command}`,
+        executionTime: Date.now() - startTime
+      };
+    }
+    
+    // 🚀 SMART ROUTING LOGIC
+    if (this.isHeavyCommand(command)) {
+      console.log(`🚀 Routing heavy command to ECS Fargate: ${command}`);
+      return await this.executeOnECS(command, startTime);
+    } else {
+      console.log(`⚡ Executing light command on Lambda: ${command}`);
+      return await this.executeLocalCommand(command, streaming, startTime);
+    }
+  }
+  
+  // Check if command should be routed to ECS
+  isHeavyCommand(command) {
+    const cmd = command.toLowerCase().trim();
+    
+    // Commands that should go to ECS Fargate
+    const heavyCommands = [
+      'flutter', 'dart', 'python', 'python3', 'pip', 'pip3',
+      'npm run', 'yarn build', 'gradle', 'mvn', 'make',
+      'docker', 'git clone', 'git pull', 'npm install', 'yarn install'
+    ];
+    
+    return heavyCommands.some(heavy => cmd.startsWith(heavy));
+  }
+  
+  // Execute command on ECS Fargate via ALB
+  async executeOnECS(command, startTime) {
+    try {
+      const ecsUrl = 'http://warp-mobile-ai-ide-prod-alb-1532835213.us-east-1.elb.amazonaws.com/execute-heavy';
+      
+      const response = await fetch(ecsUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          command: command,
+          workingDir: `/tmp/users/${this.userHash}`
+        }),
+        timeout: 300000 // 5 minutes
+      });
+      
+      if (!response.ok) {
+        throw new Error(`ECS request failed: ${response.status}`);
       }
+      
+      const result = await response.json();
+      const executionTime = Date.now() - startTime;
+      
+      return {
+        success: result.success,
+        output: result.output + `\n\n🚀 Executed on ECS Fargate (${result.executionTime}ms) - Smart Routing: heavy`,
+        executionTime: executionTime,
+        executor: 'ecs-fargate',
+        routing: 'heavy'
+      };
+      
+    } catch (error) {
+      console.error('ECS execution failed:', error);
+      return {
+        success: false,
+        output: `❌ ECS execution failed: ${error.message}\nFalling back to local execution...`,
+        executionTime: Date.now() - startTime,
+        executor: 'lambda-fallback',
+        routing: 'heavy-failed'
+      };
+    }
+  }
+  
+  // Execute command locally (Lambda)
+  async executeLocalCommand(command, streaming, startTime) {
+    return new Promise((resolve, reject) => {
 
       // Handle special commands
       if (command.startsWith('cd ')) {
