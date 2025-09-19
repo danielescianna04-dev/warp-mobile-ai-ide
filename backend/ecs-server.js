@@ -61,22 +61,54 @@ app.get('/health', (req, res) => {
 
 // Endpoint per eseguire comandi pesanti
 app.post('/execute-heavy', async (req, res) => {
-    const { command, workingDir = '/tmp' } = req.body;
+    const { command, workingDir = '/tmp', repository = null } = req.body;
     
     if (!command) {
         return res.status(400).json({ error: 'Command is required' });
     }
 
     console.log(`Executing heavy command: ${command}`);
+    console.log(`Repository context: ${repository}`);
+    console.log(`Working directory: ${workingDir}`);
     resetIdleTimer();
 
     try {
-        // Crea working directory se non esiste
-        if (!fs.existsSync(workingDir)) {
-            fs.mkdirSync(workingDir, { recursive: true });
+        let actualWorkingDir = workingDir;
+        
+        // Handle repository-specific commands
+        if (repository) {
+            const repoDir = `/tmp/projects/${repository.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+            
+            // Create repository directory if it doesn't exist
+            if (!fs.existsSync(repoDir)) {
+                fs.mkdirSync(repoDir, { recursive: true });
+                console.log(`Created repository directory: ${repoDir}`);
+            }
+            
+            actualWorkingDir = repoDir;
+            
+            // For Flutter commands, check if we need to initialize a Flutter project
+            if (command.toLowerCase().includes('flutter') && !fs.existsSync(path.join(repoDir, 'pubspec.yaml'))) {
+                console.log('Flutter command detected but no pubspec.yaml found. Creating sample Flutter project...');
+                
+                try {
+                    // Create a basic Flutter project structure
+                    const initResult = await executeCommand(`cd ${repoDir} && flutter create . --project-name ${repository.replace(/[^a-zA-Z0-9_]/g, '_')} --overwrite`, '/tmp');
+                    console.log('Flutter project initialized:', initResult.stdout);
+                } catch (initError) {
+                    console.error('Failed to initialize Flutter project:', initError.message);
+                    // Continue anyway, let the original command fail with a more descriptive error
+                }
+            }
+        } else {
+            // No repository context - create working directory if needed
+            if (!fs.existsSync(actualWorkingDir)) {
+                fs.mkdirSync(actualWorkingDir, { recursive: true });
+            }
         }
 
-        const result = await executeCommand(command, workingDir);
+        console.log(`Executing in directory: ${actualWorkingDir}`);
+        const result = await executeCommand(command, actualWorkingDir);
         
         res.json({
             success: true,
@@ -84,7 +116,9 @@ app.post('/execute-heavy', async (req, res) => {
             error: result.stderr,
             exitCode: result.code,
             environment: 'ecs-fargate',
-            executionTime: result.executionTime
+            executionTime: result.executionTime,
+            workingDir: actualWorkingDir,
+            repository: repository
         });
 
     } catch (error) {
@@ -92,7 +126,8 @@ app.post('/execute-heavy', async (req, res) => {
         res.status(500).json({
             success: false,
             error: error.message,
-            environment: 'ecs-fargate'
+            environment: 'ecs-fargate',
+            repository: repository
         });
     }
 });
@@ -143,13 +178,27 @@ function executeCommand(command, cwd = '/tmp') {
     return new Promise((resolve, reject) => {
         const startTime = Date.now();
         
-        const child = spawn('bash', ['-c', command], {
+        // Check if command contains Flutter and add appropriate flags
+        let adjustedCommand = command;
+        if (command.toLowerCase().includes('flutter')) {
+            // Add --disable-analytics to avoid issues with root
+            if (!command.includes('--disable-analytics')) {
+                adjustedCommand = command + ' --disable-analytics';
+            }
+            console.log(`Adjusted Flutter command: ${adjustedCommand}`);
+        }
+        
+        const child = spawn('bash', ['-c', adjustedCommand], {
             cwd: cwd,
             stdio: ['pipe', 'pipe', 'pipe'],
             env: {
                 ...process.env,
                 PATH: '/opt/flutter/bin:' + process.env.PATH,
-                FLUTTER_HOME: '/opt/flutter'
+                FLUTTER_HOME: '/opt/flutter',
+                PUB_CACHE: '/tmp/.pub-cache',
+                FLUTTER_ROOT: '/opt/flutter',
+                // Disable Flutter analytics to avoid root warnings
+                FLUTTER_SUPPRESS_ANALYTICS: 'true'
             }
         });
 

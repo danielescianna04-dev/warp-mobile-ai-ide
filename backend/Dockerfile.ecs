@@ -86,25 +86,29 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PUB_CACHE="/tmp/.pub-cache"
 
-# Crea utente non-root per sicurezza
-RUN groupadd -r warpuser && useradd -r -g warpuser warpuser \
-    && mkdir -p /tmp/warp-users \
-    && chown -R warpuser:warpuser /tmp/warp-users \
-    && chmod -R 755 /opt/flutter
-
-# Configura Flutter per container come root (poi switcha a warpuser)
-RUN $FLUTTER_HOME/bin/flutter config --no-analytics \
+# Fix Git ownership issues and configure Flutter as root first
+RUN git config --system --add safe.directory /opt/flutter \
+    && git config --system --add safe.directory '*' \
+    && $FLUTTER_HOME/bin/flutter config --no-analytics \
     && $FLUTTER_HOME/bin/flutter precache --no-ios --no-android --no-web \
     && $FLUTTER_HOME/bin/flutter --version
 
-# Crea directory di lavoro
+# Crea utente non-root per sicurezza
+RUN groupadd -r warpuser && useradd -r -g warpuser -m -d /home/warpuser warpuser \
+    && mkdir -p /tmp/projects /tmp/.pub-cache /tmp/warp-users \
+    && chown -R warpuser:warpuser /tmp/projects /tmp/.pub-cache /tmp/warp-users /opt/flutter \
+    && chmod -R 755 /opt/flutter
+
+# Crea directory di lavoro e configura permessi
 WORKDIR /workspace
+RUN chown -R warpuser:warpuser /workspace
 
 # Copia il backend Express
 COPY package*.json ./
 RUN npm ci --only=production
 
 COPY . .
+RUN chown -R warpuser:warpuser /workspace
 
 # Configurazione per ECS
 ENV PORT=3000
@@ -116,6 +120,9 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 
 # Espone la porta
 EXPOSE 3000
+
+# Cambia all'utente non-root
+USER warpuser
 
 # Avvia il server Express
 CMD ["node", "ecs-server.js"]
