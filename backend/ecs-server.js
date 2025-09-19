@@ -152,6 +152,189 @@ app.get('/flutter/doctor', async (req, res) => {
     }
 });
 
+// Map to track running Flutter web processes
+const flutterWebProcesses = new Map();
+
+// Endpoint per avviare Flutter web app
+app.post('/flutter/web/start', async (req, res) => {
+    const { repository = 'flutter-app', port = 8080 } = req.body;
+    resetIdleTimer();
+    
+    try {
+        const repoDir = `/tmp/projects/${repository.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+        
+        // Create repository directory if it doesn't exist
+        if (!fs.existsSync(repoDir)) {
+            fs.mkdirSync(repoDir, { recursive: true });
+        }
+        
+        // Initialize Flutter project if needed
+        if (!fs.existsSync(path.join(repoDir, 'pubspec.yaml'))) {
+            console.log('Initializing Flutter web project...');
+            const initResult = await executeCommand(`cd ${repoDir} && flutter create . --project-name ${repository.replace(/[^a-zA-Z0-9_]/g, '_')} --overwrite`, '/tmp');
+            console.log('Flutter project initialized for web');
+        }
+        
+        // Check if already running
+        if (flutterWebProcesses.has(repository)) {
+            return res.json({
+                success: true,
+                message: 'Flutter web app is already running',
+                url: `http://localhost:${port}`,
+                repository,
+                port
+            });
+        }
+        
+        // Enable web support
+        await executeCommand(`cd ${repoDir} && flutter config --enable-web`, repoDir);
+        
+        // Start Flutter web server
+        const webProcess = spawn('bash', ['-c', `cd ${repoDir} && flutter run -d web-server --web-port=${port} --web-hostname=0.0.0.0 --disable-analytics`], {
+            cwd: repoDir,
+            stdio: ['pipe', 'pipe', 'pipe'],
+            env: {
+                ...process.env,
+                PATH: '/opt/flutter/bin:' + process.env.PATH,
+                FLUTTER_HOME: '/opt/flutter',
+                PUB_CACHE: '/tmp/.pub-cache',
+                FLUTTER_ROOT: '/opt/flutter',
+                FLUTTER_SUPPRESS_ANALYTICS: 'true'
+            }
+        });
+        
+        // Store process reference
+        flutterWebProcesses.set(repository, {
+            process: webProcess,
+            port: port,
+            startTime: Date.now()
+        });
+        
+        let startupOutput = '';
+        
+        // Handle process output
+        webProcess.stdout.on('data', (data) => {
+            const output = data.toString();
+            startupOutput += output;
+            console.log(`[Flutter Web ${repository}]:`, output);
+        });
+        
+        webProcess.stderr.on('data', (data) => {
+            const output = data.toString();
+            startupOutput += output;
+            console.log(`[Flutter Web ${repository} ERROR]:`, output);
+        });
+        
+        webProcess.on('close', (code) => {
+            console.log(`Flutter web process for ${repository} exited with code ${code}`);
+            flutterWebProcesses.delete(repository);
+        });
+        
+        // Wait a bit for the server to start
+        await new Promise(resolve => setTimeout(resolve, 10000));
+        
+        res.json({
+            success: true,
+            message: 'Flutter web app started successfully',
+            url: `http://localhost:${port}`,
+            repository,
+            port,
+            startupOutput
+        });
+        
+    } catch (error) {
+        console.error('Error starting Flutter web app:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+// Endpoint per ottenere lo stato delle app web
+app.get('/flutter/web/status', (req, res) => {
+    resetIdleTimer();
+    
+    const status = Array.from(flutterWebProcesses.entries()).map(([repo, info]) => ({
+        repository: repo,
+        port: info.port,
+        uptime: Date.now() - info.startTime,
+        url: `http://localhost:${info.port}`
+    }));
+    
+    res.json({
+        success: true,
+        runningApps: status
+    });
+});
+
+// Endpoint per fermare una app web
+app.post('/flutter/web/stop', (req, res) => {
+    const { repository } = req.body;
+    resetIdleTimer();
+    
+    if (flutterWebProcesses.has(repository)) {
+        const processInfo = flutterWebProcesses.get(repository);
+        processInfo.process.kill('SIGTERM');
+        flutterWebProcesses.delete(repository);
+        
+        res.json({
+            success: true,
+            message: `Flutter web app for ${repository} stopped`
+        });
+    } else {
+        res.json({
+            success: false,
+            message: `No running Flutter web app found for ${repository}`
+        });
+    }
+});
+
+// Endpoint per servire contenuti statici (proxy per le app web)
+app.get('/preview/:repository/*', (req, res) => {
+    const { repository } = req.params;
+    const requestPath = req.params[0] || '';
+    resetIdleTimer();
+    
+    if (flutterWebProcesses.has(repository)) {
+        const processInfo = flutterWebProcesses.get(repository);
+        const targetUrl = `http://localhost:${processInfo.port}/${requestPath}`;
+        
+        // Proxy the request
+        const http = require('http');
+        const proxyReq = http.request(targetUrl, (proxyRes) => {
+            // Set CORS headers
+            res.set({
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                'Access-Control-Allow-Headers': '*'
+            });
+            
+            // Copy headers from proxy response
+            Object.keys(proxyRes.headers).forEach(key => {
+                res.set(key, proxyRes.headers[key]);
+            });
+            
+            proxyRes.pipe(res);
+        });
+        
+        proxyReq.on('error', (error) => {
+            console.error('Proxy error:', error);
+            res.status(502).json({
+                success: false,
+                error: 'Failed to proxy request to Flutter web app'
+            });
+        });
+        
+        proxyReq.end();
+    } else {
+        res.status(404).json({
+            success: false,
+            error: `No running Flutter web app found for repository: ${repository}`
+        });
+    }
+});
+
 // Endpoint per informazioni sistema
 app.get('/system/info', (req, res) => {
     resetIdleTimer();
@@ -169,7 +352,8 @@ app.get('/system/info', (req, res) => {
         environment: 'ecs-fargate',
         flutter: process.env.FLUTTER_HOME ? 'installed' : 'not found',
         python: 'available',
-        docker: 'disabled'
+        docker: 'disabled',
+        runningWebApps: flutterWebProcesses.size
     });
 });
 
