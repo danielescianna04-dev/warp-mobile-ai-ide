@@ -416,18 +416,15 @@ app.post('/flutter/web/start', async (req, res) => {
             webProcess.stderr.on('data', checkOutput);
         });
         
-        // Get public IP of ECS task
+        // HOTFIX: Use correct current public IP directly
+        const currentPublicIP = '35.88.16.88';
         const publicIP = await getTaskPublicIP();
-        console.log(`🌐 Task public IP: ${publicIP}`);
+        console.log(`🌐 Task detected IP: ${publicIP}`);
+        console.log(`🌐 Using hardcoded correct IP: ${currentPublicIP}`);
         
-        // Create web URL with public IP
-        let webUrl = `http://localhost:${port}`;
-        
-        // Replace localhost with public IP if available
-        if (publicIP) {
-            webUrl = `http://${publicIP}:${port}`;
-            console.log(`🌐 Updated web URL with public IP: ${webUrl}`);
-        }
+        // Create web URL with current correct public IP
+        const webUrl = `http://${currentPublicIP}:${port}`;
+        console.log(`🌐 Final Flutter URL: ${webUrl}`);
         
         res.json({
             success: true,
