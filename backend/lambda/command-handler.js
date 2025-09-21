@@ -2,6 +2,7 @@
 const UserManager = require('./user-manager');
 const CommandExecutor = require('./command-executor');
 const AIAgent = require('./ai-agent');
+const { executeFlutterWebStart } = require('./flutter-web-helper');
 const https = require('https');
 const http = require('http');
 
@@ -252,9 +253,10 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Extract user info
-    const userId = headers['X-User-ID'] || headers['x-user-id'] || 'anonymous';
-    const sessionId = headers['X-Session-ID'] || headers['x-session-id'];
+    // Extract user info (handle case where headers might be undefined)
+    const safeHeaders = headers || {};
+    const userId = safeHeaders['X-User-ID'] || safeHeaders['x-user-id'] || 'anonymous';
+    const sessionId = safeHeaders['X-Session-ID'] || safeHeaders['x-session-id'];
 
     // Route handlers
     switch (requestPath) {
@@ -267,6 +269,18 @@ exports.handler = async (event, context) => {
             statusCode: 400,
             headers: corsHeaders,
             body: JSON.stringify({ error: 'Unknown session action', received: requestBody.action })
+          };
+        }
+      
+      case '/sessions':  // Add this route for API Gateway compatibility
+        if (httpMethod === 'POST') {
+          const userIdFromBody = requestBody.userId || userId;
+          return await handleCreateSession(userIdFromBody, corsHeaders);
+        } else {
+          return {
+            statusCode: 405,
+            headers: corsHeaders,
+            body: JSON.stringify({ error: 'Method not allowed' })
           };
         }
       
@@ -285,6 +299,9 @@ exports.handler = async (event, context) => {
         }
       
       case '/command/execute':
+        return await handleExecuteCommand(requestBody, sessionId, corsHeaders);
+        
+      case '/execute':  // Add this route for API Gateway compatibility
         return await handleExecuteCommand(requestBody, sessionId, corsHeaders);
         
       case '/ai/chat':
@@ -433,6 +450,127 @@ async function handleExecuteCommand(requestBody, sessionId, headers) {
           routing: 'error'
         })
       };
+    }
+    
+    // PRAGMATIC SOLUTION: For ALL Flutter commands, try Flutter Web endpoint first
+    // If the command is Flutter-related and could benefit from web server, try specialized endpoint
+    if (command.toLowerCase().startsWith('flutter') && ECS_ENDPOINT) {
+      console.log(`🚀 Trying Flutter Web endpoint first for: ${command}`);
+      
+      try {
+        // Ensure ECS task is running
+        await ensureECSTaskRunning();
+        
+        // Try specialized Flutter Web endpoint first
+        const flutterWebResult = await executeFlutterWebStart(session, { repository, workingDir }, ECS_ENDPOINT);
+        
+        // If it returns a URL, it's a web command - return immediately with webUrl!
+        if (flutterWebResult && flutterWebResult.url) {
+          console.log(`✅ Flutter Web endpoint succeeded with URL: ${flutterWebResult.url}`);
+          return {
+            statusCode: 200,
+            headers: { ...headers, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              success: true,
+              output: flutterWebResult.message || flutterWebResult.startupOutput || 'Flutter web server started',
+              webUrl: flutterWebResult.url, // This is the key field the Flutter app is looking for!
+              port: flutterWebResult.port || 8080,
+              repository: flutterWebResult.repository || repository || 'flutter-app',
+              environment: 'ecs-fargate',
+              executor: 'ecs-flutter-web-specialized',
+              routing: 'flutter-web-specialized'
+            })
+          };
+        }
+        
+        // If no URL returned, fall through to normal execution
+        console.log(`⚡ Flutter Web endpoint returned no URL, falling back to normal execution`);
+      } catch (flutterWebError) {
+        console.log(`⚡ Flutter Web endpoint failed (${flutterWebError.message}), falling back to normal execution`);
+        // Fall through to normal execution
+      }
+    }
+    
+    // FLUTTER STOP COMMAND - Stop running Flutter process
+    if (command.toLowerCase().trim() === 'flutter stop' && ECS_ENDPOINT) {
+      console.log(`🛑 Detected 'flutter stop' command - stopping Flutter process...`);
+      
+      try {
+        // Ensure ECS task is running
+        await ensureECSTaskRunning();
+        
+        // Call dedicated /flutter/stop endpoint
+        const result = await executeFlutterStop(session, { repository, workingDir });
+        
+        return {
+          statusCode: 200,
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            success: result.success || true,
+            output: result.message || 'Flutter process stopped',
+            repository: repository || 'flutter-app',
+            executor: 'ecs-fargate-background',
+            routing: 'flutter-stop-background'
+          })
+        };
+      } catch (flutterStopError) {
+        console.error('⚠️  Flutter stop execution failed:', flutterStopError.message);
+        
+        return {
+          statusCode: 200,
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            success: false,
+            output: `Failed to stop Flutter process: ${flutterStopError.message}`,
+            executor: 'ecs-fargate-background',
+            routing: 'flutter-stop-error',
+            error: flutterStopError.message
+          })
+        };
+      }
+    }
+    
+    // FLUTTER RUN SPECIFIC DETECTION - Use dedicated long-running endpoint
+    if (command.toLowerCase().trim() === 'flutter run' && ECS_ENDPOINT) {
+      console.log(`🚀 Detected 'flutter run' command - using long-running process endpoint...`);
+      
+      try {
+        // Ensure ECS task is running
+        await ensureECSTaskRunning();
+        
+        // Call dedicated /flutter/run endpoint for long-running process
+        const result = await executeFlutterRun(command, session, { repository, workingDir });
+        
+        return {
+          statusCode: 200,
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            success: result.success || true,
+            output: result.message || result.output || 'Flutter run started in background',
+            webUrl: result.webUrl, // CRUCIAL: This enables preview button!
+            port: result.port || 8080,
+            repository: repository || 'flutter-app',
+            executor: result.executor || 'ecs-fargate-background',
+            routing: result.routing || 'flutter-run-background',
+            status: result.status || 'running'
+          })
+        };
+      } catch (flutterRunError) {
+        console.error('⚠️  Flutter run execution failed:', flutterRunError.message);
+        
+        // Fallback to regular ECS execution if flutter/run endpoint fails
+        const result = await executeOnECS(command, session, { repository, workingDir });
+        return {
+          statusCode: 200,
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...result,
+            executor: 'ecs-fargate-fallback',
+            routing: 'flutter-run-fallback',
+            flutterRunError: flutterRunError.message
+          })
+        };
+      }
     }
     
     // Smart routing decision
@@ -773,6 +911,191 @@ async function waitForTaskRunning(cluster, serviceName, maxWaitTime = 120000) {
   }
   
   throw new Error('Timeout waiting for ECS task to start');
+}
+
+async function executeFlutterRun(command, session, options = {}) {
+  console.log('🔍 DEBUG executeFlutterRun: Starting Flutter run execution');
+  console.log('🔍 DEBUG executeFlutterRun: Command:', command);
+  console.log('🔍 DEBUG executeFlutterRun: ECS_ENDPOINT:', ECS_ENDPOINT);
+  console.log('🔍 DEBUG executeFlutterRun: Session:', JSON.stringify(session, null, 2));
+  console.log('🔍 DEBUG executeFlutterRun: Options:', JSON.stringify(options, null, 2));
+  
+  if (!ECS_ENDPOINT) {
+    console.error('❌ DEBUG executeFlutterRun: ECS endpoint not configured');
+    throw new Error('ECS endpoint not configured');
+  }
+  
+  // Determine working directory
+  let ecsWorkspaceDir = '/tmp';
+  if (options.workingDir) {
+    ecsWorkspaceDir = options.workingDir;
+  } else if (options.repository) {
+    // Create a repository-specific directory
+    ecsWorkspaceDir = `/tmp/projects/${options.repository.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+  }
+  console.log('🔍 DEBUG executeFlutterRun: Using ecsWorkspaceDir:', ecsWorkspaceDir);
+  
+  const payload = {
+    command,
+    workingDir: ecsWorkspaceDir,
+    repository: options.repository || 'flutter-app'
+  };
+  console.log('🔍 DEBUG executeFlutterRun: Request payload:', JSON.stringify(payload, null, 2));
+  
+  return new Promise((resolve, reject) => {
+    const postData = JSON.stringify(payload);
+    console.log('🔍 DEBUG executeFlutterRun: PostData:', postData);
+    
+    const url = new URL(ECS_ENDPOINT + '/flutter/run');
+    console.log('🔍 DEBUG executeFlutterRun: Full URL:', url.toString());
+    
+    const requestOptions = {
+      hostname: url.hostname,
+      port: url.port || (url.protocol === 'https:' ? 443 : 80),
+      path: url.pathname,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(postData)
+      },
+      timeout: 60 * 1000 // 1 minute timeout for startup
+    };
+    console.log('🔍 DEBUG executeFlutterRun: Request options:', JSON.stringify(requestOptions, null, 2));
+    
+    const client = url.protocol === 'https:' ? https : http;
+    console.log('🔍 DEBUG executeFlutterRun: Using client:', url.protocol === 'https:' ? 'HTTPS' : 'HTTP');
+    
+    const req = client.request(requestOptions, (res) => {
+      console.log('🔍 DEBUG executeFlutterRun: Response received');
+      console.log('🔍 DEBUG executeFlutterRun: Response status:', res.statusCode);
+      console.log('🔍 DEBUG executeFlutterRun: Response headers:', JSON.stringify(res.headers, null, 2));
+      
+      let data = '';
+      
+      res.on('data', (chunk) => {
+        console.log('🔍 DEBUG executeFlutterRun: Received chunk length:', chunk.length);
+        data += chunk;
+      });
+      
+      res.on('end', () => {
+        console.log('🔍 DEBUG executeFlutterRun: Response complete');
+        console.log('🔍 DEBUG executeFlutterRun: Raw response data:', data);
+        
+        try {
+          const result = JSON.parse(data);
+          console.log('🔍 DEBUG executeFlutterRun: Parsed result:', JSON.stringify(result, null, 2));
+          resolve(result);
+        } catch (parseError) {
+          console.error('❌ DEBUG executeFlutterRun: Parse error:', parseError.message);
+          console.error('❌ DEBUG executeFlutterRun: Raw data that failed to parse:', data);
+          reject(new Error(`Failed to parse Flutter run response: ${parseError.message}`));
+        }
+      });
+    });
+    
+    req.on('error', (error) => {
+      console.error('❌ DEBUG executeFlutterRun: Request error:', error.message);
+      reject(new Error(`Flutter run request failed: ${error.message}`));
+    });
+    
+    req.on('timeout', () => {
+      console.error('❌ DEBUG executeFlutterRun: Request timeout');
+      req.destroy();
+      reject(new Error('Flutter run request timeout'));
+    });
+    
+    req.write(postData);
+    req.end();
+    console.log('🔍 DEBUG executeFlutterRun: Request sent, waiting for response...');
+  });
+}
+
+// Execute Flutter stop on ECS backend
+async function executeFlutterStop(session, context = {}) {
+  console.log('🔍 DEBUG executeFlutterStop: Starting Flutter stop execution');
+  console.log('🔍 DEBUG executeFlutterStop: ECS_ENDPOINT:', ECS_ENDPOINT);
+  console.log('🔍 DEBUG executeFlutterStop: Session:', JSON.stringify(session, null, 2));
+  console.log('🔍 DEBUG executeFlutterStop: Context:', JSON.stringify(context, null, 2));
+  
+  if (!ECS_ENDPOINT) {
+    console.error('❌ DEBUG executeFlutterStop: ECS endpoint not configured');
+    throw new Error('ECS endpoint not configured');
+  }
+  
+  const { repository, workingDir } = context;
+  const payload = {
+    sessionId: session,
+    repository: repository || 'flutter-app',
+    workingDir: workingDir || '/' 
+  };
+  console.log('🔍 DEBUG executeFlutterStop: Request payload:', JSON.stringify(payload, null, 2));
+  
+  return new Promise((resolve, reject) => {
+    const postData = JSON.stringify(payload);
+    console.log('🔍 DEBUG executeFlutterStop: PostData:', postData);
+    
+    const url = new URL(ECS_ENDPOINT + '/flutter/stop');
+    console.log('🔍 DEBUG executeFlutterStop: Full URL:', url.toString());
+    
+    const requestOptions = {
+      hostname: url.hostname,
+      port: url.port || (url.protocol === 'https:' ? 443 : 80),
+      path: url.pathname,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(postData)
+      },
+      timeout: 15 * 1000 // 15 seconds timeout for stop
+    };
+    console.log('🔍 DEBUG executeFlutterStop: Request options:', JSON.stringify(requestOptions, null, 2));
+    
+    const client = url.protocol === 'https:' ? https : http;
+    console.log('🔍 DEBUG executeFlutterStop: Using client:', url.protocol === 'https:' ? 'HTTPS' : 'HTTP');
+    
+    const req = client.request(requestOptions, (res) => {
+      console.log('🔍 DEBUG executeFlutterStop: Response received');
+      console.log('🔍 DEBUG executeFlutterStop: Response status:', res.statusCode);
+      console.log('🔍 DEBUG executeFlutterStop: Response headers:', JSON.stringify(res.headers, null, 2));
+      
+      let data = '';
+      
+      res.on('data', (chunk) => {
+        console.log('🔍 DEBUG executeFlutterStop: Received chunk length:', chunk.length);
+        data += chunk;
+      });
+      
+      res.on('end', () => {
+        console.log('🔍 DEBUG executeFlutterStop: Response complete');
+        console.log('🔍 DEBUG executeFlutterStop: Raw response data:', data);
+        
+        try {
+          const result = JSON.parse(data);
+          console.log('🔍 DEBUG executeFlutterStop: Parsed result:', JSON.stringify(result, null, 2));
+          resolve(result);
+        } catch (parseError) {
+          console.error('❌ DEBUG executeFlutterStop: Parse error:', parseError.message);
+          console.error('❌ DEBUG executeFlutterStop: Raw data that failed to parse:', data);
+          reject(new Error(`Failed to parse Flutter stop response: ${parseError.message}`));
+        }
+      });
+    });
+    
+    req.on('error', (error) => {
+      console.error('❌ DEBUG executeFlutterStop: Request error:', error.message);
+      reject(new Error(`Flutter stop request failed: ${error.message}`));
+    });
+    
+    req.on('timeout', () => {
+      console.error('❌ DEBUG executeFlutterStop: Request timeout');
+      req.destroy();
+      reject(new Error('Flutter stop request timeout'));
+    });
+    
+    req.write(postData);
+    req.end();
+    console.log('🔍 DEBUG executeFlutterStop: Request sent, waiting for response...');
+  });
 }
 
 async function executeOnECS(command, session, options = {}) {

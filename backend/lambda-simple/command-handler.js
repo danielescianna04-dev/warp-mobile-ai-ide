@@ -515,8 +515,11 @@ async function executeOnECS(command, session) {
   
   const payload = {
     command,
-    workingDir: session.workspaceDir || '/workspace'
+    workingDir: session.workspaceDir || '/workspace',
+    repository: session.repository || 'warp-mobile-ai-ide'
   };
+  
+  console.log('🔍 Lambda DEBUG: Sending payload to ECS:', JSON.stringify(payload, null, 2));
   
   return new Promise((resolve, reject) => {
     const postData = JSON.stringify(payload);
@@ -545,9 +548,13 @@ async function executeOnECS(command, session) {
       
       res.on('end', () => {
         try {
+          console.log('🔍 Lambda DEBUG: Raw ECS response:', data);
           const result = JSON.parse(data);
+          console.log('🔍 Lambda DEBUG: Parsed ECS result:', JSON.stringify(result, null, 2));
           resolve(result);
         } catch (parseError) {
+          console.error('❌ Lambda ERROR: Failed to parse ECS response:', parseError.message);
+          console.error('❌ Lambda ERROR: Raw response was:', data);
           reject(new Error(`Failed to parse ECS response: ${parseError.message}`));
         }
       });

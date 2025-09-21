@@ -2,8 +2,43 @@ const express = require('express');
 const { exec, spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
+const cron = require('node-cron');
+const http = require('http');
 
+
+// Function to get public IP of ECS task using native HTTP
+function getTaskPublicIP() {
+    return new Promise((resolve) => {
+        // Try to get public IP from AWS checkip service
+        const req = http.request('http://checkip.amazonaws.com/', { timeout: 5000 }, (res) => {
+            let data = '';
+            res.on('data', chunk => data += chunk);
+            res.on('end', () => {
+                const ip = data.trim();
+                if (ip && /^\d+\.\d+\.\d+\.\d+$/.test(ip)) {
+                    console.log(`\ud83c\udf10 Detected public IP: ${ip}`);
+                    resolve(ip);
+                } else {
+                    console.log('\u26a0\ufe0f Invalid IP format from checkip service');
+                    resolve(null);
+                }
+            });
+        });
+        
+        req.on('error', (error) => {
+            console.error('Error getting public IP:', error.message);
+            resolve(null);
+        });
+        
+        req.on('timeout', () => {
+            console.log('\u23f1\ufe0f Public IP request timeout');
+            req.destroy();
+            resolve(null);
+        });
+        
+        req.end();
+    });
+}
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -76,8 +111,9 @@ app.post('/execute-heavy', async (req, res) => {
         let actualWorkingDir = workingDir;
         
         // Handle repository-specific commands
-        if (repository) {
-            const repoDir = `/tmp/projects/${repository.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+        let repoName = repository || 'default-project';
+        if (repository || command.toLowerCase().includes('flutter')) {
+            const repoDir = `/tmp/projects/${repoName.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
             
             // Create repository directory if it doesn't exist
             if (!fs.existsSync(repoDir)) {
@@ -93,7 +129,7 @@ app.post('/execute-heavy', async (req, res) => {
                 
                 try {
                     // Create a basic Flutter project structure
-                    const initResult = await executeCommand(`cd ${repoDir} && flutter create . --project-name ${repository.replace(/[^a-zA-Z0-9_]/g, '_')} --overwrite`, '/tmp');
+                    const initResult = await executeCommand(`cd ${repoDir} && flutter create . --project-name ${repoName.replace(/[^a-zA-Z0-9_]/g, '_')} --overwrite`, '/tmp');
                     console.log('Flutter project initialized:', initResult.stdout);
                 } catch (initError) {
                     console.error('Failed to initialize Flutter project:', initError.message);
@@ -107,19 +143,112 @@ app.post('/execute-heavy', async (req, res) => {
             }
         }
 
-        console.log(`Executing in directory: ${actualWorkingDir}`);
-        const result = await executeCommand(command, actualWorkingDir);
+        // Handle special commands
+        let actualCommand = command;
+        let useSpecialEndpoint = false;
         
-        res.json({
-            success: true,
-            output: result.stdout,
-            error: result.stderr,
-            exitCode: result.code,
-            environment: 'ecs-fargate',
-            executionTime: result.executionTime,
-            workingDir: actualWorkingDir,
-            repository: repository
-        });
+        // Check for special Flutter web commands
+        console.log('🔍 DEBUG: Checking command for special handling:', command);
+        console.log('🔍 DEBUG: Repository context:', repository);
+        console.log('🔍 DEBUG: Working directory:', actualWorkingDir);
+        
+        if (command.toLowerCase().includes('start') && 
+            (command.toLowerCase().includes('flutter') || command.toLowerCase().includes('web'))) {
+            // Special handling for "start flutter web app" or similar
+            console.log('✅ Detected Flutter web start command, redirecting to web endpoint');
+            console.log('🔍 DEBUG: Using repoName:', repoName);
+            
+            // Call the Flutter web start endpoint internally
+            const port = 8080;
+            const webStartUrl = `http://localhost:${process.env.PORT || 3000}/flutter/web/start`;
+            
+            try {
+                const http = require('http');
+                const postData = JSON.stringify({ repository: repoName, port });
+                
+                const options = {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Content-Length': Buffer.byteLength(postData)
+                    }
+                };
+                
+                // Make internal request to web start endpoint
+                const webStartReq = http.request(webStartUrl, options, (webRes) => {
+                    let data = '';
+                    webRes.on('data', chunk => data += chunk);
+                    webRes.on('end', () => {
+                        try {
+                            console.log('🔍 DEBUG: Raw response from /flutter/web/start:', data);
+                            const result = JSON.parse(data);
+                            console.log('🔍 DEBUG: Parsed result:', result);
+                            
+                            const response = {
+                                success: result.success,
+                                output: result.message || `Flutter web app started for ${repoName}`,
+                                error: result.error || '',
+                                exitCode: result.success ? 0 : 1,
+                                environment: 'ecs-fargate',
+                                executionTime: 5000,
+                                workingDir: actualWorkingDir,
+                                repository: repoName,
+                                webUrl: result.url,
+                                port: result.port
+                            };
+                            
+                            console.log('🔍 DEBUG: Final response being sent:', response);
+                            res.json(response);
+                        } catch (parseError) {
+                            res.json({
+                                success: false,
+                                output: '',
+                                error: `Failed to start Flutter web app: ${parseError.message}`,
+                                exitCode: 1,
+                                environment: 'ecs-fargate',
+                                repository: repoName
+                            });
+                        }
+                    });
+                });
+                
+                webStartReq.on('error', (error) => {
+                    res.json({
+                        success: false,
+                        output: '',
+                        error: `Failed to start Flutter web app: ${error.message}`,
+                        exitCode: 1,
+                        environment: 'ecs-fargate',
+                        repository: repoName
+                    });
+                });
+                
+                webStartReq.write(postData);
+                webStartReq.end();
+                
+                useSpecialEndpoint = true;
+            } catch (specialError) {
+                console.error('Special command handling error:', specialError);
+                // Fall through to regular command execution
+            }
+        }
+        
+        if (!useSpecialEndpoint) {
+            // Regular command execution
+            console.log(`Executing in directory: ${actualWorkingDir}`);
+            const result = await executeCommand(actualCommand, actualWorkingDir);
+            
+            res.json({
+                success: true,
+                output: result.stdout,
+                error: result.stderr,
+                exitCode: result.code,
+                environment: 'ecs-fargate',
+                executionTime: result.executionTime,
+                workingDir: actualWorkingDir,
+                repository: repoName
+            });
+        }
 
     } catch (error) {
         console.error('Command execution error:', error);
@@ -127,7 +256,7 @@ app.post('/execute-heavy', async (req, res) => {
             success: false,
             error: error.message,
             environment: 'ecs-fargate',
-            repository: repository
+            repository: repoName
         });
     }
 });
@@ -177,29 +306,58 @@ app.post('/flutter/web/start', async (req, res) => {
         
         // Check if already running
         if (flutterWebProcesses.has(repository)) {
+            // Get public IP for existing process too
+            const publicIP = await getTaskPublicIP();
+            let existingWebUrl = `http://localhost:${port}`;
+            
+            // Replace localhost with public IP if available
+            if (publicIP) {
+                existingWebUrl = `http://${publicIP}:${port}`;
+                console.log(`🌐 Updated existing web URL with public IP: ${existingWebUrl}`);
+            }
+            
             return res.json({
                 success: true,
                 message: 'Flutter web app is already running',
-                url: `http://localhost:${port}`,
+                url: existingWebUrl,
                 repository,
-                port
+                port,
+                publicIP: publicIP
             });
         }
         
         // Enable web support
         await executeCommand(`cd ${repoDir} && flutter config --enable-web`, repoDir);
         
-        // Start Flutter web server
-        const webProcess = spawn('bash', ['-c', `cd ${repoDir} && flutter run -d web-server --web-port=${port} --web-hostname=0.0.0.0 --disable-analytics`], {
+        // Debug: check Flutter devices first
+        try {
+            const devicesResult = await executeCommand(`cd ${repoDir} && flutter devices`, repoDir);
+            console.log('Available Flutter devices:', devicesResult.stdout);
+        } catch (e) {
+            console.log('Error checking Flutter devices:', e.message);
+        }
+        
+        // Build Flutter web app and serve with Python HTTP server
+        console.log('Building Flutter web app...');
+        await executeCommand(`cd ${repoDir} && flutter build web --verbose`, repoDir);
+        console.log('Flutter web build completed');
+        
+        // Start Python HTTP server to serve built web app
+        const flutterCommand = `cd ${repoDir}/build/web && python3 -m http.server ${port} --bind 0.0.0.0`;
+        console.log(`Starting web server with command: ${flutterCommand}`);
+        
+        const webProcess = spawn('bash', ['-c', flutterCommand], {
             cwd: repoDir,
             stdio: ['pipe', 'pipe', 'pipe'],
+            detached: false,
             env: {
                 ...process.env,
                 PATH: '/opt/flutter/bin:' + process.env.PATH,
                 FLUTTER_HOME: '/opt/flutter',
                 PUB_CACHE: '/tmp/.pub-cache',
                 FLUTTER_ROOT: '/opt/flutter',
-                FLUTTER_SUPPRESS_ANALYTICS: 'true'
+                FLUTTER_SUPPRESS_ANALYTICS: 'true',
+                FLUTTER_WEB: 'true'
             }
         });
         
@@ -230,16 +388,55 @@ app.post('/flutter/web/start', async (req, res) => {
             flutterWebProcesses.delete(repository);
         });
         
-        // Wait a bit for the server to start
-        await new Promise(resolve => setTimeout(resolve, 10000));
+        // Wait for the server to start and show serving message
+        let serverStarted = false;
+        let startupTimeout;
+        
+        await new Promise((resolve, reject) => {
+            // Set a timeout for startup
+            startupTimeout = setTimeout(() => {
+                if (!serverStarted) {
+                    console.log('Flutter web server startup timeout, but continuing...');
+                    resolve();
+                }
+            }, 20000); // 20 seconds timeout
+            
+            // Listen for server ready signal
+            const checkOutput = (data) => {
+                const output = data.toString();
+                if (output.includes('Serving at') || output.includes('localhost:' + port) || 
+                    output.includes('Web development server running')) {
+                    serverStarted = true;
+                    clearTimeout(startupTimeout);
+                    resolve();
+                }
+            };
+            
+            webProcess.stdout.on('data', checkOutput);
+            webProcess.stderr.on('data', checkOutput);
+        });
+        
+        // Get public IP of ECS task
+        const publicIP = await getTaskPublicIP();
+        console.log(`🌐 Task public IP: ${publicIP}`);
+        
+        // Create web URL with public IP
+        let webUrl = `http://localhost:${port}`;
+        
+        // Replace localhost with public IP if available
+        if (publicIP) {
+            webUrl = `http://${publicIP}:${port}`;
+            console.log(`🌐 Updated web URL with public IP: ${webUrl}`);
+        }
         
         res.json({
             success: true,
             message: 'Flutter web app started successfully',
-            url: `http://localhost:${port}`,
+            url: webUrl,
             repository,
             port,
-            startupOutput
+            startupOutput,
+            publicIP: publicIP
         });
         
     } catch (error) {
@@ -252,19 +449,33 @@ app.post('/flutter/web/start', async (req, res) => {
 });
 
 // Endpoint per ottenere lo stato delle app web
-app.get('/flutter/web/status', (req, res) => {
+app.get('/flutter/web/status', async (req, res) => {
     resetIdleTimer();
     
-    const status = Array.from(flutterWebProcesses.entries()).map(([repo, info]) => ({
-        repository: repo,
-        port: info.port,
-        uptime: Date.now() - info.startTime,
-        url: `http://localhost:${info.port}`
-    }));
+    // Get public IP for status URLs
+    const publicIP = await getTaskPublicIP();
+    
+    const status = Array.from(flutterWebProcesses.entries()).map(([repo, info]) => {
+        let url = `http://localhost:${info.port}`;
+        
+        // Replace localhost with public IP if available
+        if (publicIP) {
+            url = `http://${publicIP}:${info.port}`;
+        }
+        
+        return {
+            repository: repo,
+            port: info.port,
+            uptime: Date.now() - info.startTime,
+            url: url,
+            publicIP: publicIP
+        };
+    });
     
     res.json({
         success: true,
-        runningApps: status
+        runningApps: status,
+        publicIP: publicIP
     });
 });
 
@@ -286,6 +497,248 @@ app.post('/flutter/web/stop', (req, res) => {
         res.json({
             success: false,
             message: `No running Flutter web app found for ${repository}`
+        });
+    }
+});
+
+// NEW: Endpoint dedicato per flutter run (long-running process)
+app.post('/flutter/run', async (req, res) => {
+    const { repository = 'flutter-app', command = 'flutter run', workingDir = null } = req.body;
+    resetIdleTimer();
+    
+    console.log(`🚀 Starting Flutter run for repository: ${repository}`);
+    console.log(`🚀 Command: ${command}`);
+    console.log(`🚀 Working directory: ${workingDir}`);
+    
+    try {
+        const repoDir = workingDir || `/tmp/projects/${repository.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+        
+        // Create repository directory if it doesn't exist
+        if (!fs.existsSync(repoDir)) {
+            fs.mkdirSync(repoDir, { recursive: true });
+        }
+        
+        // Initialize Flutter project if needed
+        if (!fs.existsSync(path.join(repoDir, 'pubspec.yaml'))) {
+            console.log('Initializing Flutter project for flutter run...');
+            const initResult = await executeCommand(`cd ${repoDir} && flutter create . --project-name ${repository.replace(/[^a-zA-Z0-9_]/g, '_')} --overwrite`, '/tmp');
+            console.log('Flutter project initialized for run');
+        }
+        
+        // Check if already running
+        if (flutterWebProcesses.has(repository)) {
+            const existing = flutterWebProcesses.get(repository);
+            
+            // Get public IP for existing process too
+            const publicIP = await getTaskPublicIP();
+            let existingWebUrl = `http://localhost:${existing.port}`;
+            
+            // Replace localhost with public IP if available
+            if (publicIP) {
+                existingWebUrl = `http://${publicIP}:${existing.port}`;
+                console.log(`🌐 Updated existing web URL with public IP: ${existingWebUrl}`);
+            }
+            
+            return res.json({
+                success: true,
+                message: 'Flutter app is already running',
+                webUrl: existingWebUrl,
+                repository,
+                port: existing.port,
+                status: 'running',
+                uptime: Date.now() - existing.startTime,
+                publicIP: publicIP
+            });
+        }
+        
+        // Determine port (8080 for web, or detect from command)
+        let port = 8080;
+        const portMatch = command.match(/--web-port[=\s]+(\d+)/);
+        if (portMatch) {
+            port = parseInt(portMatch[1]);
+        }
+        
+        // Enable web support
+        await executeCommand(`cd ${repoDir} && flutter config --enable-web`, repoDir);
+        
+        // Build the Flutter run command with web target
+        let flutterCommand = command;
+        if (command.trim() === 'flutter run') {
+            // Default to web-server for flutter run
+            flutterCommand = `flutter run -d web-server --web-port=${port} --web-hostname=0.0.0.0 --disable-analytics`;
+        } else if (!command.includes('-d web') && !command.includes('--device')) {
+            // Add web target if not specified
+            flutterCommand = command + ` -d web-server --web-port=${port} --web-hostname=0.0.0.0`;
+        }
+        
+        console.log(`🚀 Executing: ${flutterCommand}`);
+        
+        // Start Flutter run as long-running process
+        const flutterProcess = spawn('bash', ['-c', `cd ${repoDir} && ${flutterCommand}`], {
+            cwd: repoDir,
+            stdio: ['pipe', 'pipe', 'pipe'],
+            detached: false,
+            env: {
+                ...process.env,
+                PATH: '/opt/flutter/bin:' + process.env.PATH,
+                FLUTTER_HOME: '/opt/flutter',
+                PUB_CACHE: '/tmp/.pub-cache',
+                FLUTTER_ROOT: '/opt/flutter',
+                FLUTTER_SUPPRESS_ANALYTICS: 'true',
+                FLUTTER_WEB: 'true'
+            }
+        });
+        
+        // Store process reference
+        flutterWebProcesses.set(repository, {
+            process: flutterProcess,
+            port: port,
+            startTime: Date.now(),
+            command: flutterCommand,
+            type: 'flutter-run'
+        });
+        
+        let startupOutput = '';
+        let webUrl = null;
+        
+        // Handle process output
+        flutterProcess.stdout.on('data', (data) => {
+            const output = data.toString();
+            startupOutput += output;
+            console.log(`[Flutter Run ${repository}]:`, output);
+            
+            // Extract web server URL from output
+            if (!webUrl) {
+                const urlPatterns = [
+                    /A web server for Flutter web application is available at:\s*(https?:\/\/[^\s]+)/i,
+                    /Serving at\s*(https?:\/\/[^\s]+)/i,
+                    /(https?:\/\/localhost:\d+)/i,
+                    /(https?:\/\/127\.0\.0\.1:\d+)/i,
+                    /(https?:\/\/0\.0\.0\.0:\d+)/i
+                ];
+                
+                for (const pattern of urlPatterns) {
+                    const match = output.match(pattern);
+                    if (match && match[1]) {
+                        webUrl = match[1];
+                        console.log(`🌐 Detected Flutter web URL: ${webUrl}`);
+                        break;
+                    }
+                }
+            }
+        });
+        
+        flutterProcess.stderr.on('data', (data) => {
+            const output = data.toString();
+            startupOutput += output;
+            console.log(`[Flutter Run ${repository} ERROR]:`, output);
+        });
+        
+        flutterProcess.on('close', (code) => {
+            console.log(`Flutter run process for ${repository} exited with code ${code}`);
+            flutterWebProcesses.delete(repository);
+        });
+        
+        flutterProcess.on('error', (error) => {
+            console.error(`Flutter run process error for ${repository}:`, error);
+            flutterWebProcesses.delete(repository);
+        });
+        
+        // Wait a bit for startup and URL detection
+        await new Promise((resolve) => {
+            let resolved = false;
+            
+            // Check every 2 seconds for web server URL
+            const urlCheck = setInterval(() => {
+                if (webUrl && !resolved) {
+                    resolved = true;
+                    clearInterval(urlCheck);
+                    clearTimeout(startupTimeout);
+                    resolve();
+                }
+            }, 2000);
+            
+            // Timeout after 30 seconds
+            const startupTimeout = setTimeout(() => {
+                if (!resolved) {
+                    resolved = true;
+                    clearInterval(urlCheck);
+                    console.log('Flutter run startup completed (timeout)');
+                    resolve();
+                }
+            }, 30000);
+        });
+        
+        // Get public IP of ECS task
+        const publicIP = await getTaskPublicIP();
+        console.log(`🌐 Task public IP: ${publicIP}`);
+        
+        // Return immediate response (process runs in background)
+        let finalWebUrl = webUrl || `http://localhost:${port}`;
+        
+        // Replace localhost with public IP if available
+        if (publicIP && finalWebUrl.includes('localhost')) {
+            finalWebUrl = finalWebUrl.replace('localhost', publicIP);
+            console.log(`🌐 Updated web URL with public IP: ${finalWebUrl}`);
+        } else if (publicIP && !finalWebUrl.includes('://')) {
+            finalWebUrl = `http://${publicIP}:${port}`;
+            console.log(`🌐 Created web URL with public IP: ${finalWebUrl}`);
+        }
+        
+        res.json({
+            success: true,
+            message: 'Flutter run started successfully in background',
+            output: startupOutput,
+            webUrl: finalWebUrl,
+            repository,
+            port,
+            status: 'running',
+            executor: 'ecs-fargate-background',
+            routing: 'flutter-run-background',
+            publicIP: publicIP
+        });
+        
+    } catch (error) {
+        console.error('Error starting Flutter run:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message,
+            repository
+        });
+    }
+});
+
+// NEW: Endpoint per fermare flutter run
+app.post('/flutter/stop', (req, res) => {
+    const { repository } = req.body;
+    resetIdleTimer();
+    
+    console.log(`🛑 Stopping Flutter process for repository: ${repository}`);
+    
+    if (flutterWebProcesses.has(repository)) {
+        const processInfo = flutterWebProcesses.get(repository);
+        
+        // Send SIGINT (equivalent to Ctrl+C)
+        processInfo.process.kill('SIGINT');
+        
+        setTimeout(() => {
+            // Force kill if still running after 5 seconds
+            if (flutterWebProcesses.has(repository)) {
+                processInfo.process.kill('SIGKILL');
+                flutterWebProcesses.delete(repository);
+            }
+        }, 5000);
+        
+        res.json({
+            success: true,
+            message: `Flutter process for ${repository} stopped`,
+            repository
+        });
+    } else {
+        res.json({
+            success: false,
+            message: `No running Flutter process found for ${repository}`,
+            repository
         });
     }
 });
