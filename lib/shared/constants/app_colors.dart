@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
-  // Primary brand colors
-  static const Color primary = Color(0xFF007AFF);
-  static const Color primaryDark = Color(0xFF0056CC);
-  static const Color primaryLight = Color(0xFF3395FF);
-  static const Color accent = Color(0xFF3395FF);
+  // Primary brand colors - Grayscale theme
+  static const Color primary = Color(0xFF2A2A2A); // Dark gray
+  static const Color primaryDark = Color(0xFF1A1A1A); // Darker gray
+  static const Color primaryLight = Color(0xFF3A3A3A); // Lighter gray
+  static const Color accent = Color(0xFF4A4A4A); // Medium gray accent
 
   // Background colors - Ultra dark theme
   static const Color background = Color(0xFF000000); // Pure black
@@ -32,21 +32,21 @@ class AppColors {
   static const Color terminalGreen = Color(0xFF00FF41); // Brighter green for visibility
   static const Color terminalYellow = Color(0xFFFFFF00); // Bright yellow
   static const Color terminalRed = Color(0xFFFF0051); // Bright red
-  static const Color terminalBlue = Color(0xFF0099FF); // Bright blue
-  static const Color terminalMagenta = Color(0xFFFF00FF); // Bright magenta
-  static const Color terminalCyan = Color(0xFF00FFFF); // Bright cyan
+  static const Color terminalBlue = Color(0xFFB0B0B0); // Light gray instead of blue
+  static const Color terminalMagenta = Color(0xFFFF00FF); // Keep magenta bright
+  static const Color terminalCyan = Color(0xFFE0E0E0); // Very light gray instead of cyan
 
   // Status colors
   static const Color success = Color(0xFF3FB950);
   static const Color warning = Color(0xFFD29922);
   static const Color error = Color(0xFFF85149);
-  static const Color info = Color(0xFF0969DA);
+  static const Color info = Color(0xFF6A6A6A); // Gray for info
 
-  // AI-specific colors
-  static const Color aiAccent = Color(0xFF007AFF);
-  static const Color aiSecondary = Color(0xFF0056CC);
-  static const Color aiGradientStart = Color(0xFF007AFF);
-  static const Color aiGradientEnd = Color(0xFF3395FF);
+  // AI-specific colors - Grayscale theme
+  static const Color aiAccent = Color(0xFF4A4A4A); // Medium gray
+  static const Color aiSecondary = Color(0xFF2A2A2A); // Dark gray
+  static const Color aiGradientStart = Color(0xFF3A3A3A); // Lighter gray
+  static const Color aiGradientEnd = Color(0xFF2A2A2A); // Dark gray
 
   // Syntax highlighting colors
   static const Color syntaxKeyword = Color(0xFFFF7B72);
@@ -75,20 +75,20 @@ class AppColors {
     end: Alignment.bottomCenter,
   );
 
-  // Material color swatch for theme integration
+  // Material color swatch for theme integration - Grayscale
   static const MaterialColor primarySwatch = MaterialColor(
-    0xFF007AFF,
+    0xFF2A2A2A,
     <int, Color>{
-      50: Color(0xFFE3F2FF),
-      100: Color(0xFFBBDEFF),
-      200: Color(0xFF90C9FF),
-      300: Color(0xFF64B3FF),
-      400: Color(0xFF42A4FF),
-      500: Color(0xFF007AFF),
-      600: Color(0xFF0072F5),
-      700: Color(0xFF0067EA),
-      800: Color(0xFF005CE0),
-      900: Color(0xFF004AD1),
+      50: Color(0xFFF5F5F5),
+      100: Color(0xFFE0E0E0),
+      200: Color(0xFFBDBDBD),
+      300: Color(0xFF9E9E9E),
+      400: Color(0xFF757575),
+      500: Color(0xFF2A2A2A),
+      600: Color(0xFF252525),
+      700: Color(0xFF202020),
+      800: Color(0xFF1A1A1A),
+      900: Color(0xFF0F0F0F),
     },
   );
 
@@ -119,25 +119,25 @@ class AppColors {
   static Color fileTypeColor(String extension) {
     switch (extension.toLowerCase()) {
       case '.dart':
-        return Color(0xFF0175C2);
+        return Color(0xFF8A8A8A); // Gray for Dart
       case '.js':
       case '.ts':
-        return Color(0xFFF7DF1E);
+        return Color(0xFFF7DF1E); // Keep yellow for JS/TS
       case '.py':
-        return Color(0xFF3776AB);
+        return Color(0xFF9A9A9A); // Gray for Python
       case '.java':
-        return Color(0xFFED8B00);
+        return Color(0xFFED8B00); // Keep orange for Java
       case '.cpp':
       case '.c':
-        return Color(0xFF00599C);
+        return Color(0xFF7A7A7A); // Gray for C/C++
       case '.html':
-        return Color(0xFFE34F26);
+        return Color(0xFFE34F26); // Keep red for HTML
       case '.css':
-        return Color(0xFF1572B6);
+        return Color(0xFF6A6A6A); // Gray for CSS
       case '.json':
         return Color(0xFFFFD700); // Gold for JSON on black background
       case '.md':
-        return Color(0xFF083FA1);
+        return Color(0xFF7A7A7A); // Gray for Markdown
       case '.xml':
         return Color(0xFFE37933);
       case '.yml':
@@ -158,10 +158,10 @@ class AppColors {
         return Color(0xFFCC785C);
       case 'gemini':
       case 'google':
-        return Color(0xFF4285F4);
+        return Color(0xFF6A6A6A); // Gray for Google/Gemini
       case 'local':
       case 'on-device':
-        return primary;
+        return primary; // Use our new gray primary
       default:
         return aiAccent;
     }
