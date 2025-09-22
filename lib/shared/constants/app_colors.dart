@@ -95,7 +95,7 @@ class AppColors {
     end: Alignment.bottomCenter,
   );
   
-  static const LinearGradient purpleRadialGradient = RadialGradient(
+  static const RadialGradient purpleRadialGradient = RadialGradient(
     colors: [purpleMedium, purpleDark, Color(0xFF1A0B2E)],
     stops: [0.0, 0.7, 1.0],
     center: Alignment.topLeft,
