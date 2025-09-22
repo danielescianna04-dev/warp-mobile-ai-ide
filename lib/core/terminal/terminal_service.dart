@@ -55,31 +55,33 @@ class TerminalService {
     }
   }
   
-  // AWS Session Management
+  // AWS Session Management (simplified for ECS)
   Future<void> _initializeAWSSession() async {
     try {
-      print('🌐 Initializing AWS session for user: $_userId');
+      print('🌐 Initializing ECS connection for user: $_userId');
       
-      final response = await http.post(
-        Uri.parse(AWSConfig.getEndpointUrl(AWSConfig.sessionCreateEndpoint)),
+      // Test connection with health check
+      final response = await http.get(
+        Uri.parse(AWSConfig.getEndpointUrl(AWSConfig.healthEndpoint)),
         headers: AWSConfig.getHeaders(userId: _userId),
       );
       
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        if (data['success'] == true) {
-          _sessionId = data['session']['sessionId'];
+        if (data['status'] == 'healthy') {
+          // For ECS, we don't need a session ID - just mark as connected
+          _sessionId = 'ecs-${DateTime.now().millisecondsSinceEpoch}';
           _isConnected = true;
-          print('✅ AWS session initialized: $_sessionId');
-          print('💾 Workspace: ${data['session']['workspaceDir']}');
+          print('✅ ECS connection initialized: $_sessionId');
+          print('🏥 Backend health: ${data['environment']}');
         } else {
-          throw Exception('Session creation failed: ${data['error']}');
+          throw Exception('Backend not healthy: ${data['status']}');
         }
       } else {
         throw Exception('HTTP ${response.statusCode}: ${response.body}');
       }
     } catch (e) {
-      print('❌ AWS session initialization failed: $e');
+      print('❌ ECS connection initialization failed: $e');
       _useRemoteTerminal = false;
     }
   }
@@ -318,7 +320,13 @@ class TerminalService {
   Future<CommandResult> _executeAWSCommand(String command) async {
     try {
       if (_sessionId == null) {
-        throw Exception('No AWS session available');
+        throw Exception('No ECS session available');
+      }
+
+      // Check if this is a Flutter command that needs special handling
+      if (command.toLowerCase().contains('flutter run') || 
+          (command.toLowerCase().contains('flutter') && command.toLowerCase().contains('run'))) {
+        return await _executeFlutterWebStart(command);
       }
 
       final url = AWSConfig.getEndpointUrl(AWSConfig.commandExecuteEndpoint);
@@ -327,9 +335,10 @@ class TerminalService {
         userId: _userId,
       );
 
+      // Prepare request body for ECS server format
       final requestBody = <String, dynamic>{
         'command': command,
-        'sessionId': _sessionId,
+        'workingDir': '/tmp',
       };
       
       // Include repository context if available
@@ -338,7 +347,7 @@ class TerminalService {
         print('📁 Using repository context: $_currentRepository');
       }
 
-      print('🚀 Executing AWS command: $command');
+      print('🚀 Executing ECS command: $command');
       
       final response = await http.post(
         Uri.parse(url),
@@ -356,21 +365,15 @@ class TerminalService {
         
         // Handle both successful and failed command execution
         final isSuccess = responseData['success'] == true;
-        final executor = responseData['executor'] ?? 'unknown';
-        final routing = responseData['routing'] ?? 'unknown';
+        final executor = responseData['executor'] ?? responseData['environment'] ?? 'ecs-fargate';
         final executionTime = responseData['executionTime'] ?? 0;
         final exitCode = responseData['exitCode'] ?? (isSuccess ? 0 : 1);
         
-        // Show execution info
+        // Show execution info for ECS
         String executionInfo = '';
         if (executor == 'ecs-fargate') {
           final status = isSuccess ? '✅' : '❌';
-          executionInfo = '\n$status Executed on ECS Fargate (${executionTime}ms) - Smart Routing: $routing - Exit Code: $exitCode';
-        } else if (executor == 'lambda') {
-          final status = isSuccess ? '✅' : '❌';
-          executionInfo = '\n$status Executed on AWS Lambda (${executionTime}ms) - Smart Routing: $routing - Exit Code: $exitCode';
-        } else if (executor == 'validation') {
-          executionInfo = '\n⚠️  Validation Error - $routing';
+          executionInfo = '\n$status Executed on ECS Fargate (${executionTime}ms) - Exit Code: $exitCode';
         }
         
         // Get output, fallback to error if no output available
@@ -387,8 +390,20 @@ class TerminalService {
           _exposedPorts = Map<String, String>.from(responseData['exposedPorts']);
         }
 
+        // Handle Flutter web app URL from ECS backend
+        print('🔍 Debug: Full ECS response data: $responseData');
+        if (responseData['webUrl'] != null) {
+          final webUrl = responseData['webUrl'].toString();
+          final port = responseData['port']?.toString() ?? '8080';
+          _exposedPorts['$port/tcp'] = webUrl;
+          print('🚀 Flutter web app detected at: $webUrl');
+          print('🔍 Debug: Updated exposed ports: $_exposedPorts');
+        } else {
+          print('⚠️ Debug: No webUrl found in response');
+        }
+
         // Check if web server was detected
-        if (responseData['webServerDetected'] == true) {
+        if (responseData['webServerDetected'] == true || responseData['webUrl'] != null) {
           print('🚀 Web server detected! Ports: $_exposedPorts');
         }
 
@@ -405,6 +420,74 @@ class TerminalService {
       print('❌ AWS command execution error: $e');
       return CommandResult(
         output: 'AWS command execution error: $e',
+        isSuccess: false,
+        isClearCommand: false,
+      );
+    }
+  }
+  
+  // Special handler for Flutter web commands
+  Future<CommandResult> _executeFlutterWebStart(String command) async {
+    try {
+      print('\ud83d\ude80 Executing Flutter web start command: $command');
+      
+      final url = '${AWSConfig.apiBaseUrl}/flutter/web/start';
+      final headers = AWSConfig.getHeaders(
+        sessionId: _sessionId,
+        userId: _userId,
+      );
+
+      // Prepare request for Flutter web start endpoint
+      final requestBody = <String, dynamic>{
+        'repository': _currentRepository ?? 'flutter-app',
+        'port': 8080,
+      };
+      
+      print('\ud83d\udcc1 Starting Flutter web for repository: ${_currentRepository ?? 'flutter-app'}');
+      
+      final response = await http.post(
+        Uri.parse(url),
+        headers: headers,
+        body: json.encode(requestBody),
+      ).timeout(
+        AWSConfig.commandTimeout,
+        onTimeout: () {
+          throw Exception('Flutter web start timed out');
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        
+        final isSuccess = responseData['success'] == true;
+        final webUrl = responseData['url']?.toString();
+        final port = responseData['port']?.toString() ?? '8080';
+        final message = responseData['message'] ?? 'Flutter web app started';
+        
+        String commandOutput = message;
+        
+        // Handle web URL from Flutter web start
+        if (webUrl != null) {
+          _exposedPorts['$port/tcp'] = webUrl;
+          commandOutput += '\n\ud83d\ude80 Flutter web app available at: $webUrl';
+          print('\ud83d\ude80 Flutter web app detected at: $webUrl');
+          print('\ud83d\udd0d Debug: Updated exposed ports: $_exposedPorts');
+        }
+        
+        final result = CommandResult(
+          output: commandOutput + '\n\u2705 Executed on ECS Fargate - Flutter Web Specialized',
+          isSuccess: isSuccess,
+          isClearCommand: false,
+        );
+
+        return result;
+      } else {
+        throw Exception('HTTP ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      print('\u274c Flutter web start failed: $e');
+      return CommandResult(
+        output: 'Error starting Flutter web app: $e',
         isSuccess: false,
         isClearCommand: false,
       );

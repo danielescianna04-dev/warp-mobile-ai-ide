@@ -1,0 +1,40 @@
+{
+  "name": "warp-mobile-ai-ide-build",
+  "description": "Build and deploy Warp Mobile AI IDE ECS image",
+  "source": {
+    "type": "S3",
+    "location": "warp-mobile-ai-ide-builds-1758495048/warp-backend-updated.zip"
+  },
+  "artifacts": {
+    "type": "NO_ARTIFACTS"
+  },
+  "environment": {
+    "type": "LINUX_CONTAINER",
+    "image": "aws/codebuild/amazonlinux2-x86_64-standard:3.0",
+    "computeType": "BUILD_GENERAL1_MEDIUM",
+    "privilegedMode": true,
+    "environmentVariables": [
+      {
+        "name": "AWS_DEFAULT_REGION",
+        "value": "us-east-1"
+      },
+      {
+        "name": "AWS_ACCOUNT_ID",
+        "value": "703686967361"
+      },
+      {
+        "name": "IMAGE_REPO_NAME",
+        "value": "warp-mobile-ai-ide"
+      },
+      {
+        "name": "ECS_CLUSTER_NAME",
+        "value": "warp-mobile-ai-ide-prod-cluster"
+      },
+      {
+        "name": "ECS_SERVICE_NAME",
+        "value": "warp-mobile-ai-ide-prod-ecs-service"
+      }
+    ]
+  },
+  "serviceRole": "arn:aws:iam::703686967361:role/codebuild-service-role"
+}

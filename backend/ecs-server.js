@@ -94,6 +94,35 @@ app.get('/health', (req, res) => {
     });
 });
 
+// Serve Flutter Web apps statically
+app.use('/app/:repository', (req, res, next) => {
+    const repository = req.params.repository;
+    const appDir = `/tmp/public/${repository}`;
+    
+    // Check if app exists
+    if (!fs.existsSync(appDir)) {
+        return res.status(404).json({
+            error: `Flutter app '${repository}' not found. Did you run /flutter/web/start first?`
+        });
+    }
+    
+    express.static(appDir)(req, res, next);
+});
+
+// Default route for Flutter Web apps (serve index.html)
+app.get('/app/:repository', (req, res) => {
+    const repository = req.params.repository;
+    const indexPath = `/tmp/public/${repository}/index.html`;
+    
+    if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+    } else {
+        res.status(404).json({
+            error: `Flutter app '${repository}' not found. Did you run /flutter/web/start first?`
+        });
+    }
+});
+
 // Endpoint per eseguire comandi pesanti
 app.post('/execute-heavy', async (req, res) => {
     const { command, workingDir = '/tmp', repository = null } = req.body;
@@ -297,11 +326,67 @@ app.post('/flutter/web/start', async (req, res) => {
             fs.mkdirSync(repoDir, { recursive: true });
         }
         
-        // Initialize Flutter project if needed
+        // Try to clone repository if it looks like a GitHub repo and doesn't exist
         if (!fs.existsSync(path.join(repoDir, 'pubspec.yaml'))) {
-            console.log('Initializing Flutter web project...');
-            const initResult = await executeCommand(`cd ${repoDir} && flutter create . --project-name ${repository.replace(/[^a-zA-Z0-9_]/g, '_')} --overwrite`, '/tmp');
-            console.log('Flutter project initialized for web');
+            // Check if this looks like it could be a GitHub repository
+            if (repository.includes('-') || repository.includes('_')) {
+                console.log(`🔍 Attempting to clone repository: ${repository}`);
+                try {
+                    // Try to clone from GitHub
+                    const githubUsername = process.env.GITHUB_USERNAME || 'getmad';
+                    const githubToken = process.env.GITHUB_TOKEN;
+                    
+                    let githubUrl;
+                    if (githubToken) {
+                        // Use authenticated URL for private repositories
+                        githubUrl = `https://${githubToken}@github.com/${githubUsername}/${repository}.git`;
+                        console.log(`🔄 Cloning private repository from GitHub...`);
+                    } else {
+                        // Use public URL
+                        githubUrl = `https://github.com/${githubUsername}/${repository}.git`;
+                        console.log(`🔄 Cloning public repository from: https://github.com/${githubUsername}/${repository}.git`);
+                    }
+                    
+                    // Remove existing directory if it exists but is empty
+                    if (fs.existsSync(repoDir)) {
+                        await executeCommand(`rm -rf ${repoDir}`, '/tmp');
+                    }
+                    
+                    const cloneResult = await executeCommand(`git clone ${githubUrl} ${repoDir}`, '/tmp');
+                    console.log('✅ Repository cloned successfully:', cloneResult.stdout);
+                    
+                    // Verify that pubspec.yaml exists after cloning
+                    if (!fs.existsSync(path.join(repoDir, 'pubspec.yaml'))) {
+                        throw new Error('Cloned repository does not contain pubspec.yaml');
+                    }
+                    
+                    // Fetch Flutter dependencies
+                    console.log('📦 Installing Flutter dependencies...');
+                    await executeCommand(`cd ${repoDir} && flutter pub get`, '/tmp');
+                    console.log('✅ Flutter dependencies installed');
+                    
+                    // Enable web support (in case it's not enabled)
+                    console.log('🌍 Ensuring Flutter web support is enabled...');
+                    await executeCommand('flutter config --enable-web', '/tmp');
+                    console.log('✅ Flutter web support confirmed');
+                } catch (cloneError) {
+                    console.log(`⚠️ Failed to clone repository: ${cloneError.message}`);
+                    console.log('🔄 Falling back to creating new Flutter project');
+                    
+                    // Fallback: create new Flutter project
+                    if (!fs.existsSync(repoDir)) {
+                        fs.mkdirSync(repoDir, { recursive: true });
+                    }
+                    const initResult = await executeCommand(`cd ${repoDir} && flutter create . --project-name ${repository.replace(/[^a-zA-Z0-9_]/g, '_')} --overwrite`, '/tmp');
+                    console.log('Flutter project initialized for web');
+                }
+            } else {
+                console.log('Initializing Flutter web project...');
+                const initResult = await executeCommand(`cd ${repoDir} && flutter create . --project-name ${repository.replace(/[^a-zA-Z0-9_]/g, '_')} --overwrite`, '/tmp');
+                console.log('Flutter project initialized for web');
+            }
+        } else {
+            console.log(`✅ Found existing Flutter project in ${repoDir}`);
         }
         
         // Check if already running
@@ -337,13 +422,24 @@ app.post('/flutter/web/start', async (req, res) => {
             console.log('Error checking Flutter devices:', e.message);
         }
         
-        // Build Flutter web app and serve with Python HTTP server
+        // Build Flutter web app and copy to public directory
         console.log('Building Flutter web app...');
         await executeCommand(`cd ${repoDir} && flutter build web --verbose`, repoDir);
         console.log('Flutter web build completed');
         
-        // Start Python HTTP server to serve built web app
-        const flutterCommand = `cd ${repoDir}/build/web && python3 -m http.server ${port} --bind 0.0.0.0`;
+        // Copy build to express public directory
+        const publicDir = '/tmp/public';
+        if (!fs.existsSync(publicDir)) {
+            fs.mkdirSync(publicDir, { recursive: true });
+        }
+        
+        // Copy Flutter web build to public directory with repository name
+        const repoPublicDir = `/tmp/public/${repository}`;
+        await executeCommand(`cp -r ${repoDir}/build/web ${repoPublicDir}`, repoDir);
+        console.log(`Flutter web app copied to ${repoPublicDir}`);
+        
+        // Instead of Python server, we'll serve via Express static route
+        const flutterCommand = `echo "Flutter web build ready at ${repoPublicDir}"`;
         console.log(`Starting web server with command: ${flutterCommand}`);
         
         const webProcess = spawn('bash', ['-c', flutterCommand], {
@@ -416,18 +512,13 @@ app.post('/flutter/web/start', async (req, res) => {
             webProcess.stderr.on('data', checkOutput);
         });
         
-        // Get public IP of ECS task
+        // Use Load Balancer URL instead of IP:port
+        const loadBalancerUrl = 'http://warp-flutter-alb-1904513476.us-west-2.elb.amazonaws.com';
+        const webUrl = `${loadBalancerUrl}/app/${repository}`;
+        console.log(`🌐 Final Flutter URL: ${webUrl}`);
+        console.log(`📦 App available at: ${webUrl}`);
+        
         const publicIP = await getTaskPublicIP();
-        console.log(`🌐 Task public IP: ${publicIP}`);
-        
-        // Create web URL with public IP
-        let webUrl = `http://localhost:${port}`;
-        
-        // Replace localhost with public IP if available
-        if (publicIP) {
-            webUrl = `http://${publicIP}:${port}`;
-            console.log(`🌐 Updated web URL with public IP: ${webUrl}`);
-        }
         
         res.json({
             success: true,

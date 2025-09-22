@@ -1,18 +1,18 @@
 /// AWS Configuration for Production Deployment
 class AWSConfig {
-  // AWS API Gateway Configuration - NEW HYBRID BACKEND
-  static const String apiBaseUrl = 'https://o571gs6nb7.execute-api.us-east-1.amazonaws.com/prod';
-  static const String wsBaseUrl = 'wss://o571gs6nb7.execute-api.us-east-1.amazonaws.com/prod';
+  // AWS ECS Load Balancer Configuration - UPDATED FOR ECS FARGATE DEPLOYMENT
+  static const String apiBaseUrl = 'http://warp-mobile-ai-ide-prod-alb-1532835213.us-east-1.elb.amazonaws.com';
+  static const String wsBaseUrl = 'ws://warp-mobile-ai-ide-prod-alb-1532835213.us-east-1.elb.amazonaws.com';
   
-  // API Endpoints
+  // API Endpoints (mapped to ECS server endpoints)
   static const String healthEndpoint = '/health';
-  static const String sessionCreateEndpoint = '/session/create';
-  static const String commandExecuteEndpoint = '/command/execute';
-  static const String aiChatEndpoint = '/ai/chat';
-  static const String aiAgentEndpoint = '/ai/agent';
-  static const String filesListEndpoint = '/files/list';
-  static const String filesReadEndpoint = '/files/read';
-  static const String filesWriteEndpoint = '/files/write';
+  static const String sessionCreateEndpoint = '/health'; // No session needed for ECS, use health as placeholder
+  static const String commandExecuteEndpoint = '/execute-heavy';
+  static const String aiChatEndpoint = '/ai/chat'; // Not implemented yet in ECS
+  static const String aiAgentEndpoint = '/ai/agent'; // Not implemented yet in ECS
+  static const String filesListEndpoint = '/files/list'; // Not implemented yet in ECS
+  static const String filesReadEndpoint = '/files/read'; // Not implemented yet in ECS
+  static const String filesWriteEndpoint = '/files/write'; // Not implemented yet in ECS
   
   // Configuration flags
   static const bool useAWS = true;

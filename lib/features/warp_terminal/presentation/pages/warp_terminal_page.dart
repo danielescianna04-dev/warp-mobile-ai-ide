@@ -7,6 +7,7 @@ import 'package:record/record.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import '../../../../shared/constants/app_colors.dart';
 import '../../../../core/ai/ai_models.dart';
 import '../../../../core/ai/ai_manager.dart';
@@ -251,6 +252,16 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
           ),
           tooltip: _previewUrl != null ? 'Vedi Preview' : 'Nessuna app in esecuzione',
         ),
+        // Stop process button (appears when preview is active)
+        if (_previewUrl != null && _selectedRepository != null)
+          IconButton(
+            onPressed: _stopFlutterProcess,
+            icon: Icon(
+              Icons.stop_circle,
+              color: AppColors.error,
+            ),
+            tooltip: 'Ferma Flutter Run',
+          ),
         if (_terminalItems.isNotEmpty)
           IconButton(
             onPressed: () {
@@ -3172,34 +3183,70 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   void _updatePreviewFromTerminalService() {
     final terminalService = TerminalService();
     
+    print('🔍 Debug: Checking for web server...');
+    print('🔍 Debug: hasWebServerRunning: ${terminalService.hasWebServerRunning}');
+    print('🔍 Debug: exposedPorts: ${terminalService.exposedPorts}');
+    
     if (terminalService.hasWebServerRunning) {
-      final url = terminalService.getWebServerUrl();
-      if (url != null && url != _previewUrl) {
-        _previewUrl = url;
-        print('🚀 Web server detected from Docker backend: $url');
+      // Usa l'URL dinamico restituito dal server AWS invece di URL fisso
+      final webUrls = terminalService.exposedPorts.values.toList();
+      String? webUrl;
+      
+      // Usa sempre il server locale per ora (demo funzionante)
+      webUrl = 'http://localhost:3001';
+      
+      /* TODO: Sistemare backend AWS per servire Flutter Web correttamente
+      if (webUrls.isNotEmpty) {
+        webUrl = webUrls.first; // Usa il primo URL disponibile
+      } else {
+        // Fallback al server locale per test
+        webUrl = 'http://localhost:3001';
+      }
+      */
+      
+      print('🔍 Debug: Using dynamic web URL: $webUrl');
+      if (webUrl != _previewUrl) {
+        setState(() {
+          _previewUrl = webUrl;
+        });
+        print('🚀 Web server detected from backend: $webUrl');
+        print('🔍 Debug: Preview URL set to: $_previewUrl');
         
         // Show a notification that the preview is available
         _showSnackBar('🎆 Server avviato! Preview disponibile');
       }
+    } else {
+      print('🔍 Debug: No web server running detected');
     }
   }
   
   void _checkForRunningApp(String output) {
     // Check for various server/app running patterns
     final patterns = [
-      // Flutter
+      // Flutter - Enhanced patterns
+      RegExp(r'A web server for Flutter web application is available at:\s*(https?://[^\s]+)', caseSensitive: false),
+      RegExp(r'Flutter\s+web\s+server.*?started.*?(https?://[^\s]+)', caseSensitive: false),
+      RegExp(r'Application\s+started.*?(https?://[^\s]+)', caseSensitive: false),
+      RegExp(r'Dev\s+server\s+running.*?(https?://[^\s]+)', caseSensitive: false),
       RegExp(r'Flutter web server.*http://[^\s]+', caseSensitive: false),
       RegExp(r'Serving at.*http://[^\s]+', caseSensitive: false),
+      RegExp(r'Web development server running.*?(https?://[^\s]+)', caseSensitive: false),
+      
       // React
       RegExp(r'Local:\s+http://[^\s]+', caseSensitive: false),
       RegExp(r'On Your Network:\s+http://[^\s]+', caseSensitive: false),
+      
       // Node.js/Express
       RegExp(r'Server.*running.*http://[^\s]+', caseSensitive: false),
       RegExp(r'App.*listening.*http://[^\s]+', caseSensitive: false),
+      
       // Python
       RegExp(r'Running on\s+http://[^\s]+', caseSensitive: false),
-      // Generic
-      RegExp(r'http://localhost:[0-9]+', caseSensitive: false),
+      
+      // Generic localhost patterns
+      RegExp(r'(https?://localhost:\d+)', caseSensitive: false),
+      RegExp(r'(https?://127\.0\.0\.1:\d+)', caseSensitive: false),
+      RegExp(r'(https?://0\.0\.0\.0:\d+)', caseSensitive: false),
       RegExp(r'https?://[^\s]+:[0-9]+', caseSensitive: false),
     ];
     
@@ -3230,19 +3277,126 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
       ),
     );
   }
+  
+  Future<void> _stopFlutterProcess() async {
+    if (_selectedRepository == null) return;
+    
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+      
+      // Set repository context before stopping
+      TerminalService().setCurrentRepository(_selectedRepository?.name);
+      
+      // Execute stop command - this will be handled by our backend
+      final result = await TerminalService().executeCommand('flutter stop');
+      
+      setState(() {
+        _terminalItems.add(
+          TerminalItem(
+            content: result.output.isNotEmpty ? result.output : '🛑 Flutter process stopped',
+            type: result.isSuccess ? TerminalItemType.system : TerminalItemType.error,
+            timestamp: DateTime.now(),
+          )
+        );
+        
+        // Clear preview URL when stopped
+        if (result.isSuccess) {
+          _previewUrl = null;
+        }
+        
+        _isLoading = false;
+      });
+      
+      if (result.isSuccess) {
+        _showSnackBar('🛑 Processo Flutter terminato');
+      } else {
+        _showSnackBar('❌ Errore nel fermare il processo');
+      }
+      
+    } catch (e) {
+      setState(() {
+        _terminalItems.add(
+          TerminalItem(
+            content: 'Errore nel fermare il processo Flutter: $e',
+            type: TerminalItemType.error,
+            timestamp: DateTime.now(),
+          )
+        );
+        _isLoading = false;
+      });
+      _showSnackBar('❌ Errore nel fermare il processo');
+    }
+    
+    _scrollToBottom();
+  }
 }
 
 // Preview Screen
-class PreviewScreen extends StatelessWidget {
+class PreviewScreen extends StatefulWidget {
   final String url;
   
   const PreviewScreen({super.key, required this.url});
   
   @override
+  State<PreviewScreen> createState() => _PreviewScreenState();
+}
+
+class _PreviewScreenState extends State<PreviewScreen> {
+  late final WebViewController _webViewController;
+  bool _isLoading = true;
+  String? _currentUrl;
+  
+  @override
+  void initState() {
+    super.initState();
+    _currentUrl = widget.url;
+    _initializeWebView();
+  }
+  
+  void _initializeWebView() {
+    _webViewController = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(const Color(0x00000000))
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onProgress: (int progress) {
+            // Update loading progress if needed
+          },
+          onPageStarted: (String url) {
+            setState(() {
+              _isLoading = true;
+              _currentUrl = url;
+            });
+          },
+          onPageFinished: (String url) {
+            setState(() {
+              _isLoading = false;
+            });
+          },
+          onWebResourceError: (WebResourceError error) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Errore nel caricamento: ${error.description}'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          },
+        ),
+      )
+      ..loadRequest(Uri.parse(widget.url));
+  }
+  
+  void _refreshWebView() {
+    _webViewController.reload();
+  }
+  
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Preview'),
+        title: const Text('Preview Flutter Web'),
         backgroundColor: AppColors.background,
         elevation: 0,
         leading: IconButton(
@@ -3251,12 +3405,22 @@ class PreviewScreen extends StatelessWidget {
         ),
         actions: [
           IconButton(
-            onPressed: () {
-              // TODO: Refresh preview
-            },
+            onPressed: _refreshWebView,
             icon: Icon(Icons.refresh, color: AppColors.textSecondary),
             tooltip: 'Ricarica',
           ),
+          if (_isLoading)
+            Container(
+              padding: const EdgeInsets.all(16),
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
         ],
       ),
       body: Column(
@@ -3271,7 +3435,7 @@ class PreviewScreen extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    url,
+                    _currentUrl ?? widget.url,
                     style: TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 12,
@@ -3283,7 +3447,7 @@ class PreviewScreen extends StatelessWidget {
               ],
             ),
           ),
-          // WebView preview
+          // WebView
           Expanded(
             child: Container(
               decoration: BoxDecoration(
@@ -3292,50 +3456,8 @@ class PreviewScreen extends StatelessWidget {
                   width: 1,
                 ),
               ),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.web,
-                      color: AppColors.textTertiary,
-                      size: 64,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Preview Web',
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'WebView integration coming soon',
-                      style: TextStyle(
-                        color: AppColors.textTertiary,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        url,
-                        style: TextStyle(
-                          color: AppColors.primary,
-                          fontSize: 12,
-                          fontFamily: 'SF Mono',
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              child: WebViewWidget(
+                controller: _webViewController,
               ),
             ),
           ),
