@@ -293,16 +293,23 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
                   Row(
                     children: [
                       Container(
-                        width: 40,
-                        height: 40,
+                        width: 44,
+                        height: 44,
                         decoration: BoxDecoration(
-                          gradient: AppColors.aiGradient,
-                          borderRadius: BorderRadius.circular(12),
+                          gradient: AppColors.purpleGradient,
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.purpleMedium.withValues(alpha: 0.4),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
                         child: const Icon(
                           Icons.terminal,
                           color: Colors.white,
-                          size: 20,
+                          size: 22,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -376,17 +383,31 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
                   // New chat button
                   SizedBox(
                     width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: _startNewChat,
-                      icon: const Icon(Icons.add, size: 16),
-                      label: const Text('Nuova Chat'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: AppColors.purpleGradient,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.purpleMedium.withValues(alpha: 0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: ElevatedButton.icon(
+                        onPressed: _startNewChat,
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text('Nuova Chat'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          foregroundColor: Colors.white,
+                          shadowColor: Colors.transparent,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                     ),
                   ),
@@ -595,127 +616,105 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
         ),
         const SizedBox(height: 12),
         if (_isGitHubConnected && _gitHubUsername != null) ...[
-          // User info
+          // User info - Elegant design
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.success.withValues(alpha: 0.15),
-                  AppColors.success.withValues(alpha: 0.05),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(16),
+              color: AppColors.surface.withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: AppColors.success.withValues(alpha: 0.2),
+                color: AppColors.textSecondary.withValues(alpha: 0.1),
                 width: 1,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.success.withValues(alpha: 0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
             ),
             child: Row(
               children: [
-                Stack(
-                  children: [
-                    CircleAvatar(
-                      radius: 22,
-                      backgroundColor: AppColors.primary,
-                      backgroundImage: _gitHubUser?.avatarUrl != null 
-                          ? NetworkImage(_gitHubUser!.avatarUrl) 
-                          : null,
-                      child: _gitHubUser?.avatarUrl == null 
-                          ? Text(
-                              _gitHubUsername?.substring(0, 1).toUpperCase() ?? 'U',
-                              style: const TextStyle(
-                                color: Colors.white, 
-                                fontWeight: FontWeight.bold,
-                                fontSize: 18,
-                              ),
-                            )
-                          : null,
+                // Avatar with subtle ring
+                Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: AppColors.primary.withValues(alpha: 0.3),
+                      width: 1.5,
                     ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(3),
-                        decoration: BoxDecoration(
-                          color: AppColors.success,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: AppColors.background,
-                            width: 2,
-                          ),
-                        ),
-                        child: const Icon(
-                          Icons.check,
-                          size: 10,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
+                  child: CircleAvatar(
+                    radius: 16,
+                    backgroundColor: AppColors.primary,
+                    backgroundImage: _gitHubUser?.avatarUrl != null 
+                        ? NetworkImage(_gitHubUser!.avatarUrl) 
+                        : null,
+                    child: _gitHubUser?.avatarUrl == null 
+                        ? Text(
+                            _gitHubUsername?.substring(0, 1).toUpperCase() ?? 'U',
+                            style: const TextStyle(
+                              color: Colors.white, 
+                              fontWeight: FontWeight.bold, 
+                              fontSize: 14
+                            ),
+                          )
+                        : null,
+                  ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (_gitHubUser?.name != null)
-                        Text(
-                          _gitHubUser!.name!,
-                          style: TextStyle(
-                            color: AppColors.textPrimary,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.2,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      Text(
-                        '@$_gitHubUsername',
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppColors.success.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.verified_rounded,
-                              size: 10,
-                              color: AppColors.success,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Connesso',
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              _gitHubUser?.name ?? '@$_gitHubUsername',
                               style: TextStyle(
-                                color: AppColors.success,
-                                fontSize: 10,
+                                color: AppColors.textPrimary,
+                                fontSize: 13,
                                 fontWeight: FontWeight.w600,
+                                height: 1.2,
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(width: 6),
+                          // Online status indicator
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: AppColors.success,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ],
                       ),
+                      if (_gitHubUser?.name != null) ...[
+                        const SizedBox(height: 1),
+                        Text(
+                          '@$_gitHubUsername',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 11,
+                            height: 1.2,
+                          ),
+                        ),
+                      ],
                     ],
+                  ),
+                ),
+                // Verified badge with better icon
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: AppColors.success.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Icon(
+                    Icons.verified, 
+                    color: AppColors.success, 
+                    size: 12
                   ),
                 ),
               ],
@@ -823,226 +822,125 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
     final isSelected = _selectedRepository?.id == repo.id;
     
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
-        elevation: isSelected ? 2 : 0,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: () {
-            setState(() {
-              _selectedRepository = isSelected ? null : repo;
-            });
-            if (!isSelected) {
-              _showSnackBar('📁 Selezionata repository: ${repo.name}');
-            }
-          },
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: isSelected 
-                  ? LinearGradient(
-                      colors: [
-                        AppColors.primary.withValues(alpha: 0.15),
-                        AppColors.primary.withValues(alpha: 0.05),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    )
-                  : LinearGradient(
-                      colors: [
-                        AppColors.surface.withValues(alpha: 0.8),
-                        AppColors.surfaceVariant.withValues(alpha: 0.4),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: isSelected 
-                    ? AppColors.primary.withValues(alpha: 0.4)
-                    : AppColors.border.withValues(alpha: 0.1),
-                width: isSelected ? 2 : 1,
-              ),
-              boxShadow: isSelected ? [
-                BoxShadow(
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ] : [
-                BoxShadow(
-                  color: AppColors.background.withValues(alpha: 0.1),
-                  blurRadius: 4,
-                  offset: const Offset(0, 1),
-                ),
-              ],
+      margin: const EdgeInsets.only(bottom: 6),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () {
+          setState(() {
+            _selectedRepository = isSelected ? null : repo;
+          });
+          if (!isSelected) {
+            _showSnackBar('📁 Selezionata repository: ${repo.name}');
+          }
+        },
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: isSelected 
+                ? AppColors.primary.withValues(alpha: 0.1)
+                : AppColors.surface.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isSelected 
+                  ? AppColors.primary.withValues(alpha: 0.3)
+                  : Colors.transparent,
+              width: 1,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header with repo name and privacy icon
-                Row(
+          ),
+          child: Row(
+            children: [
+              // Icon
+              Icon(
+                repo.isPrivate ? Icons.lock : Icons.public,
+                size: 14,
+                color: repo.isPrivate ? AppColors.primary : AppColors.success,
+              ),
+              const SizedBox(width: 8),
+              
+              // Content
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: repo.isPrivate 
-                            ? AppColors.primary.withValues(alpha: 0.15)
-                            : AppColors.success.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        repo.isPrivate ? Icons.lock_rounded : Icons.folder_open_rounded,
-                        size: 16,
-                        color: repo.isPrivate ? AppColors.primary : AppColors.success,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
+                    // Name and language
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
                             repo.name,
                             style: TextStyle(
                               color: AppColors.textPrimary,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: -0.2,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          if (repo.isPrivate) 
-                            Container(
-                              margin: const EdgeInsets.only(top: 2),
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: AppColors.primary.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                'Private',
-                                style: TextStyle(
-                                  color: AppColors.primary,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
+                        ),
+                        if (repo.language != null) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: _getLanguageColor(repo.language!),
+                              shape: BoxShape.circle,
                             ),
-                        ],
-                      ),
-                    ),
-                    if (isSelected)
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.check_rounded,
-                          size: 14,
-                          color: Colors.white,
-                        ),
-                      ),
-                  ],
-                ),
-                
-                // Description
-                if (repo.description != null && repo.description!.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    repo.description!,
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 12,
-                      height: 1.4,
-                      letterSpacing: 0.1,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-                
-                // Language and stats
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    if (repo.language != null) ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: _getLanguageColor(repo.language!).withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: _getLanguageColor(repo.language!).withValues(alpha: 0.3),
-                            width: 1,
                           ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: _getLanguageColor(repo.language!),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              repo.language!,
-                              style: TextStyle(
-                                color: _getLanguageColor(repo.language!),
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                    ],
-                    
-                    const Spacer(),
-                    
-                    if (repo.stargazersCount > 0) ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppColors.textTertiary.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.star_rounded, 
-                              size: 12, 
+                          const SizedBox(width: 4),
+                          Text(
+                            repo.language!,
+                            style: TextStyle(
                               color: AppColors.textSecondary,
+                              fontSize: 10,
                             ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${repo.stargazersCount}',
-                              style: TextStyle(
-                                color: AppColors.textSecondary,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
+                          ),
+                        ],
+                      ],
+                    ),
+                    
+                    // Description (if exists)
+                    if (repo.description != null && repo.description!.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        repo.description!,
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 10,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ],
                 ),
-              ],
-            ),
+              ),
+              
+              // Selection indicator and stars
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (repo.stargazersCount > 0) ...[
+                    Icon(Icons.star_outline, size: 10, color: AppColors.textTertiary),
+                    const SizedBox(width: 2),
+                    Text(
+                      '${repo.stargazersCount}',
+                      style: TextStyle(
+                        color: AppColors.textTertiary,
+                        fontSize: 9,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  if (isSelected)
+                    Icon(
+                      Icons.check,
+                      size: 12,
+                      color: AppColors.primary,
+                    ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
@@ -1084,15 +982,21 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 80,
-              height: 80,
+              width: 90,
+              height: 90,
               decoration: BoxDecoration(
-                gradient: AppColors.aiGradient,
-                borderRadius: BorderRadius.circular(20),
+                gradient: AppColors.purpleGradient,
+                borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.3),
-                    blurRadius: 12,
+                    color: AppColors.purpleMedium.withValues(alpha: 0.4),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                    spreadRadius: 2,
+                  ),
+                  BoxShadow(
+                    color: AppColors.violetLight.withValues(alpha: 0.2),
+                    blurRadius: 40,
                     offset: const Offset(0, 4),
                   ),
                 ],
@@ -1100,7 +1004,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
               child: const Icon(
                 Icons.terminal,
                 color: Colors.white,
-                size: 40,
+                size: 44,
               ),
             ),
             const SizedBox(height: 20),
@@ -1124,21 +1028,35 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
             ),
             const SizedBox(height: 24),
             Container(
-              constraints: const BoxConstraints(maxWidth: 280),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              constraints: const BoxConstraints(maxWidth: 320),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
               decoration: BoxDecoration(
-                color: AppColors.surface.withValues(alpha: 0.7),
-                borderRadius: BorderRadius.circular(12),
+                gradient: AppColors.cardGradient,
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: AppColors.border.withValues(alpha: 0.3),
+                  color: AppColors.purpleMedium.withValues(alpha: 0.2),
                   width: 1,
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.purpleMedium.withValues(alpha: 0.1),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.auto_awesome, color: AppColors.primary, size: 16),
-                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      gradient: AppColors.purpleGradient,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.auto_awesome, color: Colors.white, size: 14),
+                  ),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1484,10 +1402,17 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
           ),
           child: Container(
             decoration: BoxDecoration(
-              color: AppColors.surface.withValues(alpha: 0.95),
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.surface.withValues(alpha: 0.95),
+                  AppColors.surface.withValues(alpha: 0.85),
+                ],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
               borderRadius: BorderRadius.circular(25),
               border: Border.all(
-                color: AppColors.border.withValues(alpha: 0.1),
+                color: AppColors.purpleMedium.withValues(alpha: 0.1),
                 width: 1,
               ),
               boxShadow: [
@@ -1497,7 +1422,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
                   offset: const Offset(0, 4),
                 ),
                 BoxShadow(
-                  color: AppColors.primary.withValues(alpha: 0.1),
+                  color: AppColors.purpleMedium.withValues(alpha: 0.08),
                   blurRadius: 40,
                   offset: const Offset(0, 8),
                 ),
@@ -1575,24 +1500,30 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
                         },
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
-                          width: 36,
-                          height: 36,
+                          width: 40,
+                          height: 40,
                           decoration: BoxDecoration(
                             gradient: _commandController.text.trim().isNotEmpty
-                              ? AppColors.aiGradient
+                              ? AppColors.purpleGradient
                               : LinearGradient(
                                   colors: [
                                     AppColors.textTertiary.withValues(alpha: 0.3),
                                     AppColors.textTertiary.withValues(alpha: 0.2),
                                   ],
                                 ),
-                            borderRadius: BorderRadius.circular(18),
+                            borderRadius: BorderRadius.circular(20),
                             boxShadow: _commandController.text.trim().isNotEmpty
                               ? [
                                   BoxShadow(
-                                    color: AppColors.primary.withValues(alpha: 0.4),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
+                                    color: AppColors.purpleMedium.withValues(alpha: 0.4),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 3),
+                                    spreadRadius: 1,
+                                  ),
+                                  BoxShadow(
+                                    color: AppColors.violetLight.withValues(alpha: 0.2),
+                                    blurRadius: 20,
+                                    offset: const Offset(0, 5),
                                   ),
                                 ]
                               : [],
@@ -1654,15 +1585,15 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 gradient: _isTerminalMode
-                  ? AppColors.aiGradient
+                  ? AppColors.violetGradient
                   : null,
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: _isTerminalMode
                   ? [
                       BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.3),
-                        blurRadius: 4,
-                        offset: const Offset(0, 1),
+                        color: AppColors.violetLight.withValues(alpha: 0.4),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
                       ),
                     ]
                   : [],
@@ -1716,15 +1647,15 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 gradient: !_isTerminalMode
-                  ? AppColors.aiGradient
+                  ? AppColors.purpleGradient
                   : null,
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: !_isTerminalMode
                   ? [
                       BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.3),
-                        blurRadius: 4,
-                        offset: const Offset(0, 1),
+                        color: AppColors.purpleMedium.withValues(alpha: 0.4),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
                       ),
                     ]
                   : [],
@@ -1819,7 +1750,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
             height: 30,
             decoration: BoxDecoration(
               gradient: isActive
-                ? AppColors.aiGradient
+                ? AppColors.violetGradient
                 : LinearGradient(
                     colors: [
                       AppColors.background.withValues(alpha: 0.4),
@@ -1830,8 +1761,8 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
               boxShadow: isActive
                 ? [
                     BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.4),
-                      blurRadius: 6,
+                      color: AppColors.violetLight.withValues(alpha: 0.4),
+                      blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
                   ]

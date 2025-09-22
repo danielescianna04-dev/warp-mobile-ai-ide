@@ -42,11 +42,18 @@ class AppColors {
   static const Color error = Color(0xFFF85149);
   static const Color info = Color(0xFF6A6A6A); // Gray for info
 
-  // AI-specific colors - Grayscale theme
-  static const Color aiAccent = Color(0xFF4A4A4A); // Medium gray
-  static const Color aiSecondary = Color(0xFF2A2A2A); // Dark gray
-  static const Color aiGradientStart = Color(0xFF3A3A3A); // Lighter gray
-  static const Color aiGradientEnd = Color(0xFF2A2A2A); // Dark gray
+  // AI-specific colors - Purple/violet theme
+  static const Color aiAccent = Color(0xFF8B5CF6); // Purple accent
+  static const Color aiSecondary = Color(0xFF6366F1); // Indigo
+  static const Color aiGradientStart = Color(0xFF8B5CF6); // Purple
+  static const Color aiGradientEnd = Color(0xFF6366F1); // Indigo
+  
+  // Additional purple gradient colors
+  static const Color purpleLight = Color(0xFFA855F7); // Light purple
+  static const Color purpleMedium = Color(0xFF8B5CF6); // Medium purple
+  static const Color purpleDark = Color(0xFF6D28D9); // Dark purple
+  static const Color violetLight = Color(0xFF8B5CF6); // Light violet
+  static const Color violetDark = Color(0xFF5B21B6); // Dark violet
 
   // Syntax highlighting colors
   static const Color syntaxKeyword = Color(0xFFFF7B72);
@@ -62,7 +69,7 @@ class AppColors {
   static const Color border = Color(0xFF1A1A1A); // Darker borders
   static const Color shadow = Color(0x4D000000); // Stronger shadow for definition
 
-  // Gradients
+  // Gradients - Purple/violet theme
   static const LinearGradient aiGradient = LinearGradient(
     colors: [aiGradientStart, aiGradientEnd],
     begin: Alignment.topLeft,
@@ -71,6 +78,43 @@ class AppColors {
 
   static const LinearGradient primaryGradient = LinearGradient(
     colors: [primary, primaryDark],
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+  );
+  
+  // Purple gradients for UI elements
+  static const LinearGradient purpleGradient = LinearGradient(
+    colors: [purpleLight, purpleDark],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+  
+  static const LinearGradient violetGradient = LinearGradient(
+    colors: [violetLight, violetDark],
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+  );
+  
+  static const LinearGradient purpleRadialGradient = RadialGradient(
+    colors: [purpleMedium, purpleDark, Color(0xFF1A0B2E)],
+    stops: [0.0, 0.7, 1.0],
+    center: Alignment.topLeft,
+    radius: 1.2,
+  );
+  
+  // Subtle gradients for cards and surfaces
+  static const LinearGradient cardGradient = LinearGradient(
+    colors: [Color(0xFF1A0B2E), Color(0xFF0F0815)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+  
+  static const LinearGradient glowGradient = LinearGradient(
+    colors: [
+      Color(0x1A8B5CF6), // Purple with low opacity
+      Color(0x0A6366F1), // Indigo with very low opacity
+      Colors.transparent,
+    ],
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
   );
