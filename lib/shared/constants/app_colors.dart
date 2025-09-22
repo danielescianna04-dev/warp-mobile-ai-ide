@@ -10,31 +10,31 @@ class AppColors {
   static const Color primaryLight = Color(0xFF3395FF);
   static const Color accent = Color(0xFF3395FF);
 
-  // Background colors
-  static const Color background = Color(0xFF0D1117);
-  static const Color surface = Color(0xFF161B22);
-  static const Color surfaceVariant = Color(0xFF21262D);
+  // Background colors - Ultra dark theme
+  static const Color background = Color(0xFF000000); // Pure black
+  static const Color surface = Color(0xFF050607); // Almost black
+  static const Color surfaceVariant = Color(0xFF0A0B0D); // Very dark grey
 
   // Text colors
   static const Color textPrimary = Color(0xFFF0F6FC);
   static const Color textSecondary = Color(0xFF8B949E);
   static const Color textTertiary = Color(0xFF6E7681);
 
-  // Editor colors
-  static const Color editorBackground = Color(0xFF0D1117);
-  static const Color editorLineNumbers = Color(0xFF6E7681);
-  static const Color editorSelection = Color(0xFF264F78);
-  static const Color editorCurrentLine = Color(0xFF2A2E3A);
+  // Editor colors - Ultra dark theme
+  static const Color editorBackground = Color(0xFF000000); // Pure black editor
+  static const Color editorLineNumbers = Color(0xFF8B949E); // Slightly brighter for visibility
+  static const Color editorSelection = Color(0xFF1E3A5F); // Darker blue selection
+  static const Color editorCurrentLine = Color(0xFF0F1419); // Very dark highlight
 
-  // Terminal colors
-  static const Color terminalBackground = Color(0xFF0D1117);
-  static const Color terminalText = Color(0xFFE6EDF3);
-  static const Color terminalGreen = Color(0xFF7CE38B);
-  static const Color terminalYellow = Color(0xFFE3B341);
-  static const Color terminalRed = Color(0xFFFF6B6B);
-  static const Color terminalBlue = Color(0xFF409CFF);
-  static const Color terminalMagenta = Color(0xFFFF7CE0);
-  static const Color terminalCyan = Color(0xFF007AFF);
+  // Terminal colors - Ultra dark theme
+  static const Color terminalBackground = Color(0xFF000000); // Pure black terminal
+  static const Color terminalText = Color(0xFFFFFFFF); // Pure white text for max contrast
+  static const Color terminalGreen = Color(0xFF00FF41); // Brighter green for visibility
+  static const Color terminalYellow = Color(0xFFFFFF00); // Bright yellow
+  static const Color terminalRed = Color(0xFFFF0051); // Bright red
+  static const Color terminalBlue = Color(0xFF0099FF); // Bright blue
+  static const Color terminalMagenta = Color(0xFFFF00FF); // Bright magenta
+  static const Color terminalCyan = Color(0xFF00FFFF); // Bright cyan
 
   // Status colors
   static const Color success = Color(0xFF3FB950);
@@ -57,10 +57,10 @@ class AppColors {
   static const Color syntaxClass = Color(0xFFFFA657);
   static const Color syntaxVariable = Color(0xFFFFA657);
 
-  // Utility colors
-  static const Color divider = Color(0xFF30363D);
-  static const Color border = Color(0xFF30363D);
-  static const Color shadow = Color(0x1A000000);
+  // Utility colors - Ultra dark theme
+  static const Color divider = Color(0xFF1A1A1A); // Darker dividers
+  static const Color border = Color(0xFF1A1A1A); // Darker borders
+  static const Color shadow = Color(0x4D000000); // Stronger shadow for definition
 
   // Gradients
   static const LinearGradient aiGradient = LinearGradient(
@@ -135,7 +135,7 @@ class AppColors {
       case '.css':
         return Color(0xFF1572B6);
       case '.json':
-        return Color(0xFF000000);
+        return Color(0xFFFFD700); // Gold for JSON on black background
       case '.md':
         return Color(0xFF083FA1);
       case '.xml':
