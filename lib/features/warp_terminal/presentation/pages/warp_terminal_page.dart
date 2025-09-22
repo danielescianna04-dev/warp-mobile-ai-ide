@@ -246,36 +246,149 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
         ],
       ),
       actions: [
-        // Preview button (smart activation)
-        IconButton(
-          onPressed: _previewUrl != null ? _openPreview : null,
-          icon: Icon(
-            Icons.visibility,
-            color: _previewUrl != null ? AppColors.success : AppColors.textTertiary,
-          ),
-          tooltip: _previewUrl != null ? 'Vedi Preview' : 'Nessuna app in esecuzione',
-        ),
-        // Stop process button (appears when preview is active)
-        if (_previewUrl != null && _selectedRepository != null)
-          IconButton(
-            onPressed: _stopFlutterProcess,
-            icon: Icon(
-              Icons.stop_circle,
-              color: AppColors.error,
+        // Preview button (smart activation) - Modern design
+        Padding(
+          padding: const EdgeInsets.only(right: 4),
+          child: GestureDetector(
+            onTap: _previewUrl != null ? _openPreview : null,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeInOutCubic,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                gradient: _previewUrl != null
+                    ? LinearGradient(
+                        colors: [
+                          AppColors.success.withValues(alpha: 0.8),
+                          AppColors.success.withValues(alpha: 0.6),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )
+                    : LinearGradient(
+                        colors: [
+                          AppColors.surface.withValues(alpha: 0.4),
+                          AppColors.surface.withValues(alpha: 0.2),
+                        ],
+                      ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: _previewUrl != null
+                      ? AppColors.success.withValues(alpha: 0.3)
+                      : Colors.transparent,
+                  width: 1,
+                ),
+                boxShadow: _previewUrl != null
+                    ? [
+                        BoxShadow(
+                          color: AppColors.success.withValues(alpha: 0.25),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                          spreadRadius: 1,
+                        ),
+                      ]
+                    : [],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(
+                      _previewUrl != null ? Icons.play_circle_filled : Icons.visibility_off,
+                      color: _previewUrl != null ? Colors.white : AppColors.textTertiary,
+                      size: 16,
+                    ),
+                  ),
+                  if (_previewUrl != null) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      'Preview',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
-            tooltip: 'Ferma Flutter Run',
+          ),
+        ),
+        // Stop process button (appears when preview is active) - Modern design
+        if (_previewUrl != null && _selectedRepository != null)
+          Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: GestureDetector(
+              onTap: _stopFlutterProcess,
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.error.withValues(alpha: 0.8),
+                      AppColors.error.withValues(alpha: 0.6),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: AppColors.error.withValues(alpha: 0.3),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.error.withValues(alpha: 0.25),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  Icons.stop_rounded,
+                  color: Colors.white,
+                  size: 16,
+                ),
+              ),
+            ),
           ),
         if (_terminalItems.isNotEmpty)
-          IconButton(
-            onPressed: () {
-              setState(() {
-                _terminalItems.clear();
-                _hasInteracted = false;
-                _previewUrl = null; // Reset preview quando clear
-              });
-            },
-            icon: Icon(Icons.clear_all, color: AppColors.textSecondary),
-            tooltip: 'Pulisci terminale',
+          Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  _terminalItems.clear();
+                  _hasInteracted = false;
+                  _previewUrl = null; // Reset preview quando clear
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.surface.withValues(alpha: 0.6),
+                      AppColors.surface.withValues(alpha: 0.3),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: AppColors.textSecondary.withValues(alpha: 0.2),
+                    width: 1,
+                  ),
+                ),
+                child: Icon(
+                  Icons.clear_all_rounded,
+                  color: AppColors.textSecondary,
+                  size: 16,
+                ),
+              ),
+            ),
           ),
       ],
     );
