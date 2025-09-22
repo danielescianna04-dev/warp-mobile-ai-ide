@@ -163,6 +163,9 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   
   // Preview functionality
   String? _previewUrl;
+  
+  // Expandable tools functionality
+  bool _isToolsExpanded = false;
 
   @override
   Widget build(BuildContext context) {
@@ -1691,50 +1694,150 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   }
 
   Widget _buildInputTools() {
-    return Row(
-      children: [
-        // Images
-        _buildToolButton(
-          icon: Icons.image,
-          isActive: _attachedImages.isNotEmpty,
-          onTap: _pickImages,
-          badge: _attachedImages.length > 0 ? _attachedImages.length : null,
-        ),
-        const SizedBox(width: 8),
-        // Files
-        _buildToolButton(
-          icon: Icons.attach_file,
-          isActive: _taggedFiles.isNotEmpty,
-          onTap: _selectFilesToTag,
-          badge: _taggedFiles.length > 0 ? _taggedFiles.length : null,
-        ),
-        const SizedBox(width: 8),
-        // Audio recording
-        _buildToolButton(
-          icon: _isRecording ? Icons.stop_circle_outlined : Icons.mic_outlined,
-          isActive: _isRecording || _currentRecordingPath != null,
-          onTap: _toggleRecording,
-          isRecording: _isRecording,
-        ),
-        const SizedBox(width: 8),
-        // Auto approve
-        _buildToolButton(
-          icon: Icons.auto_mode,
-          isActive: _autoApprove,
-          onTap: () {
-            setState(() {
-              _autoApprove = !_autoApprove;
-            });
-            _showSnackBar(_autoApprove 
-                ? 'Auto-approvazione attivata'
-                : 'Auto-approvazione disattivata');
-          },
-        ),
-      ],
+    // Calculate if any tool is active
+    final bool hasActiveTools = _attachedImages.isNotEmpty || 
+                               _taggedFiles.isNotEmpty || 
+                               _isRecording || 
+                               _currentRecordingPath != null ||
+                               _autoApprove;
+    
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOutCubic,
+      child: Row(
+        children: [
+          // Main expandable button
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _isToolsExpanded = !_isToolsExpanded;
+              });
+            },
+            child: Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                gradient: hasActiveTools || _isToolsExpanded
+                    ? AppColors.purpleGradient
+                    : LinearGradient(
+                        colors: [
+                          AppColors.surface.withValues(alpha: 0.6),
+                          AppColors.surface.withValues(alpha: 0.4),
+                        ],
+                      ),
+                borderRadius: BorderRadius.circular(17),
+                border: Border.all(
+                  color: _isToolsExpanded 
+                      ? AppColors.purpleMedium.withValues(alpha: 0.4)
+                      : AppColors.border.withValues(alpha: 0.2),
+                  width: 1,
+                ),
+                boxShadow: hasActiveTools || _isToolsExpanded
+                    ? [
+                        BoxShadow(
+                          color: AppColors.purpleMedium.withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
+                    : [],
+              ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Main icon
+                  AnimatedRotation(
+                    duration: const Duration(milliseconds: 300),
+                    turns: _isToolsExpanded ? 0.125 : 0.0, // 45 degrees
+                    child: Icon(
+                      Icons.add_rounded,
+                      color: hasActiveTools || _isToolsExpanded
+                          ? Colors.white
+                          : AppColors.textSecondary,
+                      size: 18,
+                    ),
+                  ),
+                  // Badge indicator for active tools
+                  if (hasActiveTools && !_isToolsExpanded)
+                    Positioned(
+                      right: 2,
+                      top: 2,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          
+          // Expanded tools
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOutCubic,
+            width: _isToolsExpanded ? 160 : 0,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 200),
+              opacity: _isToolsExpanded ? 1.0 : 0.0,
+              child: _isToolsExpanded 
+                  ? Container(
+                      margin: const EdgeInsets.only(left: 8),
+                      child: Row(
+                        children: [
+                          // Images
+                          _buildCompactToolButton(
+                            icon: Icons.image_outlined,
+                            isActive: _attachedImages.isNotEmpty,
+                            onTap: _pickImages,
+                            badge: _attachedImages.length > 0 ? _attachedImages.length : null,
+                          ),
+                          const SizedBox(width: 6),
+                          // Files
+                          _buildCompactToolButton(
+                            icon: Icons.attach_file_outlined,
+                            isActive: _taggedFiles.isNotEmpty,
+                            onTap: _selectFilesToTag,
+                            badge: _taggedFiles.length > 0 ? _taggedFiles.length : null,
+                          ),
+                          const SizedBox(width: 6),
+                          // Audio recording
+                          _buildCompactToolButton(
+                            icon: _isRecording ? Icons.stop_circle_outlined : Icons.mic_outlined,
+                            isActive: _isRecording || _currentRecordingPath != null,
+                            onTap: _toggleRecording,
+                            isRecording: _isRecording,
+                          ),
+                          const SizedBox(width: 6),
+                          // Auto approve
+                          _buildCompactToolButton(
+                            icon: Icons.auto_mode_outlined,
+                            isActive: _autoApprove,
+                            onTap: () {
+                              setState(() {
+                                _autoApprove = !_autoApprove;
+                              });
+                              _showSnackBar(_autoApprove 
+                                  ? 'Auto-approvazione attivata'
+                                  : 'Auto-approvazione disattivata');
+                            },
+                          ),
+                        ],
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildToolButton({
+  Widget _buildCompactToolButton({
     required IconData icon,
     required bool isActive,
     required VoidCallback onTap,
@@ -1746,71 +1849,66 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
       child: Stack(
         children: [
           Container(
-            width: 30,
-            height: 30,
+            width: 28,
+            height: 28,
             decoration: BoxDecoration(
               gradient: isActive
                 ? AppColors.violetGradient
                 : LinearGradient(
                     colors: [
-                      AppColors.background.withValues(alpha: 0.4),
-                      AppColors.background.withValues(alpha: 0.2),
+                      AppColors.surface.withValues(alpha: 0.4),
+                      AppColors.surface.withValues(alpha: 0.2),
                     ],
                   ),
-              borderRadius: BorderRadius.circular(15),
+              borderRadius: BorderRadius.circular(14),
+              border: isRecording
+                ? Border.all(
+                    color: Colors.red.withValues(alpha: 0.7),
+                    width: 1.5,
+                  )
+                : null,
               boxShadow: isActive
                 ? [
                     BoxShadow(
-                      color: AppColors.violetLight.withValues(alpha: 0.4),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
+                      color: AppColors.violetLight.withValues(alpha: 0.3),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
                     ),
                   ]
                 : [],
             ),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Icon(
-                  icon,
-                  color: isActive ? Colors.white : AppColors.textSecondary,
-                  size: 16,
-                ),
-                if (isRecording)
-                  Positioned.fill(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(15),
-                        border: Border.all(
-                          color: Colors.red.withValues(alpha: 0.7),
-                          width: 2,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
+            child: Icon(
+              icon,
+              color: isActive ? Colors.white : AppColors.textSecondary,
+              size: 14,
             ),
           ),
-          if (badge != null && badge > 0)
+          // Badge for count
+          if (badge != null)
             Positioned(
-              top: -2,
               right: -2,
+              top: -2,
               child: Container(
-                padding: const EdgeInsets.all(2),
-                decoration: const BoxDecoration(
-                  color: Colors.red,
-                  shape: BoxShape.circle,
-                ),
-                constraints: const BoxConstraints(
-                  minWidth: 14,
-                  minHeight: 14,
+                constraints: const BoxConstraints(minWidth: 14),
+                height: 14,
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.error,
+                  borderRadius: BorderRadius.circular(7),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.2),
+                      blurRadius: 2,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
                 ),
                 child: Text(
                   badge.toString(),
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 8,
+                    fontWeight: FontWeight.w600,
                   ),
                   textAlign: TextAlign.center,
                 ),
