@@ -597,53 +597,127 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
         if (_isGitHubConnected && _gitHubUsername != null) ...[
           // User info
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.success.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.success.withValues(alpha: 0.15),
+                  AppColors.success.withValues(alpha: 0.05),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: AppColors.success.withValues(alpha: 0.2),
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.success.withValues(alpha: 0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: Row(
               children: [
-                CircleAvatar(
-                  radius: 16,
-                  backgroundColor: AppColors.primary,
-                  backgroundImage: _gitHubUser?.avatarUrl != null 
-                      ? NetworkImage(_gitHubUser!.avatarUrl) 
-                      : null,
-                  child: _gitHubUser?.avatarUrl == null 
-                      ? Text(
-                          _gitHubUsername?.substring(0, 1).toUpperCase() ?? 'U',
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                        )
-                      : null,
+                Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 22,
+                      backgroundColor: AppColors.primary,
+                      backgroundImage: _gitHubUser?.avatarUrl != null 
+                          ? NetworkImage(_gitHubUser!.avatarUrl) 
+                          : null,
+                      child: _gitHubUser?.avatarUrl == null 
+                          ? Text(
+                              _gitHubUsername?.substring(0, 1).toUpperCase() ?? 'U',
+                              style: const TextStyle(
+                                color: Colors.white, 
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
+                            )
+                          : null,
+                    ),
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          color: AppColors.success,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: AppColors.background,
+                            width: 2,
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.check,
+                          size: 10,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        _gitHubUser?.name ?? '@$_gitHubUsername',
-                        style: TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
                       if (_gitHubUser?.name != null)
                         Text(
-                          '@$_gitHubUsername',
+                          _gitHubUser!.name!,
                           style: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 10,
+                            color: AppColors.textPrimary,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.2,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
+                      Text(
+                        '@$_gitHubUsername',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.success.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.verified_rounded,
+                              size: 10,
+                              color: AppColors.success,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Connesso',
+                              style: TextStyle(
+                                color: AppColors.success,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                Icon(Icons.check_circle, color: AppColors.success, size: 16),
               ],
             ),
           ),
@@ -749,11 +823,13 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
     final isSelected = _selectedRepository?.id == repo.id;
     
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 12),
       child: Material(
         color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        elevation: isSelected ? 2 : 0,
         child: InkWell(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(16),
           onTap: () {
             setState(() {
               _selectedRepository = isSelected ? null : repo;
@@ -762,92 +838,204 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
               _showSnackBar('📁 Selezionata repository: ${repo.name}');
             }
           },
-          child: Container(
-            padding: const EdgeInsets.all(12),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: isSelected 
-                  ? AppColors.primary.withValues(alpha: 0.1)
-                  : AppColors.surface.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(8),
+              gradient: isSelected 
+                  ? LinearGradient(
+                      colors: [
+                        AppColors.primary.withValues(alpha: 0.15),
+                        AppColors.primary.withValues(alpha: 0.05),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    )
+                  : LinearGradient(
+                      colors: [
+                        AppColors.surface.withValues(alpha: 0.8),
+                        AppColors.surfaceVariant.withValues(alpha: 0.4),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: isSelected 
-                    ? AppColors.primary.withValues(alpha: 0.3)
-                    : Colors.transparent,
+                    ? AppColors.primary.withValues(alpha: 0.4)
+                    : AppColors.border.withValues(alpha: 0.1),
+                width: isSelected ? 2 : 1,
               ),
+              boxShadow: isSelected ? [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ] : [
+                BoxShadow(
+                  color: AppColors.background.withValues(alpha: 0.1),
+                  blurRadius: 4,
+                  offset: const Offset(0, 1),
+                ),
+              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Header with repo name and privacy icon
                 Row(
                   children: [
-                    Icon(
-                      repo.isPrivate ? Icons.lock : Icons.public,
-                      size: 12,
-                      color: repo.isPrivate ? AppColors.primary : AppColors.success,
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: repo.isPrivate 
+                            ? AppColors.primary.withValues(alpha: 0.15)
+                            : AppColors.success.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        repo.isPrivate ? Icons.lock_rounded : Icons.folder_open_rounded,
+                        size: 16,
+                        color: repo.isPrivate ? AppColors.primary : AppColors.success,
+                      ),
                     ),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: 12),
                     Expanded(
-                      child: Text(
-                        repo.name,
-                        style: TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            repo.name,
+                            style: TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.2,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (repo.isPrivate) 
+                            Container(
+                              margin: const EdgeInsets.only(top: 2),
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                'Private',
+                                style: TextStyle(
+                                  color: AppColors.primary,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                     if (isSelected)
-                      Icon(
-                        Icons.check,
-                        size: 12,
-                        color: AppColors.primary,
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.check_rounded,
+                          size: 14,
+                          color: Colors.white,
+                        ),
                       ),
                   ],
                 ),
+                
+                // Description
                 if (repo.description != null && repo.description!.isNotEmpty) ...[
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 12),
                   Text(
                     repo.description!,
                     style: TextStyle(
                       color: AppColors.textSecondary,
-                      fontSize: 9,
+                      fontSize: 12,
+                      height: 1.4,
+                      letterSpacing: 0.1,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
-                const SizedBox(height: 6),
+                
+                // Language and stats
+                const SizedBox(height: 12),
                 Row(
                   children: [
                     if (repo.language != null) ...[
                       Container(
-                        width: 8,
-                        height: 8,
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: _getLanguageColor(repo.language!),
-                          shape: BoxShape.circle,
+                          color: _getLanguageColor(repo.language!).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: _getLanguageColor(repo.language!).withValues(alpha: 0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: _getLanguageColor(repo.language!),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              repo.language!,
+                              style: TextStyle(
+                                color: _getLanguageColor(repo.language!),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        repo.language!,
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 9,
-                        ),
-                      ),
+                      const SizedBox(width: 12),
                     ],
+                    
                     const Spacer(),
+                    
                     if (repo.stargazersCount > 0) ...[
-                      Icon(Icons.star_outline, size: 10, color: AppColors.textTertiary),
-                      const SizedBox(width: 2),
-                      Text(
-                        '${repo.stargazersCount}',
-                        style: TextStyle(
-                          color: AppColors.textTertiary,
-                          fontSize: 9,
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.textTertiary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.star_rounded, 
+                              size: 12, 
+                              color: AppColors.textSecondary,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${repo.stargazersCount}',
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -862,25 +1050,26 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   }
   
   Color _getLanguageColor(String language) {
+    // Use AppColors methods for consistency with theme
     switch (language.toLowerCase()) {
       case 'dart':
-        return const Color(0xFF0175C2);
+        return AppColors.fileTypeColor('.dart');
       case 'javascript':
-        return const Color(0xFFF7DF1E);
+        return AppColors.fileTypeColor('.js');
       case 'typescript':
-        return const Color(0xFF3178C6);
+        return AppColors.fileTypeColor('.ts');
       case 'python':
-        return const Color(0xFF3776AB);
+        return AppColors.fileTypeColor('.py');
       case 'java':
-        return const Color(0xFFED8B00);
+        return AppColors.fileTypeColor('.java');
       case 'go':
-        return const Color(0xFF00ADD8);
+        return AppColors.textSecondary; // Use gray for Go
       case 'rust':
-        return const Color(0xFF000000);
+        return AppColors.textPrimary; // Light gray for Rust
       case 'swift':
-        return const Color(0xFFFA7343);
+        return const Color(0xFFFA7343); // Keep orange for Swift
       case 'kotlin':
-        return const Color(0xFF7F52FF);
+        return AppColors.primary; // Use theme primary for Kotlin
       default:
         return AppColors.textSecondary;
     }
