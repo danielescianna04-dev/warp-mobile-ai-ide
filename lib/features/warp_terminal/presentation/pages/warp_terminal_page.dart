@@ -10,6 +10,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:provider/provider.dart';
 import '../../../../shared/constants/app_colors.dart';
 import '../../../../core/ai/ai_models.dart';
 import '../../../../core/ai/ai_manager.dart';
@@ -20,6 +21,11 @@ import '../../../../core/terminal/syntax_text_field.dart';
 import '../../../../core/github/github_service.dart' as github_service;
 import '../../../../core/github/deep_link_handler.dart';
 import '../widgets/terminal_syntax_highlighter.dart';
+import '../providers/terminal_provider.dart';
+import '../widgets/terminal/terminal_input.dart';
+import '../widgets/terminal/terminal_output.dart';
+import '../widgets/terminal/welcome_view.dart';
+import '../../data/models/terminal_item.dart';
 
 // Terminal item type
 enum TerminalItemType {
@@ -835,85 +841,121 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
       borderRadius: BorderRadius.circular(8),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
         margin: const EdgeInsets.only(bottom: 2),
         decoration: BoxDecoration(
-          color: isSelected 
-              ? AppColors.surface.withValues(alpha: 0.8)
-              : Colors.transparent,
+          gradient: isSelected 
+              ? LinearGradient(
+                  colors: [
+                    AppColors.purpleMedium.withValues(alpha: 0.12),
+                    AppColors.violetLight.withValues(alpha: 0.08),
+                  ],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                )
+              : null,
+          color: isSelected ? null : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           border: isSelected ? Border.all(
-            color: AppColors.textSecondary.withValues(alpha: 0.2),
-            width: 1,
+            color: AppColors.purpleMedium.withValues(alpha: 0.3),
+            width: 1.5,
           ) : null,
+          boxShadow: isSelected ? [
+            BoxShadow(
+              color: AppColors.purpleMedium.withValues(alpha: 0.15),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+              spreadRadius: 1,
+            ),
+          ] : null,
         ),
         child: Row(
           children: [
-            // Icona GitHub a sinistra (sempre presente per mantenere allineamento)
-            Container(
-              width: 20, // Larghezza fissa per allineamento
-              child: isGitHubChat 
-                  ? Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: AppColors.purpleMedium.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Icon(
-                        Icons.account_tree_outlined,
-                        color: AppColors.purpleMedium,
-                        size: 12,
-                      ),
-                    )
-                  : const SizedBox.shrink(), // Spazio vuoto per chat normali
-            ),
-            const SizedBox(width: 8),
+            // Indicatore laterale colorato quando selezionato
+            if (isSelected)
+              Container(
+                width: 3,
+                height: 40,
+                decoration: BoxDecoration(
+                  gradient: AppColors.purpleGradient,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
             
-            // Contenuto chat (ora sempre allineato)
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Titolo chat
-                  Text(
-                    chat.title.length > 40 ? '${chat.title.substring(0, 40)}...' : chat.title,
-                    style: TextStyle(
-                      color: isSelected 
-                          ? AppColors.textPrimary
-                          : AppColors.textSecondary,
-                      fontSize: 13,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  
-                  // Nome repository se presente
-                  if (isGitHubChat && chat.repositoryName != null) ...[
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.folder_outlined,
-                          color: AppColors.textTertiary,
-                          size: 10,
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isSelected ? 12 : 12,
+                  vertical: 0,
+                ),
+                child: Row(
+                  children: [
+                    // Icona GitHub solo se presente (senza spazio fisso)
+                    if (isGitHubChat) ...[
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: AppColors.purpleMedium.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(4),
                         ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            chat.repositoryName!,
+                        child: Icon(
+                          Icons.account_tree_outlined,
+                          color: AppColors.purpleMedium,
+                          size: 12,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+              
+                    // Contenuto chat (inizia sempre dallo stesso punto)
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Titolo chat
+                          Text(
+                            chat.title.length > 40 ? '${chat.title.substring(0, 40)}...' : chat.title,
                             style: TextStyle(
-                              color: AppColors.textTertiary,
-                              fontSize: 10,
+                              color: isSelected 
+                                  ? AppColors.textPrimary
+                                  : AppColors.textSecondary,
+                              fontSize: 13,
+                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                      ],
+                        
+                          // Nome repository se presente
+                          if (isGitHubChat && chat.repositoryName != null) ...[
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.folder_outlined,
+                                  color: AppColors.textTertiary,
+                                  size: 10,
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    chat.repositoryName!,
+                                    style: TextStyle(
+                                      color: AppColors.textTertiary,
+                                      fontSize: 10,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                   ],
-                ],
+                ),
               ),
             ),
           ],
@@ -1498,71 +1540,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   }
 
   Widget _buildWelcomeView(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 90,
-              height: 90,
-              decoration: BoxDecoration(
-                gradient: AppColors.purpleGradient,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.purpleMedium.withValues(alpha: 0.4),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                    spreadRadius: 2,
-                  ),
-                  BoxShadow(
-                    color: AppColors.violetLight.withValues(alpha: 0.2),
-                    blurRadius: 40,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.terminal,
-                color: Colors.white,
-                size: 44,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'Warp AI Terminal',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 24,
-                fontWeight: FontWeight.w800,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Il futuro dello sviluppo mobile',
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 14,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            Text(
-              'Scrivi un messaggio per iniziare',
-              style: TextStyle(
-                color: AppColors.textTertiary,
-                fontSize: 11,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
+    return const WelcomeView();
   }
 
   Widget _buildTerminalOutput() {
@@ -4605,9 +4583,31 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
     _chatHistory.addAll([
       ChatSession(
         id: '1',
-        title: 'Setup progetto Flutter',
+        title: 'Avvio Applicazione Flutter',
         createdAt: now.subtract(const Duration(hours: 2)),
         lastUsed: now.subtract(const Duration(minutes: 30)),
+        messages: [],
+        aiModel: 'claude-4-sonnet',
+        folderId: 'flutter',
+        repositoryId: 'warp-container',
+        repositoryName: 'warp-container',
+      ),
+      ChatSession(
+        id: '2',
+        title: 'Installazione Dipendenze',
+        createdAt: now.subtract(const Duration(hours: 4)),
+        lastUsed: now.subtract(const Duration(hours: 1)),
+        messages: [],
+        aiModel: 'claude-4-sonnet',
+        folderId: 'flutter',
+        repositoryId: 'warp-mobile-ai-ide',
+        repositoryName: 'warp-mobile-ai-ide',
+      ),
+      ChatSession(
+        id: '3',
+        title: 'Come ottimizzare performance Flutter?',
+        createdAt: now.subtract(const Duration(days: 1)),
+        lastUsed: now.subtract(const Duration(hours: 6)),
         messages: [],
         aiModel: 'claude-4-sonnet',
         folderId: 'flutter',
@@ -5591,9 +5591,124 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
       orElse: () => _terminalItems.first,
     );
     
-    return firstCommand.content.length > 50 
-        ? '${firstCommand.content.substring(0, 50)}...'
-        : firstCommand.content;
+    // Estrai solo il comando (senza il prompt)
+    String commandText = firstCommand.content;
+    if (commandText.contains('\$')) {
+      final parts = commandText.split('\$');
+      if (parts.length > 1) {
+        commandText = parts.last.trim();
+      }
+    }
+    
+    // Genera un titolo significativo in base al contenuto del comando
+    return _generateMeaningfulTitle(commandText);
+  }
+  
+  String _generateMeaningfulTitle(String command) {
+    // Comando vuoto
+    if (command.trim().isEmpty) return 'Nuova Conversazione';
+    
+    final lowerCmd = command.toLowerCase();
+    
+    // Comandi di avvio Flutter
+    if (lowerCmd.contains('flutter run') || lowerCmd.contains('f run')) {
+      return 'Avvio Applicazione Flutter';
+    }
+    
+    // Comandi di creazione Flutter
+    if (lowerCmd.contains('flutter create') || lowerCmd.startsWith('create') && lowerCmd.contains('flutter')) {
+      return 'Creazione Nuovo Progetto Flutter';
+    }
+    
+    // Comandi di test Flutter
+    if (lowerCmd.contains('flutter test') || lowerCmd.contains('flutter drive')) {
+      return 'Test Applicazione Flutter';
+    }
+    
+    // Comandi build Flutter
+    if (lowerCmd.contains('flutter build')) {
+      String platform = '';
+      if (lowerCmd.contains('ios')) platform = 'iOS';
+      else if (lowerCmd.contains('android')) platform = 'Android';
+      else if (lowerCmd.contains('web')) platform = 'Web';
+      else if (lowerCmd.contains('windows')) platform = 'Windows';
+      else if (lowerCmd.contains('macos')) platform = 'macOS';
+      else if (lowerCmd.contains('linux')) platform = 'Linux';
+      
+      return platform.isNotEmpty 
+          ? 'Build Flutter per $platform' 
+          : 'Build Applicazione Flutter';
+    }
+    
+    // Comandi React/Next.js
+    if (lowerCmd.contains('npm start') || lowerCmd.contains('yarn start') || 
+        lowerCmd.contains('npm run dev') || lowerCmd.contains('yarn dev')) {
+      return 'Avvio Applicazione React/Next.js';
+    }
+    
+    // Comandi Python
+    if (lowerCmd.startsWith('python') || lowerCmd.startsWith('python3')) {
+      if (lowerCmd.contains('manage.py runserver')) {
+        return 'Avvio Server Django';
+      }
+      if (lowerCmd.contains('flask run') || lowerCmd.contains('-m flask')) {
+        return 'Avvio Server Flask';
+      }
+      // Avvio generico script Python
+      return 'Esecuzione Script Python';
+    }
+    
+    // Comandi Git
+    if (lowerCmd.startsWith('git ')) {
+      if (lowerCmd.contains('clone')) return 'Clonazione Repository Git';
+      if (lowerCmd.contains('commit')) return 'Commit delle Modifiche';
+      if (lowerCmd.contains('push')) return 'Push su Repository Remoto';
+      if (lowerCmd.contains('pull')) return 'Pull da Repository Remoto';
+      if (lowerCmd.contains('merge')) return 'Merge di Branch Git';
+      if (lowerCmd.contains('branch')) return 'Gestione Branch Git';
+      if (lowerCmd.contains('checkout')) return 'Cambio Branch Git';
+      if (lowerCmd.contains('status')) return 'Verifica Stato Repository';
+      return 'Operazioni Git';
+    }
+    
+    // Comandi Docker
+    if (lowerCmd.startsWith('docker ')) {
+      if (lowerCmd.contains('build')) return 'Build Docker Image';
+      if (lowerCmd.contains('run')) return 'Avvio Container Docker';
+      if (lowerCmd.contains('compose')) return 'Docker Compose';
+      return 'Operazioni Docker';
+    }
+    
+    // Comandi di installazione
+    if (lowerCmd.contains('npm install') || lowerCmd.contains('yarn add') || 
+        lowerCmd.contains('pip install') || lowerCmd.contains('pub get') || 
+        lowerCmd.contains('flutter pub get')) {
+      return 'Installazione Dipendenze';
+    }
+    
+    // Gestione files
+    if (lowerCmd.startsWith('ls') || lowerCmd.startsWith('dir') || 
+        lowerCmd.startsWith('cd') || lowerCmd.startsWith('mkdir') || 
+        lowerCmd.startsWith('mv') || lowerCmd.startsWith('cp')) {
+      return 'Gestione File e Directory';
+    }
+    
+    // Se è una domanda
+    if (lowerCmd.contains('?') || lowerCmd.startsWith('come') || 
+        lowerCmd.startsWith('cosa') || lowerCmd.startsWith('quando') || 
+        lowerCmd.startsWith('perché') || lowerCmd.startsWith('dove')) {
+      // Tronca la domanda se troppo lunga
+      if (command.length > 40) {
+        return '${command.substring(0, 40)}...';
+      }
+      return command; // Restituisci la domanda completa
+    }
+    
+    // Fallback per altri comandi
+    if (command.length > 40) {
+      return '${command.substring(0, 40)}...';
+    }
+    return command;
   }
 
   String _formatTimeAgo(DateTime dateTime) {
