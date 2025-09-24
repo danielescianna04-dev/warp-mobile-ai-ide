@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:record/record.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -14,10 +16,10 @@ import '../../../../core/ai/ai_manager.dart';
 import '../../../../core/ai/ai_service.dart';
 import '../../../../core/terminal/terminal_service.dart';
 import '../../../../core/terminal/autocomplete_service.dart';
-import '../../../../core/terminal/syntax_highlighter.dart';
 import '../../../../core/terminal/syntax_text_field.dart';
 import '../../../../core/github/github_service.dart' as github_service;
 import '../../../../core/github/deep_link_handler.dart';
+import '../widgets/terminal_syntax_highlighter.dart';
 
 // Terminal item type
 enum TerminalItemType {
@@ -49,6 +51,8 @@ class ChatSession {
   final List<TerminalItem> messages;
   final String aiModel;
   final String? folderId;
+  final String? repositoryId; // ID della repository GitHub associata
+  final String? repositoryName; // Nome della repository per display
   
   ChatSession({
     required this.id,
@@ -58,6 +62,8 @@ class ChatSession {
     required this.messages,
     required this.aiModel,
     this.folderId,
+    this.repositoryId,
+    this.repositoryName,
   });
 }
 
@@ -107,6 +113,86 @@ class GitHubRepository {
   });
 }
 
+// Widget helper per gestire animazioni di pressione
+class AnimatedPressButton extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onTap;
+  final Duration duration;
+  final double pressedScale;
+  
+  const AnimatedPressButton({
+    super.key,
+    required this.child,
+    required this.onTap,
+    this.duration = const Duration(milliseconds: 150),
+    this.pressedScale = 0.95,
+  });
+  
+  @override
+  State<AnimatedPressButton> createState() => _AnimatedPressButtonState();
+}
+
+class _AnimatedPressButtonState extends State<AnimatedPressButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: widget.duration,
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: widget.pressedScale,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOut,
+    ));
+  }
+  
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+  
+  void _handleTapDown(TapDownDetails details) {
+    HapticFeedback.selectionClick();
+    _controller.forward();
+  }
+  
+  void _handleTapUp(TapUpDetails details) {
+    HapticFeedback.lightImpact();
+    _controller.reverse();
+    widget.onTap();
+  }
+  
+  void _handleTapCancel() {
+    _controller.reverse();
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: _handleTapDown,
+      onTapUp: _handleTapUp,
+      onTapCancel: _handleTapCancel,
+      child: AnimatedBuilder(
+        animation: _scaleAnimation,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _scaleAnimation.value,
+            child: widget.child,
+          );
+        },
+      ),
+    );
+  }
+}
+
 class WarpTerminalPage extends StatefulWidget {
   const WarpTerminalPage({super.key});
 
@@ -130,7 +216,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   bool _isRecording = false;
   bool _isTerminalMode = true;
   bool _autoApprove = false;
-  String _selectedModel = 'claude-4-sonnet';
+  String _selectedModel = 'auto';
   List<File> _attachedImages = [];
   List<File> _taggedFiles = [];
   String? _currentRecordingPath;
@@ -166,6 +252,9 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   
   // Expandable tools functionality
   bool _isToolsExpanded = false;
+  
+  // GitHub sidebar functionality
+  bool _showGitHubSidebar = false;
 
   @override
   Widget build(BuildContext context) {
@@ -217,10 +306,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
       backgroundColor: AppColors.background,
       elevation: 0,
       leading: Builder(
-        builder: (context) => IconButton(
-          icon: Icon(Icons.drag_handle, color: AppColors.textPrimary),
-          onPressed: () => Scaffold.of(context).openDrawer(),
-        ),
+        builder: (context) => _buildAnimatedSidebarButton(context),
       ),
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -394,136 +480,241 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
     );
   }
 
+  Widget _buildHeaderIcon({
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: AppColors.surface.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: AppColors.border,
+            width: 1,
+          ),
+        ),
+        child: Icon(
+          icon,
+          color: AppColors.textSecondary,
+          size: 16,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCustomSearchBar() {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.border.withValues(alpha: 0.3),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: TextField(
+        focusNode: _searchFocusNode,
+        style: TextStyle(
+          color: AppColors.textPrimary,
+          fontSize: 14,
+        ),
+        decoration: InputDecoration(
+          hintText: 'Search chats...',
+          hintStyle: TextStyle(
+            color: AppColors.textSecondary.withValues(alpha: 0.7),
+            fontSize: 14,
+          ),
+          prefixIcon: Container(
+            padding: const EdgeInsets.all(12),
+            child: Icon(
+              Icons.search_rounded,
+              color: AppColors.textSecondary,
+              size: 18,
+            ),
+          ),
+          suffixIcon: GestureDetector(
+            onTap: _startNewChat,
+            child: Container(
+              margin: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                gradient: AppColors.purpleGradient,
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.purpleMedium.withValues(alpha: 0.3),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.add_rounded,
+                color: Colors.white,
+                size: 16,
+              ),
+            ),
+          ),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
+          ),
+        ),
+        onChanged: (value) {
+          // TODO: Implementare ricerca nelle chat
+        },
+      ),
+    );
+  }
+
   Widget _buildSidebar() {
     return Drawer(
       backgroundColor: AppColors.surface,
+      width: 300,
       child: SafeArea(
         child: Column(
           children: [
-            // Header del drawer
+            // Top header minimale
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: const SizedBox.shrink(), // Header vuoto per ora
+            ),
+            
+            // Search bar custom
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          gradient: AppColors.purpleGradient,
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.purpleMedium.withValues(alpha: 0.4),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.terminal,
-                          color: Colors.white,
-                          size: 22,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Warp AI IDE',
-                              style: TextStyle(
-                                color: AppColors.textPrimary,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            Text(
-                              'Mobile Development',
-                              style: TextStyle(
-                                color: AppColors.textSecondary,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                  _buildCustomSearchBar(),
+                  const SizedBox(height: 12),
+                  // GitHub
+                  _buildSidebarButton(
+                    icon: Icons.account_tree_outlined,
+                    text: 'GitHub',
+                    onTap: () {
+                      setState(() {
+                        _showGitHubSidebar = true;
+                      });
+                      Navigator.pop(context); // Chiudi sidebar principale
+                      _showGitHubSidebarPanel();
+                    },
+                    isActive: false,
+                  ),
+                  const SizedBox(height: 8),
+                  // Crea App
+                  _buildSidebarButton(
+                    icon: Icons.rocket_launch_outlined,
+                    text: 'Crea App',
+                    onTap: () {
+                      // TODO: Implementare Crea App
+                    },
+                    isActive: false,
                   ),
                 ],
               ),
             ),
-            // Search bar
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              child: TextField(
-                controller: _searchController,
-                focusNode: _searchFocusNode,
-                style: TextStyle(color: AppColors.textPrimary, fontSize: 14),
-                decoration: InputDecoration(
-                  hintText: 'Cerca nelle chat...',
-                  hintStyle: TextStyle(color: AppColors.textTertiary),
-                  prefixIcon: Icon(Icons.search, color: AppColors.textSecondary, size: 20),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  fillColor: AppColors.background,
-                  filled: true,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            // Chat sections
+            
+            const SizedBox(height: 20),
+            
+            // Chat history
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                children: [
-                  // Chat recenti
-                  _buildChatSection(),
-                  const SizedBox(height: 16),
-                  // Repository GitHub
-                  _buildGitHubSection(),
-                ],
-              ),
+              child: _buildChatHistory(),
             ),
-            // Bottom actions
+            
+            // Bottom section con avatar e user info
             Container(
               padding: const EdgeInsets.all(16),
-              child: Column(
+              margin: const EdgeInsets.only(top: 16),
+              decoration: BoxDecoration(
+                border: Border(
+                  top: BorderSide(
+                    color: AppColors.border,
+                    width: 1,
+                  ),
+                ),
+              ),
+              child: Row(
                 children: [
-                  // New chat button
-                  SizedBox(
-                    width: double.infinity,
+                  // Avatar con gradiente purple - cliccabile per settings
+                  GestureDetector(
+                    onTap: () {
+                      // TODO: Aprire menu settings
+                      Navigator.pop(context); // chiudi sidebar temporaneamente
+                    },
                     child: Container(
+                      width: 32,
+                      height: 32,
                       decoration: BoxDecoration(
                         gradient: AppColors.purpleGradient,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
                             color: AppColors.purpleMedium.withValues(alpha: 0.3),
                             blurRadius: 8,
-                            offset: const Offset(0, 3),
+                            offset: const Offset(0, 2),
                           ),
                         ],
                       ),
-                      child: ElevatedButton.icon(
-                        onPressed: _startNewChat,
-                        icon: const Icon(Icons.add, size: 16),
-                        label: const Text('Nuova Chat'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          foregroundColor: Colors.white,
-                          shadowColor: Colors.transparent,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                      child: const Icon(
+                        Icons.person_rounded,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // User info
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'wlad',
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
                           ),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
+                        Text(
+                          'Warp AI Developer',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // PRO badge professionale
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.textSecondary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: AppColors.textSecondary.withValues(alpha: 0.2),
+                        width: 1,
+                      ),
+                    ),
+                    child: Text(
+                      'PRO',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 0.3,
                       ),
                     ),
                   ),
@@ -535,7 +726,224 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
       ),
     );
   }
-
+  
+  Widget _buildSidebarButton({
+    required IconData icon,
+    required String text,
+    required VoidCallback onTap,
+    required bool isActive,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: isActive 
+              ? AppColors.surface.withValues(alpha: 0.8)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: isActive ? Border.all(
+            color: AppColors.textSecondary.withValues(alpha: 0.2),
+            width: 1,
+          ) : null,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: isActive 
+                  ? AppColors.textPrimary
+                  : AppColors.textSecondary,
+              size: 18,
+            ),
+            const SizedBox(width: 12),
+            Text(
+              text,
+              style: TextStyle(
+                color: isActive 
+                    ? AppColors.textPrimary
+                    : AppColors.textSecondary,
+                fontSize: 14,
+                fontWeight: isActive ? FontWeight.w500 : FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildChatHistory() {
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      children: [
+        // Today section
+        if (_getChatsByDate('today').isNotEmpty) ...[
+          _buildDateHeader('Today', true),
+          const SizedBox(height: 8),
+          ..._getChatsByDate('today').map(_buildChatHistoryItem),
+          const SizedBox(height: 16),
+        ],
+        
+        // Yesterday section
+        if (_getChatsByDate('yesterday').isNotEmpty) ...[
+          _buildDateHeader('Yesterday', false),
+          const SizedBox(height: 8),
+          ..._getChatsByDate('yesterday').map(_buildChatHistoryItem),
+          const SizedBox(height: 16),
+        ],
+        
+        // Last 7 days section
+        if (_getChatsByDate('week').isNotEmpty) ...[
+          _buildDateHeader('Last 7 days', false),
+          const SizedBox(height: 8),
+          ..._getChatsByDate('week').map(_buildChatHistoryItem),
+        ],
+      ],
+    );
+  }
+  
+  Widget _buildDateHeader(String title, bool isExpanded) {
+    return Row(
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Icon(
+          isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+          color: Colors.white70,
+          size: 16,
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildChatHistoryItem(ChatSession chat) {
+    final isSelected = _currentChatSession?.id == chat.id;
+    final isGitHubChat = chat.repositoryId != null;
+    
+    return InkWell(
+      onTap: () => _loadChatSession(chat),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        margin: const EdgeInsets.only(bottom: 2),
+        decoration: BoxDecoration(
+          color: isSelected 
+              ? AppColors.surface.withValues(alpha: 0.8)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: isSelected ? Border.all(
+            color: AppColors.textSecondary.withValues(alpha: 0.2),
+            width: 1,
+          ) : null,
+        ),
+        child: Row(
+          children: [
+            // Icona GitHub a sinistra (sempre presente per mantenere allineamento)
+            Container(
+              width: 20, // Larghezza fissa per allineamento
+              child: isGitHubChat 
+                  ? Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: AppColors.purpleMedium.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Icon(
+                        Icons.account_tree_outlined,
+                        color: AppColors.purpleMedium,
+                        size: 12,
+                      ),
+                    )
+                  : const SizedBox.shrink(), // Spazio vuoto per chat normali
+            ),
+            const SizedBox(width: 8),
+            
+            // Contenuto chat (ora sempre allineato)
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Titolo chat
+                  Text(
+                    chat.title.length > 40 ? '${chat.title.substring(0, 40)}...' : chat.title,
+                    style: TextStyle(
+                      color: isSelected 
+                          ? AppColors.textPrimary
+                          : AppColors.textSecondary,
+                      fontSize: 13,
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  
+                  // Nome repository se presente
+                  if (isGitHubChat && chat.repositoryName != null) ...[
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.folder_outlined,
+                          color: AppColors.textTertiary,
+                          size: 10,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            chat.repositoryName!,
+                            style: TextStyle(
+                              color: AppColors.textTertiary,
+                              fontSize: 10,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  List<ChatSession> _getChatsByDate(String period) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final weekAgo = today.subtract(const Duration(days: 7));
+    
+    return _chatHistory.where((chat) {
+      final chatDate = DateTime(chat.lastUsed.year, chat.lastUsed.month, chat.lastUsed.day);
+      
+      switch (period) {
+        case 'today':
+          return chatDate.isAtSameMomentAs(today);
+        case 'yesterday':
+          return chatDate.isAtSameMomentAs(yesterday);
+        case 'week':
+          return chatDate.isBefore(yesterday) && chatDate.isAfter(weekAgo);
+        default:
+          return false;
+      }
+    }).toList();
+  }
+  
   Widget _buildChatSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1142,65 +1550,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 24),
-            Container(
-              constraints: const BoxConstraints(maxWidth: 320),
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-              decoration: BoxDecoration(
-                gradient: AppColors.cardGradient,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: AppColors.purpleMedium.withValues(alpha: 0.2),
-                  width: 1,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.purpleMedium.withValues(alpha: 0.1),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      gradient: AppColors.purpleGradient,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.auto_awesome, color: Colors.white, size: 14),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'AI: ${_getSelectedModelDisplayName().split(' ').first}',
-                          style: TextStyle(
-                            color: AppColors.textPrimary,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          'Pronto per assistenza',
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 10,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 32),
             Text(
               'Scrivi un messaggio per iniziare',
               style: TextStyle(
@@ -1262,30 +1612,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
                 itemCount: _terminalItems.length + (_isLoading ? 1 : 0),
                 itemBuilder: (context, index) {
                   if (index == _terminalItems.length && _isLoading) {
-                    return Container(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            'AI sta elaborando...',
-                            style: TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 14,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
+                    return _buildModernLoadingIndicator();
                   }
                   
                   final item = _terminalItems[index];
@@ -1298,30 +1625,36 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   }
 
   Widget _buildTerminalItem(TerminalItem item) {
-    Color defaultTextColor;
-    String prefix;
+    return _buildMinimalTerminalLine(item);
+  }
+  
+  Widget _buildMinimalTerminalLine(TerminalItem item) {
+    Color textColor;
+    String prefix = '';
     
     switch (item.type) {
       case TerminalItemType.command:
-        defaultTextColor = AppColors.primary;
-        prefix = _isTerminalMode ? '' : '❯ '; // Terminal mode shows full prompt in content
+        textColor = const Color(0xFF06B6D4);
+        prefix = '❯ ';
         break;
       case TerminalItemType.output:
-        defaultTextColor = AppColors.textPrimary;
+        textColor = const Color(0xFFE2E8F0);
         prefix = '';
         break;
       case TerminalItemType.error:
-        defaultTextColor = AppColors.error;
-        prefix = '';
+        textColor = const Color(0xFFEF4444);
+        prefix = '✗ ';
         break;
       case TerminalItemType.system:
-        defaultTextColor = AppColors.success;
-        prefix = '• ';
+        textColor = const Color(0xFF10B981);
+        prefix = '✓ ';
         break;
+      default:
+        textColor = const Color(0xFF9CA3AF);
+        prefix = '';
     }
     
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 2),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1330,42 +1663,628 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
             Text(
               prefix,
               style: TextStyle(
-                color: defaultTextColor,
+                color: textColor,
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
+                fontFamily: 'SF Mono',
               ),
             ),
           Expanded(
-            child: item.type == TerminalItemType.command && _isTerminalMode
-              ? SelectableText.rich(
-                  TextSpan(
-                    children: TerminalSyntaxHighlighter.highlightCommand(
-                      item.content, 
-                      defaultTextColor,
-                    ),
+            child: _buildContent(item, textColor),
+          ),
+          if (item.type == TerminalItemType.command)
+            Text(
+              _formatTime(item.timestamp),
+              style: TextStyle(
+                color: const Color(0xFF64748B),
+                fontSize: 11,
+                fontFamily: 'SF Mono',
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildContent(TerminalItem item, Color textColor) {
+    if (item.type == TerminalItemType.command && _isTerminalMode) {
+      return SelectableText.rich(
+        TextSpan(
+          children: TerminalSyntaxHighlighter.highlightCommand(
+            item.content,
+            textColor,
+          ),
+        ),
+      );
+    }
+    
+    if (item.type == TerminalItemType.output) {
+      // Check for special Flutter output
+      if (item.content.contains('Flutter web app') || 
+          item.content.contains('http://')) {
+        return _buildFlutterOutput(item.content);
+      }
+      
+      return SelectableText.rich(
+        TextSpan(
+          children: TerminalSyntaxHighlighter.highlightOutput(
+            item.content,
+            textColor,
+          ),
+        ),
+      );
+    }
+    
+    return SelectableText(
+      item.content,
+      style: TextStyle(
+        color: textColor,
+        fontSize: 14,
+        fontFamily: 'SF Mono',
+        height: 1.4,
+      ),
+    );
+  }
+  
+  Widget _buildFlutterOutput(String content) {
+    RegExp urlRegex = RegExp(r'https?://[^\s]+');
+    Match? urlMatch = urlRegex.firstMatch(content);
+    String? url = urlMatch?.group(0);
+    
+    if (url != null) {
+      // Split content to highlight URL
+      List<String> parts = content.split(url);
+      
+      return SelectableText.rich(
+        TextSpan(
+          children: [
+            TextSpan(
+              text: parts[0],
+              style: const TextStyle(
+                color: Color(0xFFE2E8F0),
+                fontSize: 14,
+                fontFamily: 'SF Mono',
+                height: 1.4,
+              ),
+            ),
+            WidgetSpan(
+              child: GestureDetector(
+                onTap: () {
+                  Clipboard.setData(ClipboardData(text: url));
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF06B6D4).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(4),
                   ),
-                )
-              : item.type == TerminalItemType.output
-                ? SelectableText.rich(
-                    TextSpan(
-                      children: TerminalSyntaxHighlighter.highlightOutput(
-                        item.content, 
-                        defaultTextColor,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        url,
+                        style: const TextStyle(
+                          color: Color(0xFF06B6D4),
+                          fontSize: 14,
+                          fontFamily: 'SF Mono',
+                          decoration: TextDecoration.underline,
+                        ),
                       ),
-                    ),
-                  )
-                : SelectableText(
-                    item.content,
-                    style: TextStyle(
-                      color: defaultTextColor,
-                      fontSize: 14,
-                      fontFamily: 'SF Mono',
-                      height: 1.3,
-                    ),
+                      const SizedBox(width: 4),
+                      const Icon(
+                        Icons.copy_rounded,
+                        color: Color(0xFF06B6D4),
+                        size: 12,
+                      ),
+                    ],
                   ),
+                ),
+              ),
+            ),
+            if (parts.length > 1)
+              TextSpan(
+                text: parts[1],
+                style: const TextStyle(
+                  color: Color(0xFFE2E8F0),
+                  fontSize: 14,
+                  fontFamily: 'SF Mono',
+                  height: 1.4,
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+    
+    return SelectableText(
+      content,
+      style: const TextStyle(
+        color: Color(0xFFE2E8F0),
+        fontSize: 14,
+        fontFamily: 'SF Mono',
+        height: 1.4,
+      ),
+    );
+  }
+  
+  Widget _buildCommandCard(TerminalItem item) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1D29),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFF2D3748),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF4C51BF), Color(0xFF667EEA)],
+              ),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.keyboard_arrow_right_rounded,
+              color: Colors.white,
+              size: 16,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Comando eseguito',
+                  style: TextStyle(
+                    color: const Color(0xFF9CA3AF),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                SelectableText.rich(
+                  TextSpan(
+                    children: _isTerminalMode
+                      ? TerminalSyntaxHighlighter.highlightCommand(
+                          item.content,
+                          const Color(0xFFE2E8F0),
+                        )
+                      : [TextSpan(
+                          text: item.content,
+                          style: const TextStyle(
+                            color: Color(0xFFE2E8F0),
+                            fontFamily: 'SF Mono',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        )],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFF10B981).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              '${_formatTime(item.timestamp)}',
+              style: const TextStyle(
+                color: Color(0xFF10B981),
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ],
       ),
+    );
+  }
+  
+  Widget _buildOutputCard(TerminalItem item) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFF1E293B),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF06B6D4),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Output',
+                style: TextStyle(
+                  color: const Color(0xFF64748B),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildFormattedOutput(item.content),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildFormattedOutput(String content) {
+    // Controlla se è un output di Flutter
+    if (content.contains('Flutter web app') || content.contains('http://')) {
+      return _buildFlutterOutputCard(content);
+    }
+    
+    // Controlla se è un output di successo
+    if (content.toLowerCase().contains('success') || 
+        content.contains('✅') || 
+        content.contains('✓')) {
+      return _buildSuccessOutputCard(content);
+    }
+    
+    // Output normale
+    return _buildNormalOutputCard(content);
+  }
+  
+  Widget _buildFlutterOutputCard(String content) {
+    // Estrae l'URL se presente
+    RegExp urlRegex = RegExp(r'https?://[^\s]+');
+    Match? urlMatch = urlRegex.firstMatch(content);
+    String? url = urlMatch?.group(0);
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFF3B82F6).withOpacity(0.1),
+            const Color(0xFF1D4ED8).withOpacity(0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: const Color(0xFF3B82F6).withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF3B82F6),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Icon(
+                  Icons.rocket_launch_rounded,
+                  color: Colors.white,
+                  size: 14,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Flutter App Avviata',
+                style: TextStyle(
+                  color: const Color(0xFF3B82F6),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (url != null) 
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.language_rounded,
+                    color: Color(0xFF06B6D4),
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: SelectableText(
+                      url,
+                      style: const TextStyle(
+                        color: Color(0xFF06B6D4),
+                        fontFamily: 'SF Mono',
+                        fontSize: 13,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      // Copia URL negli appunti
+                      Clipboard.setData(ClipboardData(text: url));
+                    },
+                    icon: const Icon(
+                      Icons.copy_rounded,
+                      color: Color(0xFF64748B),
+                      size: 16,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          if (url != null) const SizedBox(height: 8),
+          SelectableText.rich(
+            TextSpan(
+              children: TerminalSyntaxHighlighter.highlightOutput(
+                content,
+                const Color(0xFFCBD5E1),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildSuccessOutputCard(String content) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF10B981).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: const Color(0xFF10B981).withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              color: const Color(0xFF10B981),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.check_rounded,
+              color: Colors.white,
+              size: 12,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: SelectableText(
+              content,
+              style: const TextStyle(
+                color: Color(0xFF10B981),
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildNormalOutputCard(String content) {
+    return SelectableText.rich(
+      TextSpan(
+        children: TerminalSyntaxHighlighter.highlightOutput(
+          content,
+          const Color(0xFFCBD5E1),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildErrorCard(TerminalItem item) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFFEF4444).withOpacity(0.1),
+            const Color(0xFFDC2626).withOpacity(0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFFEF4444).withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: const Color(0xFFEF4444),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.error_outline_rounded,
+              color: Colors.white,
+              size: 16,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Errore',
+                  style: TextStyle(
+                    color: const Color(0xFFEF4444),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                SelectableText(
+                  item.content,
+                  style: const TextStyle(
+                    color: Color(0xFFE2E8F0),
+                    fontSize: 13,
+                    fontFamily: 'SF Mono',
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildSystemCard(TerminalItem item) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: const Color(0xFF334155),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: const BoxDecoration(
+              color: Color(0xFF8B5CF6),
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: SelectableText(
+              item.content,
+              style: const TextStyle(
+                color: Color(0xFF8B5CF6),
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildDefaultCard(TerminalItem item) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      child: SelectableText(
+        item.content,
+        style: const TextStyle(
+          color: Color(0xFFCBD5E1),
+          fontSize: 13,
+          fontFamily: 'SF Mono',
+          height: 1.4,
+        ),
+      ),
+    );
+  }
+  
+  String _formatTime(DateTime dateTime) {
+    return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+  }
+  
+  Widget _buildModernLoadingIndicator() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                Color(0xFF64748B),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Row(
+              children: [
+                const Text(
+                  'Pensando',
+                  style: TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: 14,
+                    fontFamily: 'SF Mono',
+                    height: 1.4,
+                  ),
+                ),
+                _buildMinimalAnimatedDots(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildMinimalAnimatedDots() {
+    return AnimatedBuilder(
+      animation: _animationController,
+      builder: (context, child) {
+        return Row(
+          children: List.generate(3, (index) {
+            double delay = index * 0.3;
+            double animationValue = (_animationController.value - delay).clamp(0.0, 1.0);
+            double opacity = (sin(animationValue * pi * 2) + 1) / 2;
+            
+            return Text(
+              '.',
+              style: TextStyle(
+                color: const Color(0xFF64748B).withOpacity(opacity),
+                fontSize: 20,
+                fontFamily: 'SF Mono',
+                height: 1,
+              ),
+            );
+          }),
+        );
+      },
     );
   }
 
@@ -1520,141 +2439,94 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  AppColors.surface.withValues(alpha: 0.95),
-                  AppColors.surface.withValues(alpha: 0.85),
+                  AppColors.surface.withValues(alpha: 0.98),
+                  AppColors.surface.withValues(alpha: 0.92),
                 ],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               ),
-              borderRadius: BorderRadius.circular(25),
+              borderRadius: BorderRadius.circular(24),
               border: Border.all(
-                color: AppColors.purpleMedium.withValues(alpha: 0.1),
-                width: 1,
+                color: AppColors.purpleMedium.withValues(alpha: 0.15),
+                width: 1.5,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
-                  blurRadius: 20,
-                  offset: const Offset(0, 4),
+                  color: Colors.black.withValues(alpha: 0.15),
+                  blurRadius: 30,
+                  offset: const Offset(0, 8),
+                  spreadRadius: 2,
                 ),
                 BoxShadow(
-                  color: AppColors.purpleMedium.withValues(alpha: 0.08),
-                  blurRadius: 40,
-                  offset: const Offset(0, 8),
+                  color: AppColors.purpleMedium.withValues(alpha: 0.12),
+                  blurRadius: 50,
+                  offset: const Offset(0, 12),
                 ),
               ],
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Advanced controls - Top section
+                // Advanced controls - Top section unificata
                 Container(
-                  height: 44,
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                  height: 40, // Altezza unificata per tutti
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  child: Row(
                     children: [
-                      // Mode toggle
-                      _buildModeToggle(),
-                      const SizedBox(width: 12),
-                      // Tools
-                      _buildInputTools(),
-                      const SizedBox(width: 12),
-                      // Model selector
-                      _buildModelSelector(),
-                      const SizedBox(width: 16), // Extra padding at end
+                      // Toggle Terminal/AI con logica auto
+                      _buildSmartModeToggle(),
+                      const Spacer(),
+                      // Model selector - sempre a destra
+                      _buildUnifiedModelSelector(),
                     ],
                   ),
                 ),
-                // Main input row - Bottom section
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    // Command input
-                    Expanded(
-                      child: SyntaxTextField(
-                        controller: _commandController,
-                        focusNode: _commandFocusNode,
-                        maxLines: null,
-                        constraints: const BoxConstraints(maxHeight: 120),
-                          style: TextStyle(
-                            color: AppColors.textPrimary,
-                            fontSize: 14,
-                            fontFamily: 'SF Mono',
-                            height: 1.4,
-                          ),
-                          hintText: _isTerminalMode 
-                              ? 'Scrivi un comando...'
-                              : 'Chiedi qualcosa all\'AI...',
-                          hintStyle: TextStyle(
-                            color: AppColors.textTertiary,
-                            fontSize: 14,
-                          ),
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            enabledBorder: InputBorder.none,
-                            focusedBorder: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 20, 
-                              vertical: 14,
+                // Main input row unificata
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      // Tools button
+                      _buildUnifiedToolsButton(),
+                      const SizedBox(width: 12),
+                      // Command input
+                      Expanded(
+                        child: SyntaxTextField(
+                          controller: _commandController,
+                          focusNode: _commandFocusNode,
+                          maxLines: null,
+                          constraints: const BoxConstraints(maxHeight: 120),
+                            style: TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 14,
+                              fontFamily: 'SF Mono',
+                              height: 1.4,
                             ),
-                            isDense: false,
+                            hintText: _getSmartHintText(),
+                            hintStyle: TextStyle(
+                              color: AppColors.textTertiary,
+                              fontSize: 14,
+                            ),
+                            decoration: const InputDecoration(
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 16, 
+                                vertical: 14,
+                              ),
+                              isDense: false,
+                            ),
+                            onChanged: _onSmartInputChanged,
+                            onSubmitted: _executeCommand,
                           ),
-                          onChanged: _onInputChanged,
-                          onSubmitted: _executeCommand,
-                        ),
-                    ),
-                    // Send button - Integrated
-                    Container(
-                      margin: const EdgeInsets.all(6),
-                      child: GestureDetector(
-                        onTap: () {
-                          if (_commandController.text.trim().isNotEmpty) {
-                            _executeCommand(_commandController.text);
-                          }
-                        },
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            gradient: _commandController.text.trim().isNotEmpty
-                              ? AppColors.purpleGradient
-                              : LinearGradient(
-                                  colors: [
-                                    AppColors.textTertiary.withValues(alpha: 0.3),
-                                    AppColors.textTertiary.withValues(alpha: 0.2),
-                                  ],
-                                ),
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: _commandController.text.trim().isNotEmpty
-                              ? [
-                                  BoxShadow(
-                                    color: AppColors.purpleMedium.withValues(alpha: 0.4),
-                                    blurRadius: 12,
-                                    offset: const Offset(0, 3),
-                                    spreadRadius: 1,
-                                  ),
-                                  BoxShadow(
-                                    color: AppColors.violetLight.withValues(alpha: 0.2),
-                                    blurRadius: 20,
-                                    offset: const Offset(0, 5),
-                                  ),
-                                ]
-                              : [],
-                          ),
-                          child: Icon(
-                            Icons.send_rounded,
-                            color: _commandController.text.trim().isNotEmpty
-                              ? Colors.white
-                              : AppColors.textTertiary,
-                            size: 18,
-                          ),
-                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 12),
+                      // Send button unificato
+                      _buildUnifiedSendButton(),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -1667,6 +2539,908 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
     );
   }
 
+  // Sistema intelligente per riconoscere Agent vs Terminal
+  bool _isAgentQuery(String text) {
+    final lowerText = text.toLowerCase().trim();
+    
+    // Pattern espliciti per Agent/AI
+    final agentPatterns = [
+      'ciao', 'hello', 'hi', 'aiuto', 'help',
+      'come', 'cosa', 'perché', 'perchè', 'why', 'what', 'how',
+      'spiegami', 'explain', 'spiega',
+      'crea', 'genera', 'create', 'generate',
+      'flutter', 'dart', 'android', 'ios', 'mobile',
+      'codice', 'code', 'programmazione', 'programming',
+      'debug', 'errore', 'error', 'problema', 'issue',
+      'refactor', 'ottimizza', 'optimize',
+      'documenta', 'document',
+    ];
+    
+    // Pattern espliciti per Terminal
+    final terminalPatterns = [
+      'ls', 'cd', 'pwd', 'mkdir', 'rm', 'cp', 'mv',
+      'git', 'npm', 'yarn', 'flutter run', 'flutter build',
+      'docker', 'kubectl', 'ssh', 'curl', 'wget',
+      'python', 'node', 'java', 'go run',
+      'cmake', 'make', 'gcc', 'clang',
+    ];
+    
+    // Se inizia con un comando terminal noto
+    for (final pattern in terminalPatterns) {
+      if (lowerText.startsWith(pattern)) {
+        return false; // È terminal
+      }
+    }
+    
+    // Se contiene parole chiave per agent
+    for (final pattern in agentPatterns) {
+      if (lowerText.contains(pattern)) {
+        return true; // È agent
+      }
+    }
+    
+    // Default: se ha punti interrogativi o sembra una domanda -> Agent
+    if (lowerText.contains('?') || 
+        lowerText.split(' ').length > 3) {
+      return true;
+    }
+    
+    // Altrimenti -> Terminal
+    return false;
+  }
+  
+  String _getSmartHintText() {
+    return _isTerminalMode 
+        ? 'Scrivi un comando...'
+        : 'Chiedi qualcosa all\'AI...';
+  }
+  
+  void _onSmartInputChanged(String text) {
+    // Riconoscimento automatico solo se la modalità AUTO è abilitata
+    if (_isAutoModeEnabled) {
+      bool shouldBeAgent = _isAgentQuery(text);
+      
+      if (shouldBeAgent != !_isTerminalMode) {
+        setState(() {
+          _isTerminalMode = !shouldBeAgent;
+        });
+        // Update syntax highlighting controller
+        _commandController.dispose();
+        _commandController = SyntaxHighlightingController(
+          defaultTextColor: AppColors.textPrimary,
+          isTerminalMode: _isTerminalMode,
+          text: text,
+        );
+        _commandController.addListener(() {
+          setState(() {});
+        });
+      }
+    }
+    
+    // Chiama la funzione originale
+    _onInputChanged(text);
+  }
+  
+  // DESIGN SYSTEM SOFT E OUTLINED - Minimalista
+  static const double _buttonHeight = 36.0;
+  static const double _buttonWidth = 32.0;
+  static const double _borderRadius = 18.0;
+  static const double _borderWidth = 1.0;
+  static const Duration _animationDuration = Duration(milliseconds: 200);
+  
+  // Colori soft e minimalisti - Palette violacea
+  static const Color _backgroundSoft = Color(0xFF1A1A1A); // Sfondo molto scuro
+  static const Color _borderDefault = Color(0xFF2A2A2A);   // Bordo soft grigio
+  static const Color _borderActive = Color(0xFF3A3A3A);    // Bordo attivo più chiaro
+  static const Color _borderPurple = Color(0xFF8B7CF6);    // Viola vivace ma elegante per elementi attivi
+  static const Color _textPrimary = Color(0xFFF0F0F0);     // Testo bianco soft
+  static const Color _textSecondary = Color(0xFF8A8A8A);   // Testo grigio
+  static const Color _textPurple = Color(0xFF9B8DF3);      // Testo viola vivace ma elegante per attivi
+  static const Color _fillSoft = Color(0xFF0F0F0F);        // Fill molto sottile
+  static const Color _activeColor = Color(0xFF8B7CF6);     // Colore per stati attivi
+  static const Color _activeIconColor = Color(0xFFFFFFFF); // Colore icone attive
+  static const Color _inactiveIconColor = Color(0xFF8A8A8A); // Colore icone inattive
+  
+  // Stato della modalità - inizialmente in auto (nessun pulsante selezionato)
+  bool _isAutoModeEnabled = true; // Modalità automatica attiva
+  bool _manualModeSelected = false; // Nessuna modalità manualmente selezionata inizialmente
+  
+  Widget _buildSmartModeToggle() {
+    // Determina se siamo in modalità manuale per le animazioni del contenitore
+    final bool hasManualSelection = _manualModeSelected;
+    final bool hasAnyHighlight = (_manualModeSelected && _isTerminalMode) || 
+                                 (_manualModeSelected && !_isTerminalMode) ||
+                                 (!_manualModeSelected && _isTerminalMode) ||
+                                 (!_manualModeSelected && !_isTerminalMode);
+    
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeInOutCubic,
+      height: _buttonHeight,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(_borderRadius),
+        border: Border.all(
+          color: hasManualSelection 
+            ? _borderPurple.withValues(alpha: 0.4) 
+            : _borderDefault,
+          width: _borderWidth,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: hasManualSelection 
+              ? _borderPurple.withValues(alpha: 0.15)
+              : Colors.black.withValues(alpha: 0.1),
+            blurRadius: hasManualSelection ? 8 : 4,
+            offset: Offset(0, hasManualSelection ? 2 : 1),
+            spreadRadius: hasManualSelection ? 1 : 0,
+          ),
+        ],
+      ),
+      child: AnimatedScale(
+        duration: const Duration(milliseconds: 200),
+        scale: hasAnyHighlight ? 1.02 : 1.0,
+        curve: Curves.elasticOut,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildSmartModeButton(
+              icon: Icons.terminal_rounded,
+              isActive: _manualModeSelected && _isTerminalMode,
+              isAuto: !_manualModeSelected && _isTerminalMode,
+              onTap: () {
+                setState(() {
+                  if (_manualModeSelected && _isTerminalMode) {
+                    // Se è già selezionato Terminal, torna in auto
+                    _manualModeSelected = false;
+                    _isAutoModeEnabled = true;
+                  } else {
+                    // Seleziona Terminal manualmente
+                    _manualModeSelected = true;
+                    _isAutoModeEnabled = false;
+                    _isTerminalMode = true;
+                  }
+                });
+                _updateSyntaxController();
+              },
+            ),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: hasManualSelection ? 4 : 2,
+            ),
+            _buildSmartModeButton(
+              icon: Icons.auto_awesome_rounded,
+              isActive: _manualModeSelected && !_isTerminalMode,
+              isAuto: !_manualModeSelected && !_isTerminalMode,
+              onTap: () {
+                setState(() {
+                  if (_manualModeSelected && !_isTerminalMode) {
+                    // Se è già selezionato AI, torna in auto
+                    _manualModeSelected = false;
+                    _isAutoModeEnabled = true;
+                  } else {
+                    // Seleziona AI manualmente
+                    _manualModeSelected = true;
+                    _isAutoModeEnabled = false;
+                    _isTerminalMode = false;
+                  }
+                });
+                _updateSyntaxController();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildSmartModeButton({
+    required IconData icon,
+    required bool isActive,
+    required bool isAuto,
+    required VoidCallback onTap,
+  }) {
+    final bool isHighlighted = isActive || isAuto;
+    
+    return AnimatedPressButton(
+      pressedScale: 0.92,
+      duration: const Duration(milliseconds: 120),
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOutCubic,
+        height: _buttonHeight - 6,
+        width: _buttonWidth,
+        decoration: BoxDecoration(
+          color: isActive 
+            ? _activeColor  // Colore pieno per modalità manuale selezionata
+            : isAuto
+              ? _activeColor.withValues(alpha: 0.3)  // Colore attenuato per modalità auto
+              : Colors.transparent,  // Trasparente per modalità non attive
+          borderRadius: BorderRadius.circular(_borderRadius - 3),
+          boxShadow: isActive
+            ? [
+                BoxShadow(
+                  color: _activeColor.withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+                BoxShadow(
+                  color: _activeColor.withValues(alpha: 0.1),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ]
+            : isAuto
+              ? [
+                  BoxShadow(
+                    color: _activeColor.withValues(alpha: 0.15),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ]
+              : [],
+        ),
+          child: AnimatedScale(
+            duration: const Duration(milliseconds: 280),
+            scale: isHighlighted ? 1.0 : 0.88,
+            curve: Curves.elasticOut,
+            child: AnimatedRotation(
+              duration: const Duration(milliseconds: 500),
+              turns: isActive ? 0.015 : 0.0, // Leggera rotazione quando manualmente attivo
+              curve: Curves.easeInOutBack,
+              child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(_borderRadius - 5),
+                gradient: isActive
+                  ? RadialGradient(
+                      colors: [
+                        _activeColor.withValues(alpha: 0.2),
+                        Colors.transparent,
+                      ],
+                      stops: const [0.0, 1.0],
+                    )
+                  : null,
+              ),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                transitionBuilder: (Widget child, Animation<double> animation) {
+                  return ScaleTransition(
+                    scale: animation,
+                    child: FadeTransition(
+                      opacity: animation,
+                      child: child,
+                    ),
+                  );
+                },
+                child: Icon(
+                  icon,
+                  key: ValueKey('${icon.codePoint}_${isActive}_${isAuto}'),
+                  color: isHighlighted
+                    ? (isActive ? _activeIconColor : _activeIconColor.withValues(alpha: 0.85))
+                    : _inactiveIconColor,
+                  size: isHighlighted ? (isActive ? 19 : 17) : 15,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildUnifiedModelSelector() {
+    return GestureDetector(
+      onTap: _showBeautifulModelSelector,
+      child: Container(
+        height: _buttonHeight,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(_borderRadius),
+          border: Border.all(
+            color: _borderDefault,
+            width: _borderWidth,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _getSelectedModelDisplayName().split(' ').first,
+              style: const TextStyle(
+                color: _textPrimary,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                letterSpacing: 0.2,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Icon(
+              Icons.keyboard_arrow_down_rounded,
+              color: _textSecondary,
+              size: 12,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildUnifiedToolsButton() {
+    final bool hasActiveTools = _attachedImages.isNotEmpty || 
+                               _taggedFiles.isNotEmpty || 
+                               _isRecording || 
+                               _currentRecordingPath != null ||
+                               _autoApprove;
+    
+    return GestureDetector(
+      onTap: _showToolsBottomSheet,
+      child: AnimatedContainer(
+        duration: _animationDuration,
+        width: _buttonHeight,
+        height: _buttonHeight,
+        decoration: BoxDecoration(
+          color: hasActiveTools ? _fillSoft : Colors.transparent,
+          borderRadius: BorderRadius.circular(_borderRadius),
+          border: Border.all(
+            color: hasActiveTools ? _borderPurple : _borderDefault,
+            width: _borderWidth,
+          ),
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Icon(
+              Icons.add_rounded,
+              color: hasActiveTools ? _textPurple : _textSecondary,
+              size: 16,
+            ),
+            if (hasActiveTools)
+              Positioned(
+                right: 10,
+                top: 10,
+                child: Container(
+                  width: 5,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: _borderPurple,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildUnifiedSendButton() {
+    final bool hasText = _commandController.text.trim().isNotEmpty;
+    
+    return GestureDetector(
+      onTap: () {
+        if (hasText) {
+          _executeCommand(_commandController.text);
+        }
+      },
+      child: AnimatedContainer(
+        duration: _animationDuration,
+        width: _buttonHeight,
+        height: _buttonHeight,
+        decoration: BoxDecoration(
+          color: hasText ? _fillSoft : Colors.transparent,
+          borderRadius: BorderRadius.circular(_borderRadius),
+          border: Border.all(
+            color: hasText ? _borderPurple : _borderDefault,
+            width: _borderWidth,
+          ),
+        ),
+        child: AnimatedScale(
+          duration: _animationDuration,
+          scale: hasText ? 1.0 : 0.95,
+          child: Icon(
+            Icons.arrow_upward_rounded,
+            color: hasText ? _textPurple : _textSecondary,
+            size: 16,
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildModeButton({
+    required IconData icon,
+    required String label,
+    required bool isActive,
+    required VoidCallback onTap,
+    bool isPurple = false,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          gradient: isActive
+            ? LinearGradient(
+                colors: isPurple 
+                  ? [
+                      const Color(0xFF4A4458), // Viola molto scuro e desaturato
+                      const Color(0xFF3A3446), // Ancora più scuro
+                    ]
+                  : [
+                      const Color(0xFF404552), // Blu-grigio scuro  
+                      const Color(0xFF323642), // Più scuro
+                    ],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              )
+            : null,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: isActive
+            ? [
+                BoxShadow(
+                  color: isPurple 
+                    ? const Color(0xFF4A4458).withValues(alpha: 0.15)
+                    : const Color(0xFF404552).withValues(alpha: 0.15),
+                  blurRadius: 4,
+                  offset: const Offset(0, 1),
+                ),
+              ]
+            : [],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedScale(
+              duration: const Duration(milliseconds: 200),
+              scale: isActive ? 1.1 : 1.0,
+              child: Icon(
+                icon,
+                color: isActive
+                  ? Colors.white
+                  : AppColors.textSecondary.withValues(alpha: 0.7),
+                size: 12,
+              ),
+            ),
+            const SizedBox(width: 4),
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 200),
+              style: TextStyle(
+                color: isActive
+                  ? Colors.white
+                  : AppColors.textSecondary.withValues(alpha: 0.7),
+                fontSize: 10,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                letterSpacing: isActive ? 0.2 : 0.0,
+              ),
+              child: Text(label),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  void _updateSyntaxController() {
+    String currentText = _commandController.text;
+    _commandController.dispose();
+    _commandController = SyntaxHighlightingController(
+      defaultTextColor: AppColors.textPrimary,
+      isTerminalMode: _isTerminalMode,
+      text: currentText,
+    );
+    _commandController.addListener(() {
+      setState(() {});
+    });
+  }
+  
+  Widget _buildCompactModelSelector() {
+    return GestureDetector(
+      onTap: _showBeautifulModelSelector,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        height: 32,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              const Color(0xFF2D3748), // Grigio scuro con sfumatura blu
+              const Color(0xFF1A202C), // Più scuro
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: const Color(0xFF4A5568).withValues(alpha: 0.3),
+            width: 0.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF1A202C).withValues(alpha: 0.2),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 16,
+              height: 16,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    const Color(0xFF667EEA).withValues(alpha: 0.8), // Blu sottile
+                    const Color(0xFF764BA2).withValues(alpha: 0.8), // Viola sottile
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.auto_awesome_rounded,
+                color: Colors.white,
+                size: 10,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                _getSelectedModelDisplayName().split(' ').first,
+                style: const TextStyle(
+                  color: Color(0xFFE2E8F0),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.2,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                color: const Color(0xFF4A5568).withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Icon(
+                Icons.expand_more_rounded,
+                color: Color(0xFFA0AEC0),
+                size: 8,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildCompactInputTools() {
+    final bool hasActiveTools = _attachedImages.isNotEmpty || 
+                               _taggedFiles.isNotEmpty || 
+                               _isRecording || 
+                               _currentRecordingPath != null ||
+                               _autoApprove;
+    
+    return GestureDetector(
+      onTap: _showToolsBottomSheet,
+      child: Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          gradient: hasActiveTools
+              ? AppColors.purpleGradient
+              : LinearGradient(
+                  colors: [
+                    AppColors.surface.withValues(alpha: 0.8),
+                    AppColors.surface.withValues(alpha: 0.6),
+                  ],
+                ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: AppColors.border.withValues(alpha: 0.2),
+            width: 1,
+          ),
+          boxShadow: hasActiveTools
+              ? [
+                  BoxShadow(
+                    color: AppColors.purpleMedium.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : [],
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Icon(
+              Icons.add_rounded,
+              color: hasActiveTools
+                  ? Colors.white
+                  : AppColors.textSecondary,
+              size: 16,
+            ),
+            if (hasActiveTools)
+              Positioned(
+                right: 4,
+                top: 4,
+                child: Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  void _showToolsBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: AppColors.cardGradient,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          border: Border.all(
+            color: AppColors.purpleMedium.withValues(alpha: 0.2),
+            width: 1,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: AppColors.textTertiary.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            // Title
+            Text(
+              'Aggiungi contenuti',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 20),
+            // Tools grid
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildToolTile(
+                  icon: Icons.image_outlined,
+                  label: 'Foto',
+                  isActive: _attachedImages.isNotEmpty,
+                  badge: _attachedImages.isNotEmpty ? _attachedImages.length : null,
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pickImages();
+                  },
+                ),
+                _buildToolTile(
+                  icon: Icons.attach_file_outlined,
+                  label: 'File',
+                  isActive: _taggedFiles.isNotEmpty,
+                  badge: _taggedFiles.isNotEmpty ? _taggedFiles.length : null,
+                  onTap: () {
+                    Navigator.pop(context);
+                    _selectFilesToTag();
+                  },
+                ),
+                _buildToolTile(
+                  icon: _isRecording ? Icons.stop : Icons.mic_outlined,
+                  label: _isRecording ? 'Stop' : 'Audio',
+                  isActive: _isRecording || _currentRecordingPath != null,
+                  isRecording: _isRecording,
+                  onTap: () {
+                    Navigator.pop(context);
+                    _toggleRecording();
+                  },
+                ),
+                _buildToolTile(
+                  icon: Icons.auto_mode_outlined,
+                  label: 'Auto',
+                  isActive: _autoApprove,
+                  onTap: () {
+                    Navigator.pop(context);
+                    setState(() {
+                      _autoApprove = !_autoApprove;
+                    });
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildToolTile({
+    required IconData icon,
+    required String label,
+    required bool isActive,
+    required VoidCallback onTap,
+    int? badge,
+    bool isRecording = false,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 70,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          gradient: isActive
+            ? AppColors.purpleGradient
+            : LinearGradient(
+                colors: [
+                  AppColors.surface.withValues(alpha: 0.4),
+                  AppColors.surface.withValues(alpha: 0.2),
+                ],
+              ),
+          borderRadius: BorderRadius.circular(16),
+          border: isRecording
+            ? Border.all(
+                color: Colors.red.withValues(alpha: 0.7),
+                width: 2,
+              )
+            : Border.all(
+                color: AppColors.border.withValues(alpha: 0.1),
+                width: 1,
+              ),
+          boxShadow: isActive
+            ? [
+                BoxShadow(
+                  color: AppColors.purpleMedium.withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ]
+            : [],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Stack(
+              children: [
+                Icon(
+                  icon,
+                  color: isActive ? Colors.white : AppColors.textSecondary,
+                  size: 24,
+                ),
+                if (badge != null)
+                  Positioned(
+                    right: -4,
+                    top: -4,
+                    child: Container(
+                      constraints: const BoxConstraints(minWidth: 18),
+                      height: 18,
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.error,
+                        borderRadius: BorderRadius.circular(9),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.2),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        badge.toString(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: isActive ? Colors.white : AppColors.textSecondary,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  
+  Widget _buildMiniToolButton({
+    required IconData icon,
+    required bool isActive,
+    required VoidCallback onTap,
+    int? badge,
+    bool isRecording = false,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Stack(
+        children: [
+          Container(
+            width: 22,
+            height: 22,
+            decoration: BoxDecoration(
+              gradient: isActive
+                ? AppColors.violetGradient
+                : LinearGradient(
+                    colors: [
+                      AppColors.surface.withValues(alpha: 0.4),
+                      AppColors.surface.withValues(alpha: 0.2),
+                    ],
+                  ),
+              borderRadius: BorderRadius.circular(11),
+              border: isRecording
+                ? Border.all(
+                    color: Colors.red.withValues(alpha: 0.7),
+                    width: 1,
+                  )
+                : null,
+            ),
+            child: Icon(
+              icon,
+              color: isActive ? Colors.white : AppColors.textSecondary,
+              size: 11,
+            ),
+          ),
+          if (badge != null)
+            Positioned(
+              right: -1,
+              top: -1,
+              child: Container(
+                constraints: const BoxConstraints(minWidth: 12),
+                height: 12,
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.error,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  badge.toString(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 7,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+  
   Widget _buildModeToggle() {
     return Container(
       padding: const EdgeInsets.all(2),
@@ -2203,8 +3977,11 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
           });
         }
       } else {
-        // Execute AI command
-        await AIManager.instance.switchModel(_selectedModel);
+        // Execute AI command - usa selezione automatica se necessario
+        final actualModel = _selectedModel == 'auto' 
+          ? _getAutoSelectedModel(command)
+          : _selectedModel;
+        await AIManager.instance.switchModel(actualModel);
         
         final context = CodeContext(
           currentFile: _selectedRepository?.name,
@@ -2306,42 +4083,196 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   }
 
   String _getSelectedModelDisplayName() {
+    if (_selectedModel == 'auto') {
+      return 'Auto';
+    }
+    
     final model = AIModel.allModels.firstWhere(
       (m) => m.id == _selectedModel,
       orElse: () => AIModel.allModels.first,
     );
     return model.displayName;
   }
+  
+  Widget _buildAutoModelOption(bool isSelected) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () {
+            setState(() {
+              _selectedModel = 'auto';
+            });
+            Navigator.pop(context);
+          },
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: isSelected
+                ? LinearGradient(
+                    colors: [
+                      AppColors.primary.withValues(alpha: 0.15),
+                      AppColors.primary.withValues(alpha: 0.08),
+                    ],
+                  )
+                : null,
+              borderRadius: BorderRadius.circular(12),
+              border: isSelected 
+                ? Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.3),
+                    width: 2,
+                  )
+                : Border.all(
+                    color: AppColors.border.withValues(alpha: 0.1),
+                    width: 1,
+                  ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: isSelected
+                        ? [AppColors.primary, AppColors.primary.withValues(alpha: 0.8)]
+                        : [AppColors.textTertiary.withValues(alpha: 0.2), AppColors.textTertiary.withValues(alpha: 0.1)],
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    Icons.auto_fix_high_rounded,
+                    color: isSelected ? Colors.white : AppColors.textTertiary,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Auto (Consigliato)',
+                              style: TextStyle(
+                                color: AppColors.textPrimary,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.success.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              'SMART',
+                              style: TextStyle(
+                                color: AppColors.success,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Seleziona automaticamente il modello migliore per ogni richiesta',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+  
+  String _getAutoSelectedModel(String userInput) {
+    // Logica intelligente per selezionare il modello migliore
+    final lowerInput = userInput.toLowerCase();
+    
+    // Per coding e sviluppo -> Claude 4 Sonnet
+    if (lowerInput.contains('codice') || lowerInput.contains('code') ||
+        lowerInput.contains('flutter') || lowerInput.contains('dart') ||
+        lowerInput.contains('debug') || lowerInput.contains('errore') ||
+        lowerInput.contains('refactor') || lowerInput.contains('ottimizza')) {
+      return 'claude-4-sonnet';
+    }
+    
+    // Per creatività e brainstorming -> GPT-4
+    if (lowerInput.contains('crea') || lowerInput.contains('genera') ||
+        lowerInput.contains('scrivi') || lowerInput.contains('inventa') ||
+        lowerInput.contains('idea') || lowerInput.contains('design')) {
+      return 'gpt-4-turbo';
+    }
+    
+    // Per analisi e spiegazioni -> Claude 4 Sonnet
+    if (lowerInput.contains('spiega') || lowerInput.contains('analizza') ||
+        lowerInput.contains('cosa') || lowerInput.contains('perché') ||
+        lowerInput.contains('come funziona')) {
+      return 'claude-4-sonnet';
+    }
+    
+    // Default -> Claude 4 Sonnet (migliore per sviluppo)
+    return 'claude-4-sonnet';
+  }
 
   void _showBeautifulModelSelector() {
+    // Lista dei modelli curati
+    final curatedModels = [
+      {'id': 'auto', 'name': 'Auto', 'provider': 'SMART', 'description': 'Scelta automatica del modello migliore'},
+      {'id': 'claude-4.1-sonnet', 'name': 'Claude 4.1 Sonnet', 'provider': 'ANTHROPIC', 'description': 'Migliore per coding e sviluppo'},
+      {'id': 'claude-4.1-opus', 'name': 'Claude 4.1 Opus', 'provider': 'ANTHROPIC', 'description': 'Massima qualità per task complessi'},
+      {'id': 'gpt-5', 'name': 'GPT-5', 'provider': 'OPENAI', 'description': 'Nuova generazione per creatività'},
+      {'id': 'gemini-2.5-pro', 'name': 'Gemini 2.5 Pro', 'provider': 'GOOGLE', 'description': 'Potente e veloce per analisi'},
+    ];
+    
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.6,
+        height: 420, // Altezza fissa per 5 opzioni
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              AppColors.surface,
-              AppColors.surface.withValues(alpha: 0.98),
-            ],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          color: AppColors.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
           children: [
+            // Header semplificato
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
               child: Row(
                 children: [
-                  Icon(Icons.auto_awesome_rounded, color: AppColors.primary, size: 24),
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Seleziona Modello AI',
+                      'Seleziona Modello',
                       style: TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 18,
@@ -2349,76 +4280,84 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
                       ),
                     ),
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close),
-                    color: AppColors.textSecondary,
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: AppColors.textSecondary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Icon(
+                        Icons.close,
+                        color: AppColors.textSecondary,
+                        size: 16,
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
+            // Lista modelli pulita
             Expanded(
               child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                itemCount: AIModel.allModels.length,
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                itemCount: curatedModels.length,
                 itemBuilder: (context, index) {
-                  final model = AIModel.allModels[index];
-                  final isSelected = model.id == _selectedModel;
+                  final model = curatedModels[index];
+                  final isSelected = _selectedModel == model['id'];
                   
                   return Container(
-                    margin: const EdgeInsets.only(bottom: 12),
+                    margin: const EdgeInsets.only(bottom: 8),
                     child: Material(
                       color: Colors.transparent,
                       child: InkWell(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(16),
                         onTap: () {
                           setState(() {
-                            _selectedModel = model.id;
+                            _selectedModel = model['id']!;
                           });
                           Navigator.pop(context);
                         },
                         child: Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            gradient: isSelected
-                              ? LinearGradient(
-                                  colors: [
-                                    AppColors.primary.withValues(alpha: 0.15),
-                                    AppColors.primary.withValues(alpha: 0.08),
-                                  ],
-                                )
-                              : null,
-                            borderRadius: BorderRadius.circular(12),
-                            border: isSelected 
-                              ? Border.all(
-                                  color: AppColors.primary.withValues(alpha: 0.3),
-                                  width: 2,
-                                )
-                              : Border.all(
-                                  color: AppColors.border.withValues(alpha: 0.1),
-                                  width: 1,
-                                ),
+                            color: isSelected 
+                              ? AppColors.primary.withValues(alpha: 0.08)
+                              : Colors.transparent,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isSelected 
+                                ? AppColors.primary.withValues(alpha: 0.2)
+                                : AppColors.border.withValues(alpha: 0.1),
+                              width: 1.5,
+                            ),
                           ),
                           child: Row(
                             children: [
+                              // Icona modello
                               Container(
-                                width: 40,
-                                height: 40,
+                                width: 44,
+                                height: 44,
                                 decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: isSelected
-                                      ? [AppColors.primary, AppColors.primary.withValues(alpha: 0.8)]
-                                      : [AppColors.textTertiary.withValues(alpha: 0.2), AppColors.textTertiary.withValues(alpha: 0.1)],
-                                  ),
-                                  borderRadius: BorderRadius.circular(10),
+                                  color: isSelected 
+                                    ? AppColors.primary.withValues(alpha: 0.15)
+                                    : AppColors.textSecondary.withValues(alpha: 0.06),
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Icon(
-                                  Icons.auto_awesome_rounded,
-                                  color: isSelected ? Colors.white : AppColors.textTertiary,
-                                  size: 20,
+                                  model['id'] == 'auto' 
+                                    ? Icons.auto_fix_high_rounded
+                                    : Icons.psychology_rounded,
+                                  color: isSelected 
+                                    ? AppColors.primary
+                                    : AppColors.textSecondary.withValues(alpha: 0.7),
+                                  size: 22,
                                 ),
                               ),
                               const SizedBox(width: 16),
+                              // Info modello
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2427,25 +4366,25 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
                                       children: [
                                         Expanded(
                                           child: Text(
-                                            model.displayName,
+                                            model['name']!,
                                             style: TextStyle(
                                               color: AppColors.textPrimary,
-                                              fontSize: 16,
+                                              fontSize: 15,
                                               fontWeight: FontWeight.w600,
                                             ),
                                           ),
                                         ),
                                         Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                           decoration: BoxDecoration(
-                                            color: AppColors.primary.withValues(alpha: 0.1),
+                                            color: _getProviderColor(model['provider']!).withValues(alpha: 0.1),
                                             borderRadius: BorderRadius.circular(6),
                                           ),
                                           child: Text(
-                                            model.provider.toUpperCase(),
+                                            model['provider']!,
                                             style: TextStyle(
-                                              color: AppColors.primary,
-                                              fontSize: 10,
+                                              color: _getProviderColor(model['provider']!),
+                                              fontSize: 9,
                                               fontWeight: FontWeight.w700,
                                               letterSpacing: 0.5,
                                             ),
@@ -2455,17 +4394,30 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      'Modello ${model.provider} per sviluppo',
+                                      model['description']!,
                                       style: TextStyle(
                                         color: AppColors.textSecondary,
                                         fontSize: 12,
                                       ),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ],
                                 ),
                               ),
+                              // Checkmark
+                              if (isSelected)
+                                Container(
+                                  width: 20,
+                                  height: 20,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.check,
+                                    color: Colors.white,
+                                    size: 12,
+                                  ),
+                                ),
                             ],
                           ),
                         ),
@@ -2475,10 +4427,159 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
                 },
               ),
             ),
+            const SizedBox(height: 24),
           ],
         ),
       ),
     );
+  }
+  
+  Widget _buildAnimatedSidebarButton(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        // Animazione al tap
+        _animationController.forward().then((_) {
+          _animationController.reverse();
+        });
+        Scaffold.of(context).openDrawer();
+      },
+      onTapDown: (_) {
+        // Inizio animazione al press
+        _animationController.forward();
+      },
+      onTapCancel: () {
+        // Annulla animazione se il tap viene cancellato
+        _animationController.reverse();
+      },
+      child: Container(
+        margin: const EdgeInsets.all(8),
+        width: 40,
+        height: 40,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // Background animato
+            AnimatedBuilder(
+              animation: _animationController,
+              builder: (context, child) {
+                return Container(
+                  decoration: BoxDecoration(
+                    gradient: RadialGradient(
+                      colors: [
+                        _textPurple.withValues(alpha: 0.15 * _animationController.value),
+                        _textPurple.withValues(alpha: 0.05 * _animationController.value),
+                      ],
+                      stops: [0.3, 1.0],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.primary.withValues(alpha: 0.2 * _animationController.value),
+                      width: 1,
+                    ),
+                  ),
+                );
+              },
+            ),
+            // Linee animate custom
+            AnimatedBuilder(
+              animation: _animationController,
+              builder: (context, child) {
+                final animValue = _animationController.value;
+                return Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Prima linea
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOutCubic,
+                      width: 18 - (4 * animValue),
+                      height: 2.5,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppColors.textPrimary,
+                            AppColors.primary.withValues(alpha: 0.3 + (0.7 * animValue)),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    // Seconda linea (si accorcia di più)
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOutCubic,
+                      width: 14 - (6 * animValue),
+                      height: 2.5,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppColors.textPrimary.withValues(alpha: 0.8),
+                            AppColors.primary.withValues(alpha: 0.2 + (0.8 * animValue)),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    // Terza linea
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOutCubic,
+                      width: 12 - (2 * animValue),
+                      height: 2.5,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppColors.textPrimary.withValues(alpha: 0.6),
+                            AppColors.primary.withValues(alpha: 0.1 + (0.9 * animValue)),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+            // Effetto ripple al tap
+            AnimatedBuilder(
+              animation: _animationController,
+              builder: (context, child) {
+                return Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.3 * _animationController.value),
+                        blurRadius: 8 * _animationController.value,
+                        offset: Offset.zero,
+                        spreadRadius: 2 * _animationController.value,
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Color _getProviderColor(String provider) {
+    switch (provider) {
+      case 'SMART':
+        return AppColors.success;
+      case 'ANTHROPIC':
+        return AppColors.primary;
+      case 'OPENAI':
+        return const Color(0xFF00A67E);
+      case 'GOOGLE':
+        return const Color(0xFF4285F4);
+      default:
+        return AppColors.textSecondary;
+    }
   }
 
   // Placeholder methods - implementa secondo necessità
@@ -2929,6 +5030,522 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
     });
   }
 
+  void _showGitHubSidebarPanel() {
+    showGeneralDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.5),
+      barrierDismissible: true,
+      barrierLabel: 'GitHub Sidebar',
+      transitionDuration: const Duration(milliseconds: 300),
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(-1.0, 0.0), // Slide da sinistra
+            end: Offset.zero,
+          ).animate(CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+          )),
+          child: child,
+        );
+      },
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return Stack(
+          children: [
+            // Background overlay
+            GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                color: Colors.transparent,
+              ),
+            ),
+            // GitHub Sidebar
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              child: _buildGitHubSidebarDrawer(),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildGitHubSidebarDrawer() {
+    return Drawer(
+      backgroundColor: AppColors.surface,
+      width: 300,
+      child: SafeArea(
+        child: Column(
+          children: [
+            // Top header vuoto (stesso spacing della sidebar principale)
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: const SizedBox.shrink(),
+            ),
+            
+            // Search bar sostituita con status GitHub
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Column(
+                children: [
+                  _buildGitHubStatusBar(),
+                  const SizedBox(height: 12),
+                ],
+              ),
+            ),
+            
+            // Pulsanti GitHub (sostituiscono i pulsanti principali)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                children: [
+                  if (!_isGitHubConnected)
+                    _buildSidebarButton(
+                      icon: Icons.account_tree_outlined,
+                      text: 'Connetti GitHub',
+                      onTap: _showTokenDialog,
+                      isActive: false,
+                    ),
+                  if (_isGitHubConnected) ...[
+                    _buildSidebarButton(
+                      icon: Icons.refresh_rounded,
+                      text: 'Ricarica Repository',
+                      onTap: _loadGitHubRepositories,
+                      isActive: false,
+                    ),
+                    const SizedBox(height: 8),
+                    _buildSidebarButton(
+                      icon: Icons.logout_rounded,
+                      text: 'Disconnetti',
+                      onTap: () {
+                        _disconnectGitHub();
+                        Navigator.pop(context);
+                      },
+                      isActive: false,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 20),
+            
+            // Repository list (sostituisce la chat history)
+            Expanded(
+              child: _isGitHubConnected
+                  ? _buildGitHubRepositoryHistory()
+                  : _buildGitHubEmptyState(),
+            ),
+            
+            // Bottom section con close button (sostituisce user info)
+            Container(
+              padding: const EdgeInsets.all(16),
+              margin: const EdgeInsets.only(top: 16),
+              decoration: BoxDecoration(
+                border: Border(
+                  top: BorderSide(
+                    color: AppColors.border,
+                    width: 1,
+                  ),
+                ),
+              ),
+              child: GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Row(
+                  children: [
+                    // Icona GitHub con gradiente purple
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        gradient: AppColors.purpleGradient,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.purpleMedium.withValues(alpha: 0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.account_tree_outlined,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // GitHub info
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'GitHub',
+                            style: TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            _isGitHubConnected 
+                                ? 'Connesso • @${_gitHubUsername ?? "Unknown"}'
+                                : 'Non connesso',
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 11,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGitHubStatusBar() {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.border.withValues(alpha: 0.3),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: TextField(
+        enabled: false, // Solo per display, non funzionale
+        style: TextStyle(
+          color: AppColors.textPrimary,
+          fontSize: 14,
+        ),
+        decoration: InputDecoration(
+          hintText: _isGitHubConnected 
+              ? 'Repository GitHub...'
+              : 'GitHub non connesso...',
+          hintStyle: TextStyle(
+            color: AppColors.textSecondary.withValues(alpha: 0.7),
+            fontSize: 14,
+          ),
+          prefixIcon: Container(
+            padding: const EdgeInsets.all(12),
+            child: Icon(
+              _isGitHubConnected 
+                  ? Icons.account_tree_rounded
+                  : Icons.account_tree_outlined,
+              color: _isGitHubConnected 
+                  ? AppColors.purpleMedium
+                  : AppColors.textSecondary,
+              size: 18,
+            ),
+          ),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGitHubRepositoryHistory() {
+    if (_isConnectingToGitHub) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.purpleMedium),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Caricamento repository...',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_gitHubRepositories.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.folder_open_rounded,
+              size: 48,
+              color: AppColors.textSecondary,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Nessuna repository',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Le tue repository appariranno qui',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      children: [
+        // Header Repository
+        Row(
+          children: [
+            Text(
+              'Repository',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              Icons.keyboard_arrow_up,
+              color: AppColors.textSecondary,
+              size: 16,
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        
+        // Lista repository
+        ..._gitHubRepositories.map((repo) => _buildGitHubRepositoryItem(repo)),
+      ],
+    );
+  }
+
+  Widget _buildGitHubEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.account_tree_outlined,
+              color: AppColors.textTertiary,
+              size: 48,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'GitHub Integration',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Connetti il tuo account per accedere alle repository',
+              style: TextStyle(
+                color: AppColors.textTertiary,
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGitHubRepositoryItem(github_service.GitHubRepository repo) {
+    final isSelected = _selectedRepository?.id == repo.id;
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 2),
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            _selectedRepository = repo;
+          });
+          Navigator.pop(context);
+          _showSnackBar('Repository ${repo.name} selezionata!');
+        },
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected 
+                ? AppColors.surface.withValues(alpha: 0.8)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border: isSelected ? Border.all(
+              color: AppColors.textSecondary.withValues(alpha: 0.2),
+              width: 1,
+            ) : null,
+          ),
+          child: Row(
+            children: [
+              // Icona cartella a sinistra
+              Padding(
+                padding: const EdgeInsets.only(right: 12, top: 2),
+                child: Icon(
+                  repo.isPrivate ? Icons.folder_rounded : Icons.folder_outlined,
+                  color: AppColors.textSecondary,
+                  size: 16,
+                ),
+              ),
+              // Contenuto repository
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Nome repository e linguaggio
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            repo.name,
+                            style: TextStyle(
+                              color: isSelected 
+                                  ? AppColors.textPrimary
+                                  : AppColors.textSecondary,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (repo.language != null) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: _getLanguageColor(repo.language!),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            repo.language!,
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                        if (isSelected) ...[
+                          const SizedBox(width: 8),
+                          Icon(
+                            Icons.check_circle_rounded,
+                            color: AppColors.purpleMedium,
+                            size: 14,
+                          ),
+                        ],
+                      ],
+                    ),
+                    
+                    // Descrizione e stelle
+                    if (repo.description != null && repo.description!.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              repo.description!,
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 10,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (repo.stargazersCount > 0) ...[
+                            const SizedBox(width: 8),
+                            Icon(Icons.star_outline, size: 10, color: AppColors.textTertiary),
+                            const SizedBox(width: 2),
+                            Text(
+                              '${repo.stargazersCount}',
+                              style: TextStyle(
+                                color: AppColors.textTertiary,
+                                fontSize: 9,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+
+  IconData _getLanguageIcon(String language) {
+    switch (language?.toLowerCase() ?? '') {
+      case 'dart':
+      case 'flutter':
+        return Icons.flutter_dash;
+      case 'javascript':
+      case 'js':
+      case 'typescript':
+      case 'ts':
+        return Icons.code_rounded;
+      case 'python':
+        return Icons.psychology_rounded;
+      case 'java':
+        return Icons.coffee_rounded;
+      case 'swift':
+        return Icons.phone_iphone_rounded;
+      case 'kotlin':
+        return Icons.android_rounded;
+      case 'go':
+        return Icons.speed_rounded;
+      case 'rust':
+        return Icons.settings_rounded;
+      default:
+        return Icons.folder_rounded;
+    }
+  }
+
   void _loadChatSession(ChatSession chat) {
     setState(() {
       _terminalItems = List.from(chat.messages);
@@ -2953,6 +5570,8 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
       messages: List.from(_terminalItems),
       aiModel: _selectedModel,
       folderId: null,
+      repositoryId: _selectedRepository?.id.toString(),
+      repositoryName: _selectedRepository?.name,
     );
     
     setState(() {
@@ -3093,15 +5712,16 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   }
 
   void _showSnackBar(String message) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: AppColors.surface,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
+    // Notifiche disabilitate per un'interfaccia più pulita
+    // if (mounted) {
+    //   ScaffoldMessenger.of(context).showSnackBar(
+    //     SnackBar(
+    //       content: Text(message),
+    //       backgroundColor: AppColors.surface,
+    //       behavior: SnackBarBehavior.floating,
+    //     ),
+    //   );
+    // }
   }
   
   Widget _buildGitHubAuthDialog() {
