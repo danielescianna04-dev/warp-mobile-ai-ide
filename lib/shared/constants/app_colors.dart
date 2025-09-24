@@ -14,6 +14,7 @@ class AppColors {
   static const Color background = Color(0xFF000000); // Pure black
   static const Color surface = Color(0xFF050607); // Almost black
   static const Color surfaceVariant = Color(0xFF0A0B0D); // Very dark grey
+  static const Color chatSelection = Color(0xFF2A2A2A); // Grigio visibile per selezione chat
 
   // Text colors
   static const Color textPrimary = Color(0xFFF0F6FC);
