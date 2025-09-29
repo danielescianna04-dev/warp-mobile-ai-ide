@@ -30,6 +30,7 @@ import '../widgets/terminal/welcome_view.dart';
 import '../../data/models/terminal_item.dart';
 import '../../../settings/presentation/pages/settings_page.dart';
 import '../../../settings/data/models/user_settings.dart';
+import '../../../create_app/presentation/pages/create_app_wizard_page.dart';
 
 // Terminal item type
 enum TerminalItemType {
@@ -677,8 +678,23 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
                   _buildSidebarButton(
                     icon: Icons.rocket_launch_outlined,
                     text: 'Crea App',
-                    onTap: () {
-                      // TODO: Implementare Crea App
+                    onTap: () async {
+                      HapticFeedback.lightImpact();
+                      Navigator.pop(context); // Chiudi sidebar
+                      
+                      // Naviga al wizard di creazione app
+                      final result = await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          fullscreenDialog: true,
+                          builder: (context) => const CreateAppWizardPage(),
+                        ),
+                      );
+                      
+                      // Se il progetto è stato creato con successo, potresti voler fare qualcosa
+                      if (result == true) {
+                        // Il progetto è stato creato con successo
+                        // Potresti aggiornare il terminale o fare altre azioni
+                      }
                     },
                     isActive: false,
                   ),
