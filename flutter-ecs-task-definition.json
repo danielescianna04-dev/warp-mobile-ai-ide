@@ -1,0 +1,36 @@
+{
+  "family": "flutter-ecs-task",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::703686967361:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::703686967361:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "flutter-container",
+      "image": "703686967361.dkr.ecr.eu-north-1.amazonaws.com/flutter-ecs-app:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 3000,
+          "protocol": "tcp"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/aws/ecs/flutter-ecs",
+          "awslogs-region": "eu-north-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "environment": [
+        {
+          "name": "PORT",
+          "value": "3000"
+        }
+      ]
+    }
+  ]
+}

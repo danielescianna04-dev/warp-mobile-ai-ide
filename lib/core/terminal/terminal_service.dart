@@ -468,9 +468,17 @@ class TerminalService {
         
         // Handle web URL from Flutter web start
         if (webUrl != null) {
-          _exposedPorts['$port/tcp'] = webUrl;
-          commandOutput += '\n\ud83d\ude80 Flutter web app available at: $webUrl';
-          print('\ud83d\ude80 Flutter web app detected at: $webUrl');
+          // Correggi URL per usare Load Balancer invece di IP diretto
+          String correctedWebUrl = webUrl;
+          if (webUrl.contains('://') && webUrl.contains(':8080')) {
+            // Sostituisce IP:8080 con Load Balancer URL
+            correctedWebUrl = 'http://warp-flutter-alb-1904513476.us-west-2.elb.amazonaws.com/app/${_currentRepository ?? 'flutter-app'}';
+            print('🔄 URL corrected from $webUrl to $correctedWebUrl');
+          }
+          
+          _exposedPorts['$port/tcp'] = correctedWebUrl;
+          commandOutput += '\n\ud83d\ude80 Flutter web app available at: $correctedWebUrl';
+          print('\ud83d\ude80 Flutter web app detected at: $correctedWebUrl');
           print('\ud83d\udd0d Debug: Updated exposed ports: $_exposedPorts');
         }
         

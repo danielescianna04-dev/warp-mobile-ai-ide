@@ -136,6 +136,12 @@ Resources:
           FromPort: 3000
           ToPort: 3000
           SourceSecurityGroupId: !Ref ALBSecurityGroup
+        # Allow Flutter web server port from anywhere (for development/preview)
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8084
+          CidrIp: 0.0.0.0/0
+          Description: "Flutter web server ports for preview functionality"
       SecurityGroupEgress:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
@@ -458,6 +464,16 @@ Resources:
           PortMappings:
             - ContainerPort: 3000
               Protocol: tcp
+            - ContainerPort: 8080
+              Protocol: tcp
+            - ContainerPort: 8081
+              Protocol: tcp
+            - ContainerPort: 8082
+              Protocol: tcp
+            - ContainerPort: 8083
+              Protocol: tcp
+            - ContainerPort: 8084
+              Protocol: tcp
           Essential: true
           LogConfiguration:
             LogDriver: awslogs
@@ -545,9 +561,9 @@ Resources:
           SecurityGroups:
             - !Ref ECSSecurityGroup
           Subnets:
-            - !Ref PrivateSubnet1
-            - !Ref PrivateSubnet2
-          AssignPublicIp: DISABLED
+            - !Ref PublicSubnet1
+            - !Ref PublicSubnet2
+          AssignPublicIp: ENABLED
       LoadBalancers:
         - ContainerName: !Sub '${ProjectName}-container'
           ContainerPort: 3000

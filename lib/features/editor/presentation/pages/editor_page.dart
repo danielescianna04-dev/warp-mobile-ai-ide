@@ -42,9 +42,9 @@ class WarpMobileIDE {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.editorBackground,
+      backgroundColor: AppColors.getEditorBackground(context),
       appBar: AppBar(
-        backgroundColor: AppColors.surface,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
         title: Row(
           children: [
@@ -86,14 +86,14 @@ class WarpMobileIDE {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('AI assistance coming soon! 🤖'),
-                  backgroundColor: AppColors.aiAccent,
+                  backgroundColor: AppColors.primary,
                 ),
               );
             },
             icon: Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                gradient: AppColors.aiGradient,
+                color: AppColors.primary,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
@@ -110,7 +110,7 @@ class WarpMobileIDE {
             },
             icon: Icon(
               Icons.save,
-              color: AppColors.textSecondary,
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
             ),
             tooltip: 'Save',
           ),
@@ -120,7 +120,7 @@ class WarpMobileIDE {
             },
             icon: Icon(
               Icons.more_vert,
-              color: AppColors.textSecondary,
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
             ),
           ),
         ],
@@ -130,7 +130,7 @@ class WarpMobileIDE {
           // File tabs (placeholder)
           Container(
             height: 40,
-            color: AppColors.surface,
+            color: Theme.of(context).colorScheme.surface,
             child: ListView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -162,7 +162,7 @@ class WarpMobileIDE {
                             '${index + 1}',
                             style: TextStyle(
                               fontSize: 12,
-                              color: AppColors.editorLineNumbers,
+                              color: AppColors.getEditorLineNumbers(context),
                               fontFamily: 'monospace',
                             ),
                           ),
@@ -179,7 +179,7 @@ class WarpMobileIDE {
                       expands: true,
                       style: TextStyle(
                         fontSize: 14,
-                        color: AppColors.textPrimary,
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontFamily: 'monospace',
                         height: 1.4,
                       ),
@@ -188,7 +188,7 @@ class WarpMobileIDE {
                         contentPadding: EdgeInsets.zero,
                         hintText: 'Start typing code...',
                         hintStyle: TextStyle(
-                          color: AppColors.textTertiary,
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                         ),
                       ),
                     ),
@@ -200,7 +200,7 @@ class WarpMobileIDE {
           // Status bar
           Container(
             height: 32,
-            color: AppColors.surface,
+            color: Theme.of(context).colorScheme.surface,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
@@ -214,7 +214,7 @@ class WarpMobileIDE {
                   'Ready',
                   style: TextStyle(
                     fontSize: 12,
-                    color: AppColors.textSecondary,
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
                 ),
                 const Spacer(),
@@ -222,7 +222,7 @@ class WarpMobileIDE {
                   'Dart',
                   style: TextStyle(
                     fontSize: 12,
-                    color: AppColors.textSecondary,
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -230,7 +230,7 @@ class WarpMobileIDE {
                   'UTF-8',
                   style: TextStyle(
                     fontSize: 12,
-                    color: AppColors.textSecondary,
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
                 ),
               ],
@@ -240,7 +240,7 @@ class WarpMobileIDE {
       ),
       floatingActionButton: Container(
         decoration: BoxDecoration(
-          gradient: AppColors.aiGradient,
+          color: AppColors.primary,
           borderRadius: BorderRadius.circular(16),
         ),
         child: FloatingActionButton(
@@ -249,7 +249,7 @@ class WarpMobileIDE {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('AI Chat coming soon! 💬'),
-                backgroundColor: AppColors.aiAccent,
+                backgroundColor: AppColors.primary,
               ),
             );
           },
@@ -269,7 +269,7 @@ class WarpMobileIDE {
       margin: const EdgeInsets.only(right: 8, top: 8, bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: isActive ? AppColors.background : Colors.transparent,
+        color: isActive ? Theme.of(context).colorScheme.background : Colors.transparent,
         borderRadius: BorderRadius.circular(6),
         border: isActive
             ? Border.all(color: AppColors.primary.withValues(alpha: 0.3))
@@ -281,14 +281,14 @@ class WarpMobileIDE {
           Icon(
             Icons.code_outlined,
             size: 12,
-            color: isActive ? AppColors.primary : AppColors.textSecondary,
+            color: isActive ? AppColors.primary : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
           ),
           const SizedBox(width: 4),
           Text(
             fileName,
             style: TextStyle(
               fontSize: 12,
-              color: isActive ? AppColors.primary : AppColors.textSecondary,
+              color: isActive ? AppColors.primary : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
               fontWeight: isActive ? FontWeight.w500 : FontWeight.normal,
             ),
           ),
@@ -297,7 +297,7 @@ class WarpMobileIDE {
             Icon(
               Icons.close,
               size: 12,
-              color: AppColors.textSecondary,
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
             ),
           ],
         ],

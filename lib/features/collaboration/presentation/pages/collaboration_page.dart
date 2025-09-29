@@ -26,17 +26,18 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).colorScheme.background,
       appBar: AppBar(
-        backgroundColor: AppColors.surface,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
         title: Row(
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.2),
+                color: AppColors.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Row(
@@ -85,8 +86,8 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
                 color: _isConnectedToGitHub 
-                  ? AppColors.success.withOpacity(0.2)
-                  : AppColors.textTertiary.withOpacity(0.2),
+                  ? AppColors.success.withValues(alpha: 0.2)
+                  : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Icon(
@@ -94,7 +95,7 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
                 size: 16,
                 color: _isConnectedToGitHub 
                   ? AppColors.success
-                  : AppColors.textTertiary,
+                  : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
               ),
             ),
             tooltip: _isConnectedToGitHub ? 'Disconnect GitHub' : 'Connect GitHub',
@@ -103,7 +104,7 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
             onPressed: () {
               // TODO: Collaboration settings
             },
-            icon: Icon(Icons.settings, color: AppColors.textSecondary),
+            icon: Icon(Icons.settings, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
             tooltip: 'Settings',
           ),
         ],
@@ -116,7 +117,7 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
           ],
           indicatorColor: AppColors.primary,
           labelColor: AppColors.primary,
-          unselectedLabelColor: AppColors.textSecondary,
+          unselectedLabelColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
         ),
       ),
       body: TabBarView(
@@ -135,6 +136,7 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
   }
 
   Widget _buildConnectPrompt() {
+    final brightness = Theme.of(context).brightness;
     return Center(
       child: Container(
         padding: const EdgeInsets.all(24),
@@ -146,7 +148,7 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
               height: 80,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [AppColors.textTertiary.withOpacity(0.3), AppColors.textSecondary.withOpacity(0.1)],
+                  colors: [Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3), Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -155,14 +157,14 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
               child: Icon(
                 Icons.cloud_off,
                 size: 40,
-                color: AppColors.textTertiary,
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
               ),
             ),
             const SizedBox(height: 24),
             Text(
               'Connect to GitHub',
               style: TextStyle(
-                color: AppColors.textPrimary,
+                color: AppColors.titleText(brightness),
                 fontSize: 24,
                 fontWeight: FontWeight.w600,
               ),
@@ -172,7 +174,7 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
               'Connect your GitHub account to access repositories, manage pull requests, and collaborate with your team.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: AppColors.textSecondary,
+          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
                 fontSize: 16,
                 height: 1.4,
               ),
@@ -240,6 +242,7 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
   }
 
   Widget _buildConnectedRepository() {
+    final brightness = Theme.of(context).brightness;
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -247,9 +250,9 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppColors.surface,
+            color: AppColors.surface(brightness),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+            border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -259,7 +262,7 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      gradient: AppColors.primaryGradient,
+                      gradient: AppColors.heroGradient(brightness),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(
@@ -276,7 +279,7 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
                         Text(
                           'warp-mobile-ai-ide',
                           style: TextStyle(
-                            color: AppColors.textPrimary,
+                            color: AppColors.titleText(brightness),
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
                           ),
@@ -285,7 +288,7 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
                         Text(
                           'getmad/warp-mobile-ai-ide',
                           style: TextStyle(
-                            color: AppColors.textSecondary,
+                            color: AppColors.bodyText(brightness),
                             fontSize: 14,
                           ),
                         ),
@@ -295,7 +298,7 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AppColors.success.withOpacity(0.2),
+                      color: AppColors.success.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
@@ -313,7 +316,7 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
               Text(
                 'Mobile-first AI IDE bringing Warp + multi-model AI to iPhone and Android',
                 style: TextStyle(
-                  color: AppColors.textSecondary,
+                  color: AppColors.bodyText(brightness),
                   fontSize: 14,
                   height: 1.3,
                 ),
@@ -338,7 +341,7 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
         Text(
           'Quick Actions',
           style: TextStyle(
-            color: AppColors.textPrimary,
+            color: Theme.of(context).colorScheme.onSurface,
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
@@ -389,7 +392,7 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
         Text(
           'Recent Commits',
           style: TextStyle(
-            color: AppColors.textPrimary,
+            color: AppColors.titleText(brightness),
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
@@ -422,6 +425,7 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
   }
 
   Widget _buildRepoStat(IconData icon, String emoji, String count) {
+    final brightness = Theme.of(context).brightness;
     return Row(
       children: [
         Text(
@@ -432,7 +436,7 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
         Text(
           count,
           style: TextStyle(
-            color: AppColors.textSecondary,
+              color: AppColors.bodyText(brightness),
             fontSize: 14,
             fontWeight: FontWeight.w500,
           ),
@@ -442,14 +446,15 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
   }
 
   Widget _buildActionCard(IconData icon, String title, String subtitle, Color color, VoidCallback onTap) {
+    final brightness = Theme.of(context).brightness;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: AppColors.surface(brightness),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.3)),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
         child: Column(
           children: [
@@ -457,7 +462,7 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: color.withOpacity(0.2),
+              color: color.withValues(alpha: 0.2),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -470,7 +475,7 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
             Text(
               title,
               style: TextStyle(
-                color: AppColors.textPrimary,
+                color: AppColors.titleText(brightness),
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
@@ -480,7 +485,7 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
               subtitle,
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: AppColors.textSecondary,
+                color: AppColors.bodyText(brightness),
                 fontSize: 12,
               ),
             ),
@@ -491,11 +496,12 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
   }
 
   Widget _buildCommitItem(String title, String description, String time, String author, String hash) {
+    final brightness = Theme.of(context).brightness;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.surface(brightness),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -504,7 +510,7 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              gradient: AppColors.primaryGradient,
+              color: AppColors.primary,
               shape: BoxShape.circle,
             ),
             child: Center(
@@ -526,7 +532,7 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
                 Text(
                   title,
                   style: TextStyle(
-                    color: AppColors.textPrimary,
+                    color: AppColors.titleText(brightness),
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
@@ -535,7 +541,7 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
                 Text(
                   description,
                   style: TextStyle(
-                    color: AppColors.textSecondary,
+                    color: AppColors.bodyText(brightness),
                     fontSize: 12,
                     height: 1.3,
                   ),
@@ -592,16 +598,20 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
   }
 
   Widget _buildPullRequestsTab() {
-    return _isConnectedToGitHub ? ListView(
-      padding: const EdgeInsets.all(16),
+    final brightness = Theme.of(context).brightness;
+    return Column(
       children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
               'Pull Requests',
               style: TextStyle(
-                color: AppColors.textPrimary,
+                color: AppColors.titleText(brightness),
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
               ),
@@ -617,7 +627,7 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
                 );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary.withOpacity(0.2),
+                backgroundColor: AppColors.primary.withValues(alpha: 0.2),
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
@@ -631,42 +641,46 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
               ),
             ),
           ],
+            ),
+            const SizedBox(height: 16),
+            
+            _buildPRItem(
+              'Feature: Add multi-model AI support',
+              'Implement support for OpenAI, Claude, and Gemini models with fallback to on-device processing',
+              'open',
+              'feature/multi-ai-support',
+              '12',
+              '3',
+              '2 days ago',
+            ),
+            _buildPRItem(
+              'Fix: Terminal command history persistence',
+              'Fix issue where terminal command history was not persisting across app restarts',
+              'review',
+              'fix/terminal-history',
+              '8',
+              '1',
+              '1 day ago',
+            ),
+            _buildPRItem(
+              'Enhancement: Mobile-optimized code editor',
+              'Improve touch interactions, gesture support, and mobile-specific UI improvements',
+              'merged',
+              'enhancement/mobile-editor',
+              '25',
+              '7',
+              '3 days ago',
+            ),
+          ],
         ),
-        const SizedBox(height: 16),
-        
-        _buildPRItem(
-          'Feature: Add multi-model AI support',
-          'Implement support for OpenAI, Claude, and Gemini models with fallback to on-device processing',
-          'open',
-          'feature/multi-ai-support',
-          '12',
-          '3',
-          '2 days ago',
-        ),
-        _buildPRItem(
-          'Fix: Terminal command history persistence',
-          'Fix issue where terminal command history was not persisting across app restarts',
-          'review',
-          'fix/terminal-history',
-          '8',
-          '1',
-          '1 day ago',
-        ),
-        _buildPRItem(
-          'Enhancement: Mobile-optimized code editor',
-          'Improve touch interactions, gesture support, and mobile-specific UI improvements',
-          'merged',
-          'enhancement/mobile-editor',
-          '25',
-          '7',
-          '3 days ago',
-        ),
+      ),
       ],
-    ) : _buildDisconnectedState('Pull Requests');
+    );
   }
 
   Widget _buildPRItem(String title, String description, String status, String branch, 
                       String additions, String deletions, String time) {
+    final brightness = Theme.of(context).brightness;
     Color statusColor;
     String statusText;
     IconData statusIcon;
@@ -688,7 +702,7 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
         statusIcon = Icons.check_circle;
         break;
       default:
-        statusColor = AppColors.textSecondary;
+        statusColor = AppColors.textTertiary;
         statusText = 'Draft';
         statusIcon = Icons.edit;
     }
@@ -697,9 +711,9 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.surface(brightness),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: statusColor.withOpacity(0.3)),
+        border: Border.all(color: statusColor.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -709,7 +723,7 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.2),
+                  color: statusColor.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Row(
@@ -742,7 +756,7 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
           Text(
             title,
             style: TextStyle(
-              color: AppColors.textPrimary,
+              color: AppColors.titleText(brightness),
               fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
@@ -751,7 +765,7 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
           Text(
             description,
             style: TextStyle(
-              color: AppColors.textSecondary,
+              color: AppColors.bodyText(brightness),
               fontSize: 14,
               height: 1.3,
             ),
@@ -764,13 +778,13 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: AppColors.terminalBackground,
+                color: AppColors.editorBackground(brightness),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
                   branch,
                   style: TextStyle(
-                    color: AppColors.textSecondary,
+                    color: AppColors.bodyText(brightness),
                     fontSize: 11,
                     fontFamily: 'monospace',
                   ),
@@ -806,16 +820,20 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
   }
 
   Widget _buildIssuesTab() {
-    return _isConnectedToGitHub ? ListView(
-      padding: const EdgeInsets.all(16),
+    final brightness = Theme.of(context).brightness;
+    return Column(
       children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
               'Issues',
               style: TextStyle(
-                color: AppColors.textPrimary,
+                color: AppColors.titleText(brightness),
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
               ),
@@ -831,7 +849,7 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
                 );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary.withOpacity(0.2),
+                backgroundColor: AppColors.primary.withValues(alpha: 0.2),
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
@@ -845,42 +863,46 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
               ),
             ),
           ],
+            ),
+            const SizedBox(height: 16),
+            
+            _buildIssueItem(
+              'Bug: Terminal crashes on long output',
+              'Terminal becomes unresponsive when displaying large amounts of output text',
+              'bug',
+              'high',
+              '5',
+              '2 days ago',
+              true,
+            ),
+            _buildIssueItem(
+              'Feature: Dark theme customization',
+              'Allow users to customize dark theme colors and syntax highlighting',
+              'enhancement',
+              'medium',
+              '12',
+              '1 week ago',
+              true,
+            ),
+            _buildIssueItem(
+              'Documentation: Add API documentation',
+              'Create comprehensive API documentation for AI service integrations',
+              'documentation',
+              'low',
+              '3',
+              '3 days ago',
+              false,
+            ),
+          ],
         ),
-        const SizedBox(height: 16),
-        
-        _buildIssueItem(
-          'Bug: Terminal crashes on long output',
-          'Terminal becomes unresponsive when displaying large amounts of output text',
-          'bug',
-          'high',
-          '5',
-          '2 days ago',
-          true,
-        ),
-        _buildIssueItem(
-          'Feature: Dark theme customization',
-          'Allow users to customize dark theme colors and syntax highlighting',
-          'enhancement',
-          'medium',
-          '12',
-          '1 week ago',
-          true,
-        ),
-        _buildIssueItem(
-          'Documentation: Add API documentation',
-          'Create comprehensive API documentation for AI service integrations',
-          'documentation',
-          'low',
-          '3',
-          '3 days ago',
-          false,
-        ),
+      ),
       ],
-    ) : _buildDisconnectedState('Issues');
+    );
   }
 
   Widget _buildIssueItem(String title, String description, String type, String priority, 
                         String comments, String time, bool isOpen) {
+    final brightness = Theme.of(context).brightness;
     Color typeColor;
     Color priorityColor;
     
@@ -895,7 +917,7 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
         typeColor = AppColors.info;
         break;
       default:
-        typeColor = AppColors.textSecondary;
+        typeColor = AppColors.textTertiary;
     }
 
     switch (priority) {
@@ -909,19 +931,19 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
         priorityColor = AppColors.info;
         break;
       default:
-        priorityColor = AppColors.textSecondary;
+        priorityColor = AppColors.textTertiary;
     }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.surface(brightness),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isOpen 
-            ? AppColors.success.withOpacity(0.3)
-            : AppColors.textTertiary.withOpacity(0.3)
+            ? AppColors.success.withValues(alpha: 0.3)
+            : AppColors.textTertiary.withValues(alpha: 0.3)
         ),
       ),
       child: Column(
@@ -938,7 +960,7 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: typeColor.withOpacity(0.2),
+                  color: typeColor.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
@@ -954,7 +976,7 @@ class _CollaborationPageState extends State<CollaborationPage> with TickerProvid
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: priorityColor.withOpacity(0.2),
+                  color: priorityColor.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(

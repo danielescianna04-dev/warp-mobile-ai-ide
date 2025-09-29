@@ -35,10 +35,11 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.background(brightness),
       appBar: AppBar(
-        backgroundColor: AppColors.surface,
+        backgroundColor: AppColors.surface(brightness),
         elevation: 0,
         title: Row(
           children: [
@@ -88,7 +89,7 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
                         ? Icons.phone_iphone
                         : Icons.phone_android,
                       size: 16,
-                      color: AppColors.textSecondary,
+                      color: AppColors.bodyText(brightness),
                     ),
                     const SizedBox(width: 8),
                     Text(device),
@@ -99,7 +100,7 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: AppColors.surfaceVariant,
+                color: AppColors.surfaceVariant(brightness),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Row(
@@ -110,21 +111,21 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
                       ? Icons.phone_iphone
                       : Icons.phone_android,
                     size: 14,
-                    color: AppColors.textSecondary,
+                    color: AppColors.bodyText(brightness),
                   ),
                   const SizedBox(width: 4),
                   Text(
                     _selectedDevice,
                     style: TextStyle(
                       fontSize: 12,
-                      color: AppColors.textSecondary,
+                      color: AppColors.bodyText(brightness),
                     ),
                   ),
                   const SizedBox(width: 4),
                   Icon(
                     Icons.arrow_drop_down,
                     size: 16,
-                    color: AppColors.textSecondary,
+                    color: AppColors.bodyText(brightness),
                   ),
                 ],
               ),
@@ -135,7 +136,7 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
             onPressed: () {
               // TODO: Preview settings
             },
-            icon: Icon(Icons.settings, color: AppColors.textSecondary),
+            icon: Icon(Icons.settings, color: AppColors.bodyText(brightness)),
             tooltip: 'Settings',
           ),
         ],
@@ -148,7 +149,7 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
           ],
           indicatorColor: AppColors.primary,
           labelColor: AppColors.primary,
-          unselectedLabelColor: AppColors.textSecondary,
+          unselectedLabelColor: AppColors.bodyText(brightness),
         ),
       ),
       body: TabBarView(
@@ -163,19 +164,20 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
   }
 
   Widget _buildAppPreview() {
+    final brightness = Theme.of(context).brightness;
     return Column(
       children: [
         // Control bar
         Container(
           padding: const EdgeInsets.all(16),
-          color: AppColors.surface,
+          color: AppColors.surface(brightness),
           child: Row(
             children: [
               Container(
                 decoration: BoxDecoration(
                   gradient: _isRunning 
                     ? LinearGradient(colors: [AppColors.warning, AppColors.error])
-                    : AppColors.primaryGradient,
+                    : AppColors.heroGradient(brightness),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: ElevatedButton.icon(
@@ -224,7 +226,7 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
                 } : null,
                 icon: Icon(
                   Icons.refresh,
-                  color: _isRunning ? AppColors.warning : AppColors.textTertiary,
+                  color: _isRunning ? AppColors.warning : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                 ),
                 tooltip: 'Hot Reload',
               ),
@@ -239,7 +241,7 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
                 } : null,
                 icon: Icon(
                   Icons.restart_alt,
-                  color: _isRunning ? AppColors.info : AppColors.textTertiary,
+                  color: _isRunning ? AppColors.info : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                 ),
                 tooltip: 'Hot Restart',
               ),
@@ -247,7 +249,7 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: _isRunning ? AppColors.success.withValues(alpha: 0.2) : AppColors.textTertiary.withValues(alpha: 0.2),
+                  color: _isRunning ? AppColors.success.withValues(alpha: 0.2) : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -257,7 +259,7 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
                       width: 8,
                       height: 8,
                       decoration: BoxDecoration(
-                        color: _isRunning ? AppColors.success : AppColors.textTertiary,
+                        color: _isRunning ? AppColors.success : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -266,7 +268,7 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
                       _isRunning ? 'Running' : 'Stopped',
                       style: TextStyle(
                         fontSize: 12,
-                        color: _isRunning ? AppColors.success : AppColors.textTertiary,
+                        color: _isRunning ? AppColors.success : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -310,14 +312,15 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
   }
 
   Widget _buildRunningApp() {
+    final brightness = Theme.of(context).brightness;
     return Container(
-      color: AppColors.background,
+      color: AppColors.background(brightness),
       child: Column(
         children: [
           // Status bar simulation
           Container(
             height: 44,
-            color: AppColors.surface,
+            color: AppColors.surface(brightness),
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -325,18 +328,18 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
                 Text(
                   '9:41',
                   style: TextStyle(
-                    color: AppColors.textPrimary,
+                    color: AppColors.titleText(brightness),
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
                 Row(
                   children: [
-                    Icon(Icons.signal_cellular_4_bar, size: 16, color: AppColors.textPrimary),
+                    Icon(Icons.signal_cellular_4_bar, size: 16, color: AppColors.titleText(brightness)),
                     const SizedBox(width: 4),
-                    Icon(Icons.wifi, size: 16, color: AppColors.textPrimary),
+                    Icon(Icons.wifi, size: 16, color: AppColors.titleText(brightness)),
                     const SizedBox(width: 4),
-                    Icon(Icons.battery_full, size: 16, color: AppColors.textPrimary),
+                    Icon(Icons.battery_full, size: 16, color: AppColors.titleText(brightness)),
                   ],
                 ),
               ],
@@ -352,7 +355,7 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
                   Container(
                     height: 56,
                     decoration: BoxDecoration(
-                      color: AppColors.surface,
+                      color: AppColors.surface(brightness),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
@@ -362,7 +365,7 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
                           width: 24,
                           height: 24,
                           decoration: BoxDecoration(
-                            gradient: AppColors.primaryGradient,
+                            gradient: AppColors.heroGradient(brightness),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Icon(
@@ -375,7 +378,7 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
                         Text(
                           'Warp Mobile AI IDE',
                           style: TextStyle(
-                            color: AppColors.textPrimary,
+                            color: AppColors.titleText(brightness),
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
                           ),
@@ -388,7 +391,7 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
-                        color: AppColors.editorBackground,
+                        color: AppColors.editorBackground(brightness),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
                       ),
@@ -412,15 +415,15 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
                           const SizedBox(height: 12),
                           Text(
                             '• Hot reload enabled 🔥',
-                            style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                            style: TextStyle(color: AppColors.bodyText(brightness), fontSize: 12),
                           ),
                           Text(
                             '• AI assistance active 🤖',
-                            style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                            style: TextStyle(color: AppColors.bodyText(brightness), fontSize: 12),
                           ),
                           Text(
                             '• Terminal connected 💻',
-                            style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                            style: TextStyle(color: AppColors.bodyText(brightness), fontSize: 12),
                           ),
                           const Spacer(),
                           Center(
@@ -430,7 +433,7 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
                                   width: 60,
                                   height: 60,
                                   decoration: BoxDecoration(
-                                    gradient: AppColors.aiGradient,
+                                    gradient: AppColors.heroGradient(brightness),
                                     shape: BoxShape.circle,
                                   ),
                                   child: Icon(
@@ -444,7 +447,7 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
                                   'Mobile Development\nMade Easy',
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
-                                    color: AppColors.textPrimary,
+                                    color: AppColors.titleText(brightness),
                                     fontSize: 14,
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -462,16 +465,16 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
                   Container(
                     height: 60,
                     decoration: BoxDecoration(
-                      color: AppColors.surface,
+                      color: AppColors.surface(brightness),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         Icon(Icons.code, color: AppColors.primary, size: 24),
-                        Icon(Icons.terminal, color: AppColors.textSecondary, size: 24),
-                        Icon(Icons.phone_android, color: AppColors.textSecondary, size: 24),
-                        Icon(Icons.people, color: AppColors.textSecondary, size: 24),
+                        Icon(Icons.terminal, color: AppColors.bodyText(brightness), size: 24),
+                        Icon(Icons.phone_android, color: AppColors.bodyText(brightness), size: 24),
+                        Icon(Icons.people, color: AppColors.bodyText(brightness), size: 24),
                       ],
                     ),
                   ),
@@ -485,6 +488,7 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
   }
 
   Widget _buildStoppedState() {
+    final brightness = Theme.of(context).brightness;
     return Container(
       color: Colors.black,
       child: Center(
@@ -494,13 +498,13 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
             Icon(
               Icons.phone_android,
               size: 64,
-              color: AppColors.textTertiary,
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
             ),
             const SizedBox(height: 16),
             Text(
               'App Preview',
               style: TextStyle(
-                color: AppColors.textSecondary,
+                color: AppColors.bodyText(brightness),
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
               ),
@@ -509,7 +513,7 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
             Text(
               'Press Run to start the app',
               style: TextStyle(
-                color: AppColors.textTertiary,
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                 fontSize: 14,
               ),
             ),
@@ -520,6 +524,7 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
   }
 
   Widget _buildInspector() {
+    final brightness = Theme.of(context).brightness;
     return Container(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -528,7 +533,7 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
           Text(
             'Widget Inspector',
             style: TextStyle(
-              color: AppColors.textPrimary,
+              color: AppColors.titleText(brightness),
               fontSize: 18,
               fontWeight: FontWeight.w600,
             ),
@@ -538,7 +543,7 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
             child: _isRunning ? Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.surface,
+                color: AppColors.surface(brightness),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Column(
@@ -560,13 +565,13 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
                   Icon(
                     Icons.widgets,
                     size: 48,
-                    color: AppColors.textTertiary,
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
                   ),
                   const SizedBox(height: 16),
                   Text(
                     'Start the app to inspect widgets',
                     style: TextStyle(
-                      color: AppColors.textTertiary,
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                       fontSize: 16,
                     ),
                   ),
@@ -580,6 +585,7 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
   }
 
   Widget _buildInspectorItem(String widgetName, int level) {
+    final brightness = Theme.of(context).brightness;
     return Padding(
       padding: EdgeInsets.only(left: level * 16.0, bottom: 4),
       child: Row(
@@ -587,13 +593,13 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
           Icon(
             Icons.chevron_right,
             size: 16,
-            color: AppColors.textSecondary,
+            color: AppColors.bodyText(brightness),
           ),
           const SizedBox(width: 4),
           Text(
             widgetName,
             style: TextStyle(
-              color: AppColors.textPrimary,
+              color: AppColors.titleText(brightness),
               fontSize: 14,
               fontFamily: 'monospace',
             ),
@@ -604,6 +610,7 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
   }
 
   Widget _buildLogs() {
+    final brightness = Theme.of(context).brightness;
     return Container(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -615,14 +622,14 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
               Text(
                 'Debug Console',
                 style: TextStyle(
-                  color: AppColors.textPrimary,
+                  color: AppColors.titleText(brightness),
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
                 ),
               ),
               IconButton(
                 onPressed: () {},
-                icon: Icon(Icons.clear, color: AppColors.textSecondary),
+                icon: Icon(Icons.clear, color: AppColors.bodyText(brightness)),
                 tooltip: 'Clear logs',
               ),
             ],
@@ -632,9 +639,9 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.terminalBackground,
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.border),
+                border: Border.all(color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3)),
               ),
               child: _isRunning ? ListView(
                 children: [
@@ -642,16 +649,16 @@ class _PreviewPageState extends State<PreviewPage> with TickerProviderStateMixin
                   _buildLogItem('📱 Connected to $_selectedDevice', AppColors.info),
                   _buildLogItem('🔥 Hot reload enabled', AppColors.warning),
                   _buildLogItem('✅ Build completed successfully', AppColors.success),
-                  _buildLogItem('💻 Debug mode active', AppColors.terminalBlue),
+                  _buildLogItem('💻 Debug mode active', AppColors.info),
                   _buildLogItem('📦 All dependencies loaded', AppColors.success),
-                  _buildLogItem('🤖 AI assistant ready', AppColors.aiAccent),
-                  _buildLogItem('⚡ Performance monitoring active', AppColors.terminalCyan),
+                  _buildLogItem('🤖 AI assistant ready', AppColors.primary),
+                  _buildLogItem('⚡ Performance monitoring active', AppColors.info),
                 ],
               ) : Center(
                 child: Text(
                   'No logs available. Start the app to see debug output.',
                   style: TextStyle(
-                    color: AppColors.textTertiary,
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                     fontSize: 14,
                   ),
                 ),

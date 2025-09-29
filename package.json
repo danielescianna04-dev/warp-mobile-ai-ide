@@ -1,7 +1,20 @@
 {
+  "name": "warp-mobile-lambda-handler",
+  "version": "1.0.0",
+  "description": "Lambda handler for Warp Mobile AI IDE with ECS integration",
+  "main": "lambda-handler.js",
+  "scripts": {
+    "build": "zip -r lambda-deployment.zip lambda-handler.js node_modules/",
+    "deploy": "aws lambda update-function-code --function-name warp-mobile-ai-ide-prod-flutter-handler --region eu-north-1 --zip-file fileb://lambda-deployment.zip"
+  },
   "dependencies": {
+    "@aws-sdk/client-ecs": "^3.650.0",
+    "@aws-sdk/client-ec2": "^3.650.0",
     "@vendia/serverless-express": "^4.12.6",
     "dotenv": "^17.2.2",
     "node-fetch": "^3.3.2"
+  },
+  "engines": {
+    "node": "18.x"
   }
 }

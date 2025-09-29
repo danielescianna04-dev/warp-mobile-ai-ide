@@ -16,6 +16,7 @@ class ChatHistoryItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
     final isGitHubChat = chat.repositoryId != null;
     
     return InkWell(
@@ -27,13 +28,9 @@ class ChatHistoryItem extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 2),
         decoration: BoxDecoration(
           color: isSelected 
-              ? AppColors.chatSelection
+              ? AppColors.chatSelection(brightness)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
-          border: isSelected ? Border.all(
-            color: AppColors.textSecondary.withValues(alpha: 0.15),
-            width: 1,
-          ) : null,
         ),
         child: Row(
           children: [
@@ -44,12 +41,12 @@ class ChatHistoryItem extends StatelessWidget {
                   ? Container(
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
-                        color: AppColors.purpleMedium.withValues(alpha: 0.2),
+                        color: AppColors.primary.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Icon(
                         Icons.account_tree_outlined,
-                        color: AppColors.purpleMedium,
+                        color: AppColors.primary,
                         size: 12,
                       ),
                     )
@@ -67,8 +64,8 @@ class ChatHistoryItem extends StatelessWidget {
                     chat.title.length > 40 ? '${chat.title.substring(0, 40)}...' : chat.title,
                     style: TextStyle(
                       color: isSelected 
-                          ? AppColors.textPrimary
-                          : AppColors.textSecondary,
+                          ? AppColors.titleText(brightness)
+                          : AppColors.bodyText(brightness),
                       fontSize: 13,
                       fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                     ),

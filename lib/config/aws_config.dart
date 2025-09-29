@@ -1,13 +1,13 @@
 /// AWS Configuration for Production Deployment
 class AWSConfig {
-  // AWS ECS Load Balancer Configuration - UPDATED FOR ECS FARGATE DEPLOYMENT
-  static const String apiBaseUrl = 'http://warp-mobile-ai-ide-prod-alb-1532835213.us-east-1.elb.amazonaws.com';
-  static const String wsBaseUrl = 'ws://warp-mobile-ai-ide-prod-alb-1532835213.us-east-1.elb.amazonaws.com';
+  // AWS ECS Load Balancer Configuration - UPDATED FOR ECS FARGATE BACKEND
+  static const String apiBaseUrl = 'http://warp-flutter-alb-1904513476.us-west-2.elb.amazonaws.com';
+  static const String wsBaseUrl = 'ws://warp-flutter-alb-1904513476.us-west-2.elb.amazonaws.com';
   
   // API Endpoints (mapped to ECS server endpoints)
   static const String healthEndpoint = '/health';
   static const String sessionCreateEndpoint = '/health'; // No session needed for ECS, use health as placeholder
-  static const String commandExecuteEndpoint = '/execute-heavy';
+  static const String commandExecuteEndpoint = '/execute-heavy'; // Updated to match ECS server endpoint
   static const String aiChatEndpoint = '/ai/chat'; // Not implemented yet in ECS
   static const String aiAgentEndpoint = '/ai/agent'; // Not implemented yet in ECS
   static const String filesListEndpoint = '/files/list'; // Not implemented yet in ECS

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
@@ -12,6 +13,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:provider/provider.dart';
 import '../../../../shared/constants/app_colors.dart';
+import '../../../../shared/providers/theme_provider.dart';
 import '../../../../core/ai/ai_models.dart';
 import '../../../../core/ai/ai_manager.dart';
 import '../../../../core/ai/ai_service.dart';
@@ -26,6 +28,8 @@ import '../widgets/terminal/terminal_input.dart';
 import '../widgets/terminal/terminal_output.dart';
 import '../widgets/terminal/welcome_view.dart';
 import '../../data/models/terminal_item.dart';
+import '../../../settings/presentation/pages/settings_page.dart';
+import '../../../settings/data/models/user_settings.dart';
 
 // Terminal item type
 enum TerminalItemType {
@@ -206,7 +210,7 @@ class WarpTerminalPage extends StatefulWidget {
   State<WarpTerminalPage> createState() => _WarpTerminalPageState();
 }
 
-class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerProviderStateMixin {
+class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProviderStateMixin {
   late SyntaxHighlightingController _commandController;
   final FocusNode _commandFocusNode = FocusNode();
   final ScrollController _outputScrollController = ScrollController();
@@ -217,12 +221,25 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   
   late AnimationController _animationController;
   
+  // GitHub Button Animation Controllers
+  late AnimationController _gitHubScaleController;
+  late AnimationController _gitHubGlowController;
+  late AnimationController _gitHubSparkleController;
+  late Animation<double> _gitHubScaleAnimation;
+  late Animation<double> _gitHubGlowAnimation;
+  late Animation<double> _gitHubSparkleAnimation;
+  late Animation<Color?> _gitHubColorAnimation;
+  bool _isGitHubPressed = false;
+  
   // Nuove funzionalità
   final Record _audioRecorder = Record();
   bool _isRecording = false;
   bool _isTerminalMode = true;
   bool _autoApprove = false;
   String _selectedModel = 'auto';
+  
+  // Timer per il debouncing del riconoscimento automatico
+  Timer? _autoDetectDebounce;
   List<File> _attachedImages = [];
   List<File> _taggedFiles = [];
   String? _currentRecordingPath;
@@ -261,30 +278,59 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   
   // GitHub sidebar functionality
   bool _showGitHubSidebar = false;
+  
+  // Sidebar state for blur effect
+  bool _isSidebarOpen = false;
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.background(brightness),
       drawer: _buildSidebar(),
+      // AppBar trasparente senza separazione
+      extendBodyBehindAppBar: true,
       appBar: _buildAppBar(),
-      body: Column(
+      onDrawerChanged: (isOpened) {
+        setState(() {
+          _isSidebarOpen = isOpened;
+        });
+      },
+      body: Stack(
         children: [
-          // Main content area
-          Expanded(
-            child: _hasInteracted 
-                ? _buildTerminalOutput() 
-                : _buildWelcomeView(context),
+          // Main content che inizia dall'alto (dietro l'AppBar)
+          Column(
+            children: [
+              // Main content area
+              Expanded(
+                child: _hasInteracted 
+                    ? _buildTerminalOutput() 
+                    : _buildWelcomeView(context),
+              ),
+              // Input area always at bottom
+              _buildInputArea(),
+            ],
           ),
-          // Input area always at bottom
-          _buildInputArea(),
+          // Blur overlay when sidebar is open
+          if (_isSidebarOpen)
+            BackdropFilter(
+              filter: ui.ImageFilter.blur(
+                sigmaX: 10.0,
+                sigmaY: 10.0,
+              ),
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.3),
+                child: const SizedBox.expand(),
+              ),
+            ),
         ],
       ),
     );
   }
 
   AppBar _buildAppBar() {
-    String title = 'Warp AI';
+    final brightness = Theme.of(context).brightness;
+    String title = 'Drape';
     String? subtitle;
     
     if (_selectedRepository != null) {
@@ -309,8 +355,11 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
     }
 
     return AppBar(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       elevation: 0,
+      scrolledUnderElevation: 0, // Rimuove l'elevazione anche durante lo scroll
+      surfaceTintColor: Colors.transparent, // Rimuove il tint automatico
+      // I controlli galleggiano direttamente sul gradiente della pagina
       leading: Builder(
         builder: (context) => _buildAnimatedSidebarButton(context),
       ),
@@ -330,10 +379,10 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
           if (subtitle != null)
             Text(
               subtitle,
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 12,
-              ),
+                        style: TextStyle(
+                          color: AppColors.bodyText(brightness),
+                          fontSize: 13,
+                        ),
             ),
         ],
       ),
@@ -359,8 +408,8 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
                       )
                     : LinearGradient(
                         colors: [
-                          AppColors.surface.withValues(alpha: 0.4),
-                          AppColors.surface.withValues(alpha: 0.2),
+                              AppColors.surface(Theme.of(context).brightness).withValues(alpha: 0.4),
+                              AppColors.surface(Theme.of(context).brightness).withValues(alpha: 0.2),
                         ],
                       ),
                 borderRadius: BorderRadius.circular(12),
@@ -462,8 +511,8 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      AppColors.surface.withValues(alpha: 0.6),
-                      AppColors.surface.withValues(alpha: 0.3),
+                          AppColors.surface(Theme.of(context).brightness).withValues(alpha: 0.6),
+                          AppColors.surface(Theme.of(context).brightness).withValues(alpha: 0.3),
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -495,10 +544,10 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
       child: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: AppColors.surface.withValues(alpha: 0.6),
+              color: AppColors.surface(Theme.of(context).brightness).withValues(alpha: 0.6),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: AppColors.border,
+                color: AppColors.border(Theme.of(context).brightness),
             width: 1,
           ),
         ),
@@ -512,12 +561,13 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   }
 
   Widget _buildCustomSearchBar() {
+    final brightness = Theme.of(context).brightness;
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surface.withValues(alpha: 0.4),
+            color: AppColors.surface(Theme.of(context).brightness).withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: AppColors.border.withValues(alpha: 0.3),
+              color: AppColors.border(Theme.of(context).brightness).withValues(alpha: 0.3),
           width: 1,
         ),
         boxShadow: [
@@ -554,13 +604,28 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
               margin: const EdgeInsets.all(8),
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                gradient: AppColors.purpleGradient,
-                borderRadius: BorderRadius.circular(8),
+                gradient: LinearGradient(
+                  colors: [
+                    const Color(0xFF6366F1).withValues(alpha: 0.8), // Indigo soft
+                    const Color(0xFF8B5CF6).withValues(alpha: 0.7), // Purple soft
+                    const Color(0xFFA855F7).withValues(alpha: 0.6), // Purple light
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  stops: const [0.0, 0.5, 1.0],
+                ),
+                borderRadius: BorderRadius.circular(10),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.purpleMedium.withValues(alpha: 0.3),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
+                    color: const Color(0xFF8B5CF6).withValues(alpha: 0.15),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                    spreadRadius: 1,
+                  ),
+                  BoxShadow(
+                    color: const Color(0xFF6366F1).withValues(alpha: 0.08),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
                   ),
                 ],
               ),
@@ -585,8 +650,9 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   }
 
   Widget _buildSidebar() {
+    final brightness = Theme.of(context).brightness;
     return Drawer(
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.surface(brightness),
       width: 300,
       child: SafeArea(
         child: Column(
@@ -604,19 +670,8 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
                 children: [
                   _buildCustomSearchBar(),
                   const SizedBox(height: 12),
-                  // GitHub
-                  _buildSidebarButton(
-                    icon: Icons.account_tree_outlined,
-                    text: 'GitHub',
-                    onTap: () {
-                      setState(() {
-                        _showGitHubSidebar = true;
-                      });
-                      Navigator.pop(context); // Chiudi sidebar principale
-                      _showGitHubSidebarPanel();
-                    },
-                    isActive: false,
-                  ),
+                  // GitHub - Pulsante animato personalizzato
+                  _buildAnimatedGitHubButton(),
                   const SizedBox(height: 8),
                   // Crea App
                   _buildSidebarButton(
@@ -627,6 +682,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
                     },
                     isActive: false,
                   ),
+                  // Rimosso theme toggle button
                 ],
               ),
             ),
@@ -645,7 +701,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
               decoration: BoxDecoration(
                 border: Border(
                   top: BorderSide(
-                    color: AppColors.border,
+                        color: AppColors.border(Theme.of(context).brightness),
                     width: 1,
                   ),
                 ),
@@ -654,19 +710,41 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
                 children: [
                   // Avatar con gradiente purple - cliccabile per settings
                   GestureDetector(
-                    onTap: () {
-                      // TODO: Aprire menu settings
-                      Navigator.pop(context); // chiudi sidebar temporaneamente
+                    onTap: () async {
+                      HapticFeedback.lightImpact();
+                      Navigator.pop(context); // chiudi sidebar
+                      
+                      // Naviga alla pagina delle impostazioni
+                      final result = await Navigator.of(context).push(
+                        PageRouteBuilder(
+                          pageBuilder: (context, animation, secondaryAnimation) => const SettingsPage(),
+                          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                            return SlideTransition(
+                              position: animation.drive(
+                                Tween(begin: const Offset(1.0, 0.0), end: Offset.zero)
+                                    .chain(CurveTween(curve: Curves.easeInOut)),
+                              ),
+                              child: child,
+                            );
+                          },
+                          transitionDuration: const Duration(milliseconds: 300),
+                        ),
+                      );
+                      
+                      // Se le impostazioni sono state salvate, aggiorna l'UI se necessario
+                      if (result != null) {
+                        // TODO: Aggiornare UI in base alle nuove impostazioni
+                      }
                     },
                     child: Container(
                       width: 32,
                       height: 32,
                       decoration: BoxDecoration(
-                        gradient: AppColors.purpleGradient,
+                        gradient: AppColors.heroGradient(brightness),
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.purpleMedium.withValues(alpha: 0.3),
+                            color: AppColors.primary.withValues(alpha: 0.3),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -688,39 +766,44 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
                         Text(
                           'wlad',
                           style: TextStyle(
-                            color: AppColors.textPrimary,
+                            color: AppColors.titleText(brightness),
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         Text(
-                          'Warp AI Developer',
+                          'Drape Developer',
                           style: TextStyle(
-                            color: AppColors.textSecondary,
+                            color: AppColors.bodyText(brightness),
                             fontSize: 11,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  // PRO badge professionale
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppColors.textSecondary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(
-                        color: AppColors.textSecondary.withValues(alpha: 0.2),
-                        width: 1,
+                  // Theme toggle button
+                  GestureDetector(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      final themeProvider = context.read<ThemeProvider>();
+                      themeProvider.toggleTheme();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: AppColors.primary.withValues(alpha: 0.2),
+                          width: 1,
+                        ),
                       ),
-                    ),
-                    child: Text(
-                      'PRO',
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: 0.3,
+                      child: Icon(
+                        brightness == Brightness.light 
+                            ? Icons.dark_mode_outlined 
+                            : Icons.light_mode_outlined,
+                        color: AppColors.primary,
+                        size: 18,
                       ),
                     ),
                   ),
@@ -739,6 +822,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
     required VoidCallback onTap,
     required bool isActive,
   }) {
+    final brightness = Theme.of(context).brightness;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
@@ -747,11 +831,11 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
           color: isActive 
-              ? AppColors.surface.withValues(alpha: 0.8)
+                  ? AppColors.surface(brightness).withValues(alpha: 0.8)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           border: isActive ? Border.all(
-            color: AppColors.textSecondary.withValues(alpha: 0.2),
+            color: AppColors.bodyText(brightness).withValues(alpha: 0.2),
             width: 1,
           ) : null,
         ),
@@ -760,8 +844,8 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
             Icon(
               icon,
               color: isActive 
-                  ? AppColors.textPrimary
-                  : AppColors.textSecondary,
+                  ? AppColors.titleText(brightness)
+                  : AppColors.bodyText(brightness),
               size: 18,
             ),
             const SizedBox(width: 12),
@@ -769,8 +853,8 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
               text,
               style: TextStyle(
                 color: isActive 
-                    ? AppColors.textPrimary
-                    : AppColors.textSecondary,
+                    ? AppColors.titleText(brightness)
+                    : AppColors.bodyText(brightness),
                 fontSize: 14,
                 fontWeight: isActive ? FontWeight.w500 : FontWeight.w400,
               ),
@@ -781,7 +865,93 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
     );
   }
   
+  Widget _buildThemeToggleButton() {
+    final brightness = Theme.of(context).brightness;
+    final themeProvider = context.watch<ThemeProvider>();
+    
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        themeProvider.toggleTheme();
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              AppColors.primary.withValues(alpha: 0.15),
+              AppColors.primary.withValues(alpha: 0.08),
+            ],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: AppColors.primary.withValues(alpha: 0.3),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: 0.2),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(
+                brightness == Brightness.light 
+                    ? Icons.dark_mode_outlined 
+                    : Icons.light_mode_outlined,
+                color: AppColors.primary,
+                size: 16,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    brightness == Brightness.light ? 'Dark Mode' : 'Light Mode',
+                    style: TextStyle(
+                      color: AppColors.titleText(brightness),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Switch to ${brightness == Brightness.light ? 'dark' : 'light'} theme',
+                    style: TextStyle(
+                      color: AppColors.bodyText(brightness).withValues(alpha: 0.8),
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.toggle_on_outlined,
+              color: AppColors.primary,
+              size: 20,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
   Widget _buildChatHistory() {
+    final brightness = Theme.of(context).brightness;
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       children: [
@@ -900,7 +1070,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
                         ),
                         child: Icon(
                           Icons.account_tree_outlined,
-                          color: AppColors.purpleMedium,
+                          color: AppColors.primary,
                           size: 12,
                         ),
                       ),
@@ -987,6 +1157,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   }
   
   Widget _buildChatSection() {
+    final brightness = Theme.of(context).brightness;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1103,6 +1274,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   }
 
   Widget _buildGitHubSection() {
+    final brightness = Theme.of(context).brightness;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1186,7 +1358,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.surface.withValues(alpha: 0.4),
+                  color: AppColors.surface(brightness).withValues(alpha: 0.4),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: AppColors.textSecondary.withValues(alpha: 0.1),
@@ -1318,7 +1490,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.surface.withValues(alpha: 0.3),
+                color: AppColors.surface(brightness).withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
@@ -1359,7 +1531,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
                     : Icon(Icons.link, size: 16),
                 label: Text(_isConnectingToGitHub ? 'Connessione...' : 'Connetti GitHub'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.surface.withValues(alpha: 0.5),
+                  backgroundColor: AppColors.surface(brightness).withValues(alpha: 0.5),
                   foregroundColor: _isConnectingToGitHub ? AppColors.textSecondary : AppColors.textPrimary,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -1385,6 +1557,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   }
   
   Widget _buildRepositoryItem(github_service.GitHubRepository repo) {
+    final brightness = Theme.of(context).brightness;
     final isSelected = _selectedRepository?.id == repo.id;
     
     return Container(
@@ -1404,7 +1577,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
           decoration: BoxDecoration(
             color: isSelected 
                 ? AppColors.primary.withValues(alpha: 0.1)
-                : AppColors.surface.withValues(alpha: 0.2),
+                : AppColors.surface(brightness).withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: isSelected 
@@ -1544,6 +1717,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   }
 
   Widget _buildTerminalOutput() {
+    final brightness = Theme.of(context).brightness;
     return Column(
       children: [
         // Attached files/images preview
@@ -2205,6 +2379,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   }
   
   Widget _buildModernLoadingIndicator() {
+    final brightness = Theme.of(context).brightness;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
@@ -2242,6 +2417,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   }
   
   Widget _buildMinimalAnimatedDots() {
+    final brightness = Theme.of(context).brightness;
     return AnimatedBuilder(
       animation: _animationController,
       builder: (context, child) {
@@ -2267,13 +2443,14 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   }
 
   Widget _buildAttachmentsPreview() {
+    final brightness = Theme.of(context).brightness;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface.withValues(alpha: 0.5),
+        color: AppColors.surface(brightness).withValues(alpha: 0.5),
         border: Border(
           bottom: BorderSide(
-            color: AppColors.border.withValues(alpha: 0.1),
+            color: AppColors.border(brightness).withValues(alpha: 0.1),
             width: 1,
           ),
         ),
@@ -2404,6 +2581,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   }
 
   Widget _buildInputArea() {
+    final brightness = Theme.of(context).brightness;
     return Stack(
       children: [
         Container(
@@ -2417,8 +2595,8 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  AppColors.surface.withValues(alpha: 0.98),
-                  AppColors.surface.withValues(alpha: 0.92),
+                  AppColors.surface(brightness).withValues(alpha: 0.98),
+                  AppColors.surface(brightness).withValues(alpha: 0.92),
                 ],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
@@ -2521,50 +2699,61 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   bool _isAgentQuery(String text) {
     final lowerText = text.toLowerCase().trim();
     
-    // Pattern espliciti per Agent/AI
-    final agentPatterns = [
-      'ciao', 'hello', 'hi', 'aiuto', 'help',
-      'come', 'cosa', 'perché', 'perchè', 'why', 'what', 'how',
-      'spiegami', 'explain', 'spiega',
-      'crea', 'genera', 'create', 'generate',
-      'flutter', 'dart', 'android', 'ios', 'mobile',
-      'codice', 'code', 'programmazione', 'programming',
-      'debug', 'errore', 'error', 'problema', 'issue',
-      'refactor', 'ottimizza', 'optimize',
-      'documenta', 'document',
-    ];
+    // Non fare riconoscimento per testi troppo corti o vuoti
+    if (lowerText.length < 2) {
+      return !_isTerminalMode; // Mantieni la modalità attuale
+    }
     
-    // Pattern espliciti per Terminal
+    // Pattern espliciti per Terminal (priorità alta)
     final terminalPatterns = [
       'ls', 'cd', 'pwd', 'mkdir', 'rm', 'cp', 'mv',
-      'git', 'npm', 'yarn', 'flutter run', 'flutter build',
+      'git', 'npm', 'yarn', 'pnpm', 'node', 'python',
+      'flutter run', 'flutter build', 'flutter test',
       'docker', 'kubectl', 'ssh', 'curl', 'wget',
-      'python', 'node', 'java', 'go run',
-      'cmake', 'make', 'gcc', 'clang',
+      'java', 'go run', 'cmake', 'make', 'gcc', 'clang',
+      'cat', 'grep', 'find', 'ps', 'kill', 'top',
+      'chmod', 'chown', 'tar', 'zip', 'unzip',
     ];
     
-    // Se inizia con un comando terminal noto
+    // Se inizia con un comando terminal noto (priorità massima)
     for (final pattern in terminalPatterns) {
       if (lowerText.startsWith(pattern)) {
-        return false; // È terminal
+        return false; // È decisamente terminal
       }
     }
     
-    // Se contiene parole chiave per agent
-    for (final pattern in agentPatterns) {
-      if (lowerText.contains(pattern)) {
-        return true; // È agent
+    // Pattern espliciti per Agent/AI (solo parole chiave forti)
+    final agentPatterns = [
+      'ciao', 'hello', 'hi', 'aiuto', 'help',
+      'come posso', 'how can', 'spiegami', 'explain',
+      'cosa significa', 'what does', 'what is',
+      'perché', 'perchè', 'why',
+      'crea un', 'create a', 'genera',
+      'puoi aiutarmi', 'can you help',
+      'mostrami', 'show me',
+    ];
+    
+    // Controlla pattern agent solo se è abbastanza lungo
+    if (lowerText.length >= 5) {
+      for (final pattern in agentPatterns) {
+        if (lowerText.contains(pattern)) {
+          return true; // È agent
+        }
       }
     }
     
-    // Default: se ha punti interrogativi o sembra una domanda -> Agent
-    if (lowerText.contains('?') || 
-        lowerText.split(' ').length > 3) {
+    // Domande esplicite (solo se hanno punto interrogativo E sono abbastanza lunghe)
+    if (lowerText.contains('?') && lowerText.length >= 8) {
       return true;
     }
     
-    // Altrimenti -> Terminal
-    return false;
+    // Frasi lunghe e descrittive (probabilmente domande all'AI)
+    if (lowerText.split(' ').length >= 5 && lowerText.length >= 20) {
+      return true;
+    }
+    
+    // Default: mantieni la modalità attuale per evitare cambi frequenti
+    return !_isTerminalMode;
   }
   
   String _getSmartHintText() {
@@ -2576,23 +2765,23 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   void _onSmartInputChanged(String text) {
     // Riconoscimento automatico solo se la modalità AUTO è abilitata
     if (_isAutoModeEnabled) {
-      bool shouldBeAgent = _isAgentQuery(text);
+      // Cancella il timer precedente se esiste
+      _autoDetectDebounce?.cancel();
       
-      if (shouldBeAgent != !_isTerminalMode) {
-        setState(() {
-          _isTerminalMode = !shouldBeAgent;
-        });
-        // Update syntax highlighting controller
-        _commandController.dispose();
-        _commandController = SyntaxHighlightingController(
-          defaultTextColor: AppColors.textPrimary,
-          isTerminalMode: _isTerminalMode,
-          text: text,
-        );
-        _commandController.addListener(() {
-          setState(() {});
-        });
-      }
+      // Imposta un nuovo timer con debouncing di 300ms
+      _autoDetectDebounce = Timer(const Duration(milliseconds: 300), () {
+        if (mounted && _isAutoModeEnabled) {
+          bool shouldBeAgent = _isAgentQuery(text);
+          
+          if (shouldBeAgent != !_isTerminalMode) {
+            setState(() {
+              _isTerminalMode = !shouldBeAgent;
+            });
+            // Update syntax highlighting controller solo se necessario
+            _updateSyntaxController();
+          }
+        }
+      });
     }
     
     // Chiama la funzione originale
@@ -2624,6 +2813,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   bool _manualModeSelected = false; // Nessuna modalità manualmente selezionata inizialmente
   
   Widget _buildSmartModeToggle() {
+    final brightness = Theme.of(context).brightness;
     // Determina se siamo in modalità manuale per le animazioni del contenitore
     final bool hasManualSelection = _manualModeSelected;
     final bool hasAnyHighlight = (_manualModeSelected && _isTerminalMode) || 
@@ -2809,6 +2999,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   }
   
   Widget _buildUnifiedModelSelector() {
+    final brightness = Theme.of(context).brightness;
     return GestureDetector(
       onTap: _showBeautifulModelSelector,
       child: Container(
@@ -2847,6 +3038,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   }
   
   Widget _buildUnifiedToolsButton() {
+    final brightness = Theme.of(context).brightness;
     final bool hasActiveTools = _attachedImages.isNotEmpty || 
                                _taggedFiles.isNotEmpty || 
                                _isRecording || 
@@ -2895,6 +3087,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   }
   
   Widget _buildUnifiedSendButton() {
+    final brightness = Theme.of(context).brightness;
     final bool hasText = _commandController.text.trim().isNotEmpty;
     
     return GestureDetector(
@@ -3003,19 +3196,37 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   }
   
   void _updateSyntaxController() {
-    String currentText = _commandController.text;
-    _commandController.dispose();
-    _commandController = SyntaxHighlightingController(
-      defaultTextColor: AppColors.textPrimary,
-      isTerminalMode: _isTerminalMode,
-      text: currentText,
-    );
-    _commandController.addListener(() {
-      setState(() {});
-    });
+    // Solo ricreare il controller se la modalità è effettivamente cambiata
+    if (_commandController.isTerminalMode != _isTerminalMode) {
+      String currentText = _commandController.text;
+      int currentSelection = _commandController.selection.baseOffset;
+      
+      _commandController.removeListener(() {
+        setState(() {});
+      });
+      _commandController.dispose();
+      
+      _commandController = SyntaxHighlightingController(
+        defaultTextColor: AppColors.textPrimary,
+        isTerminalMode: _isTerminalMode,
+        text: currentText,
+      );
+      
+      _commandController.addListener(() {
+        setState(() {});
+      });
+      
+      // Ripristina la posizione del cursore se possibile
+      if (currentSelection >= 0 && currentSelection <= currentText.length) {
+        _commandController.selection = TextSelection.fromPosition(
+          TextPosition(offset: currentSelection),
+        );
+      }
+    }
   }
   
   Widget _buildCompactModelSelector() {
+    final brightness = Theme.of(context).brightness;
     return GestureDetector(
       onTap: _showBeautifulModelSelector,
       child: AnimatedContainer(
@@ -3099,6 +3310,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   }
   
   Widget _buildCompactInputTools() {
+    final brightness = Theme.of(context).brightness;
     final bool hasActiveTools = _attachedImages.isNotEmpty || 
                                _taggedFiles.isNotEmpty || 
                                _isRecording || 
@@ -3115,13 +3327,13 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
               ? AppColors.purpleGradient
               : LinearGradient(
                   colors: [
-                    AppColors.surface.withValues(alpha: 0.8),
-                    AppColors.surface.withValues(alpha: 0.6),
+                    AppColors.surface(brightness).withValues(alpha: 0.8),
+                    AppColors.surface(brightness).withValues(alpha: 0.6),
                   ],
                 ),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: AppColors.border.withValues(alpha: 0.2),
+            color: AppColors.border(brightness).withValues(alpha: 0.2),
             width: 1,
           ),
           boxShadow: hasActiveTools
@@ -3164,13 +3376,14 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   }
   
   void _showToolsBottomSheet() {
+    final brightness = Theme.of(context).brightness;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          gradient: AppColors.cardGradient,
+          gradient: AppColors.cardGradient(brightness),
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           border: Border.all(
             color: AppColors.purpleMedium.withValues(alpha: 0.2),
@@ -3262,6 +3475,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
     int? badge,
     bool isRecording = false,
   }) {
+    final brightness = Theme.of(context).brightness;
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -3272,8 +3486,8 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
             ? AppColors.purpleGradient
             : LinearGradient(
                 colors: [
-                  AppColors.surface.withValues(alpha: 0.4),
-                  AppColors.surface.withValues(alpha: 0.2),
+                  AppColors.surface(brightness).withValues(alpha: 0.4),
+                  AppColors.surface(brightness).withValues(alpha: 0.2),
                 ],
               ),
           borderRadius: BorderRadius.circular(16),
@@ -3283,7 +3497,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
                 width: 2,
               )
             : Border.all(
-                color: AppColors.border.withValues(alpha: 0.1),
+                color: AppColors.border(brightness).withValues(alpha: 0.1),
                 width: 1,
               ),
           boxShadow: isActive
@@ -3361,6 +3575,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
     int? badge,
     bool isRecording = false,
   }) {
+    final brightness = Theme.of(context).brightness;
     return GestureDetector(
       onTap: onTap,
       child: Stack(
@@ -3370,11 +3585,11 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
             height: 22,
             decoration: BoxDecoration(
               gradient: isActive
-                ? AppColors.violetGradient
+                ? AppColors.heroGradient(brightness)
                 : LinearGradient(
                     colors: [
-                      AppColors.surface.withValues(alpha: 0.4),
-                      AppColors.surface.withValues(alpha: 0.2),
+                      AppColors.surface(brightness).withValues(alpha: 0.4),
+                      AppColors.surface(brightness).withValues(alpha: 0.2),
                     ],
                   ),
               borderRadius: BorderRadius.circular(11),
@@ -3420,10 +3635,11 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   }
   
   Widget _buildModeToggle() {
+    final brightness = Theme.of(context).brightness;
     return Container(
       padding: const EdgeInsets.all(2),
       decoration: BoxDecoration(
-        color: AppColors.background.withValues(alpha: 0.3),
+        color: AppColors.background(brightness).withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -3453,7 +3669,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 gradient: _isTerminalMode
-                  ? AppColors.violetGradient
+                  ? AppColors.heroGradient(brightness)
                   : null,
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: _isTerminalMode
@@ -3559,6 +3775,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   }
 
   Widget _buildInputTools() {
+    final brightness = Theme.of(context).brightness;
     // Calculate if any tool is active
     final bool hasActiveTools = _attachedImages.isNotEmpty || 
                                _taggedFiles.isNotEmpty || 
@@ -3586,15 +3803,15 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
                     ? AppColors.purpleGradient
                     : LinearGradient(
                         colors: [
-                          AppColors.surface.withValues(alpha: 0.6),
-                          AppColors.surface.withValues(alpha: 0.4),
+                          AppColors.surface(brightness).withValues(alpha: 0.6),
+                          AppColors.surface(brightness).withValues(alpha: 0.4),
                         ],
                       ),
                 borderRadius: BorderRadius.circular(17),
                 border: Border.all(
                   color: _isToolsExpanded 
                       ? AppColors.purpleMedium.withValues(alpha: 0.4)
-                      : AppColors.border.withValues(alpha: 0.2),
+                      : AppColors.border(brightness).withValues(alpha: 0.2),
                   width: 1,
                 ),
                 boxShadow: hasActiveTools || _isToolsExpanded
@@ -3709,6 +3926,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
     int? badge,
     bool isRecording = false,
   }) {
+    final brightness = Theme.of(context).brightness;
     return GestureDetector(
       onTap: onTap,
       child: Stack(
@@ -3718,11 +3936,11 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
             height: 28,
             decoration: BoxDecoration(
               gradient: isActive
-                ? AppColors.violetGradient
+                ? AppColors.heroGradient(brightness)
                 : LinearGradient(
                     colors: [
-                      AppColors.surface.withValues(alpha: 0.4),
-                      AppColors.surface.withValues(alpha: 0.2),
+                      AppColors.surface(brightness).withValues(alpha: 0.4),
+                      AppColors.surface(brightness).withValues(alpha: 0.2),
                     ],
                   ),
               borderRadius: BorderRadius.circular(14),
@@ -3785,6 +4003,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   }
 
   Widget _buildModelSelector() {
+    final brightness = Theme.of(context).brightness;
     return GestureDetector(
       onTap: _showBeautifulModelSelector,
       child: Container(
@@ -3844,6 +4063,54 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
       duration: const Duration(milliseconds: 500),
     );
     
+    // Initialize GitHub button animations
+    _gitHubScaleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    
+    _gitHubGlowController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    );
+    
+    _gitHubSparkleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    
+    _gitHubScaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.95,
+    ).animate(CurvedAnimation(
+      parent: _gitHubScaleController,
+      curve: Curves.easeInOut,
+    ));
+    
+    _gitHubGlowAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _gitHubGlowController,
+      curve: Curves.easeInOut,
+    ));
+    
+    _gitHubSparkleAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _gitHubSparkleController,
+      curve: Curves.elasticOut,
+    ));
+    
+    _gitHubColorAnimation = ColorTween(
+      begin: AppColors.textSecondary,
+      end: Colors.white,
+    ).animate(CurvedAnimation(
+      parent: _gitHubGlowController,
+      curve: Curves.easeInOut,
+    ));
+    
     _commandFocusNode.addListener(_onFocusChange);
     _commandFocusNode.addListener(() {
       if (!_commandFocusNode.hasFocus) {
@@ -3872,10 +4139,14 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   
   @override
   void dispose() {
+    _autoDetectDebounce?.cancel();
     _commandController.dispose();
     _commandFocusNode.dispose();
     _outputScrollController.dispose();
     _animationController.dispose();
+    _gitHubScaleController.dispose();
+    _gitHubGlowController.dispose();
+    _gitHubSparkleController.dispose();
     _audioRecorder.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
@@ -4073,6 +4344,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   }
   
   Widget _buildAutoModelOption(bool isSelected) {
+    final brightness = Theme.of(context).brightness;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Material(
@@ -4103,7 +4375,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
                     width: 2,
                   )
                 : Border.all(
-                    color: AppColors.border.withValues(alpha: 0.1),
+                    color: AppColors.border(brightness).withValues(alpha: 0.1),
                     width: 1,
                   ),
             ),
@@ -4226,12 +4498,14 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: 420, // Altezza fissa per 5 opzioni
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
+      builder: (context) {
+        final brightness = Theme.of(context).brightness;
+        return Container(
+          height: 420, // Altezza fissa per 5 opzioni
+          decoration: BoxDecoration(
+            color: AppColors.surface(brightness),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
         child: Column(
           children: [
             // Header semplificato
@@ -4308,7 +4582,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
                             border: Border.all(
                               color: isSelected 
                                 ? AppColors.primary.withValues(alpha: 0.2)
-                                : AppColors.border.withValues(alpha: 0.1),
+                                : AppColors.border(brightness).withValues(alpha: 0.1),
                               width: 1.5,
                             ),
                           ),
@@ -4345,11 +4619,11 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
                                         Expanded(
                                           child: Text(
                                             model['name']!,
-                                            style: TextStyle(
-                                              color: AppColors.textPrimary,
-                                              fontSize: 15,
-                                              fontWeight: FontWeight.w600,
-                                            ),
+                        style: TextStyle(
+                          color: AppColors.titleText(brightness),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
                                           ),
                                         ),
                                         Container(
@@ -4408,7 +4682,8 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
             const SizedBox(height: 24),
           ],
         ),
-      ),
+        );
+      },
     );
   }
   
@@ -4721,10 +4996,11 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   
   /// Test OAuth callback manually (for debugging)
   void _testOAuthCallback() {
+    final brightness = Theme.of(context).brightness;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
+        backgroundColor: AppColors.surface(brightness),
         title: Text(
           'Test OAuth Callback',
           style: TextStyle(color: AppColors.textPrimary),
@@ -4752,7 +5028,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
                   borderSide: BorderSide(color: AppColors.textSecondary),
                 ),
                 filled: true,
-                fillColor: AppColors.background.withOpacity(0.3),
+                fillColor: AppColors.background(brightness).withValues(alpha: 0.3),
               ),
               onSubmitted: (url) async {
                 Navigator.of(context).pop();
@@ -4841,10 +5117,11 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   }
   
   void _showGitHubConnectionDialog() {
+    final brightness = Theme.of(context).brightness;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
+        backgroundColor: AppColors.surface(brightness),
         title: Row(
           children: [
             Icon(Icons.code, color: AppColors.primary),
@@ -4862,9 +5139,9 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
+                color: AppColors.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -5073,8 +5350,9 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   }
 
   Widget _buildGitHubSidebarDrawer() {
+    final brightness = Theme.of(context).brightness;
     return Drawer(
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.surface(brightness),
       width: 300,
       child: SafeArea(
         child: Column(
@@ -5146,7 +5424,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
               decoration: BoxDecoration(
                 border: Border(
                   top: BorderSide(
-                    color: AppColors.border,
+                    color: AppColors.border(brightness),
                     width: 1,
                   ),
                 ),
@@ -5215,12 +5493,13 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   }
 
   Widget _buildGitHubStatusBar() {
+    final brightness = Theme.of(context).brightness;
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surface.withValues(alpha: 0.4),
+        color: AppColors.surface(brightness).withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: AppColors.border.withValues(alpha: 0.3),
+          color: AppColors.border(brightness).withValues(alpha: 0.3),
           width: 1,
         ),
         boxShadow: [
@@ -5268,6 +5547,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   }
 
   Widget _buildGitHubRepositoryHistory() {
+    final brightness = Theme.of(context).brightness;
     if (_isConnectingToGitHub) {
       return Center(
         child: Column(
@@ -5352,6 +5632,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   }
 
   Widget _buildGitHubEmptyState() {
+    final brightness = Theme.of(context).brightness;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -5388,6 +5669,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   }
 
   Widget _buildGitHubRepositoryItem(github_service.GitHubRepository repo) {
+    final brightness = Theme.of(context).brightness;
     final isSelected = _selectedRepository?.id == repo.id;
     
     return Container(
@@ -5406,7 +5688,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: isSelected 
-                ? AppColors.surface.withValues(alpha: 0.8)
+                ? AppColors.surface(brightness).withValues(alpha: 0.8)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
             border: isSelected ? Border.all(
@@ -5832,7 +6114,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
     //   ScaffoldMessenger.of(context).showSnackBar(
     //     SnackBar(
     //       content: Text(message),
-    //       backgroundColor: AppColors.surface,
+    //       backgroundColor: AppColors.surface(brightness),
     //       behavior: SnackBarBehavior.floating,
     //     ),
     //   );
@@ -5840,10 +6122,11 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   }
   
   Widget _buildGitHubAuthDialog() {
+    final brightness = Theme.of(context).brightness;
     final tokenController = TextEditingController();
     
     return AlertDialog(
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.surface(brightness),
       title: Row(
         children: [
           Icon(Icons.code, color: AppColors.primary),
@@ -5871,7 +6154,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.background.withOpacity(0.5),
+                color: AppColors.background(brightness).withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: AppColors.info.withOpacity(0.2)),
               ),
@@ -5927,14 +6210,14 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
                   borderSide: BorderSide(color: AppColors.primary),
                 ),
                 filled: true,
-                fillColor: AppColors.background.withOpacity(0.3),
+                fillColor: AppColors.background(brightness).withValues(alpha: 0.3),
                 prefixIcon: Icon(Icons.key, color: AppColors.textSecondary),
               ),
             ),
             const SizedBox(height: 8),
             if (_isConnectingToGitHub)
               LinearProgressIndicator(
-                backgroundColor: AppColors.surface,
+                backgroundColor: AppColors.surface(brightness),
                 valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
               ),
           ],
@@ -6059,6 +6342,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
   }
 
   Widget _buildAutocompleteOverlay() {
+    final brightness = Theme.of(context).brightness;
     return Positioned(
       left: 20,
       right: 20,
@@ -6073,7 +6357,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
             minHeight: 60,
           ),
           decoration: BoxDecoration(
-            color: AppColors.surface.withValues(alpha: 0.95),
+            color: AppColors.surface(brightness).withValues(alpha: 0.95),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: AppColors.primary.withValues(alpha: 0.2),
@@ -6258,17 +6542,18 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
       final webUrls = terminalService.exposedPorts.values.toList();
       String? webUrl;
       
-      // Usa sempre il server locale per ora (demo funzionante)
-      webUrl = 'http://localhost:3001';
-      
-      /* TODO: Sistemare backend AWS per servire Flutter Web correttamente
+      // Usa l'URL dinamico dal backend AWS ECS invece di localhost hardcoded
       if (webUrls.isNotEmpty) {
-        webUrl = webUrls.first; // Usa il primo URL disponibile
+        // Filtra gli URL localhost per usare solo URL pubblici
+        webUrl = webUrls.firstWhere(
+          (url) => !url.contains('localhost') && !url.contains('127.0.0.1'),
+          orElse: () => webUrls.first, // Fallback al primo se non ci sono URL pubblici
+        );
       } else {
-        // Fallback al server locale per test
+        // Solo come fallback se non ci sono URL dal backend
+        print('⚠️ Warning: Nessun URL dal backend, usando localhost come fallback');
         webUrl = 'http://localhost:3001';
       }
-      */
       
       print('🔍 Debug: Using dynamic web URL: $webUrl');
       if (webUrl != _previewUrl) {
@@ -6397,6 +6682,214 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with SingleTickerPr
     
     _scrollToBottom();
   }
+  
+  // GitHub Animated Button Widget
+  Widget _buildAnimatedGitHubButton() {
+    final brightness = Theme.of(context).brightness;
+    return AnimatedBuilder(
+      animation: Listenable.merge([
+        _gitHubScaleAnimation,
+        _gitHubGlowAnimation,
+        _gitHubSparkleAnimation,
+        _gitHubColorAnimation
+      ]),
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _gitHubScaleAnimation.value,
+          child: GestureDetector(
+            onTapDown: (details) => _handleGitHubTapDown(),
+            onTapUp: (details) => _handleGitHubTapUp(),
+            onTapCancel: () => _handleGitHubTapCancel(),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              decoration: BoxDecoration(
+                // Dynamic gradient based on animation
+                gradient: LinearGradient(
+                  colors: [
+                    Color.lerp(
+                      AppColors.surface(brightness).withValues(alpha: 0.3),
+                      const Color(0xFF6366f1),
+                      _gitHubGlowAnimation.value,
+                    )!,
+                    Color.lerp(
+                      Colors.transparent,
+                      const Color(0xFF8b5cf6),
+                      _gitHubGlowAnimation.value,
+                    )!,
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Color.lerp(
+                    AppColors.textSecondary.withValues(alpha: 0.2),
+                    const Color(0xFF6366f1),
+                    _gitHubGlowAnimation.value,
+                  )!,
+                  width: 1 + (_gitHubGlowAnimation.value * 0.5),
+                ),
+                // Glow effect
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF6366f1).withValues(alpha: _gitHubGlowAnimation.value * 0.4),
+                    blurRadius: 8 + (_gitHubGlowAnimation.value * 12),
+                    offset: const Offset(0, 2),
+                  ),
+                  BoxShadow(
+                    color: const Color(0xFF8b5cf6).withValues(alpha: _gitHubGlowAnimation.value * 0.2),
+                    blurRadius: 16 + (_gitHubGlowAnimation.value * 8),
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Stack(
+                children: [
+                  // Main button content
+                  Row(
+                    children: [
+                      // Animated icon with rotation
+                      Transform.rotate(
+                        angle: _gitHubSparkleAnimation.value * 0.1,
+                        child: Icon(
+                          Icons.account_tree_outlined,
+                          color: _gitHubColorAnimation.value ?? AppColors.textSecondary,
+                          size: 18 + (_gitHubGlowAnimation.value * 2),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      // Animated text
+                      Text(
+                        'GitHub',
+                        style: TextStyle(
+                          color: _gitHubColorAnimation.value ?? AppColors.textSecondary,
+                          fontSize: 14 + (_gitHubGlowAnimation.value * 0.5),
+                          fontWeight: FontWeight.lerp(
+                            FontWeight.w400,
+                            FontWeight.w600,
+                            _gitHubGlowAnimation.value,
+                          ),
+                          letterSpacing: _gitHubGlowAnimation.value * 0.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                  // Sparkle effects
+                  if (_gitHubSparkleAnimation.value > 0) ..._buildSparkleEffects(),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+  
+  // Sparkle effects
+  List<Widget> _buildSparkleEffects() {
+    final sparkles = <Widget>[];
+    final sparklePositions = [
+      const Offset(0.2, 0.3),
+      const Offset(0.8, 0.2), 
+      const Offset(0.1, 0.7),
+      const Offset(0.9, 0.8),
+      const Offset(0.5, 0.1),
+    ];
+    
+    for (int i = 0; i < sparklePositions.length; i++) {
+      final delay = i * 0.1;
+      final adjustedAnimation = Tween<double>(
+        begin: 0.0,
+        end: 1.0,
+      ).animate(CurvedAnimation(
+        parent: _gitHubSparkleController,
+        curve: Interval(delay, 1.0, curve: Curves.elasticOut),
+      ));
+      
+      sparkles.add(
+        Positioned(
+          left: sparklePositions[i].dx * 250, // Approximate button width
+          top: sparklePositions[i].dy * 40,   // Approximate button height
+          child: Transform.scale(
+            scale: adjustedAnimation.value,
+            child: Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: adjustedAnimation.value),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF6366f1).withValues(alpha: adjustedAnimation.value * 0.6),
+                    blurRadius: 4,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    
+    return sparkles;
+  }
+  
+  // GitHub button animation handlers
+  void _handleGitHubTapDown() {
+    setState(() {
+      _isGitHubPressed = true;
+    });
+    
+    // Multiple haptic feedbacks for richer feel
+    HapticFeedback.selectionClick();
+    
+    // Start scale animation
+    _gitHubScaleController.forward();
+    
+    // Start glow animation
+    _gitHubGlowController.forward();
+  }
+  
+  void _handleGitHubTapUp() {
+    // Enhanced haptic sequence
+    Future.delayed(const Duration(milliseconds: 50), () {
+      HapticFeedback.lightImpact();
+    });
+    Future.delayed(const Duration(milliseconds: 100), () {
+      HapticFeedback.selectionClick();
+    });
+    
+    // Reverse scale animation
+    _gitHubScaleController.reverse();
+    
+    // Start sparkle animation
+    _gitHubSparkleController.forward().then((_) {
+      _gitHubSparkleController.reset();
+    });
+    
+    // Keep glow for a moment then fade
+    Future.delayed(const Duration(milliseconds: 300), () {
+      _gitHubGlowController.reverse();
+    });
+    
+    setState(() {
+      _isGitHubPressed = false;
+      _showGitHubSidebar = true;
+    });
+    
+    // Execute original action
+    Navigator.pop(context); // Chiudi sidebar principale
+    _showGitHubSidebarPanel();
+  }
+  
+  void _handleGitHubTapCancel() {
+    setState(() {
+      _isGitHubPressed = false;
+    });
+    _gitHubScaleController.reverse();
+    _gitHubGlowController.reverse();
+  }
 }
 
 // Preview Screen
@@ -6460,10 +6953,11 @@ class _PreviewScreenState extends State<PreviewScreen> {
   
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Preview Flutter Web'),
-        backgroundColor: AppColors.background,
+        backgroundColor: AppColors.background(brightness),
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
@@ -6494,7 +6988,7 @@ class _PreviewScreenState extends State<PreviewScreen> {
           // URL bar
           Container(
             padding: const EdgeInsets.all(16),
-            color: AppColors.surface.withValues(alpha: 0.5),
+            color: AppColors.surface(brightness).withValues(alpha: 0.5),
             child: Row(
               children: [
                 Icon(Icons.link, color: AppColors.textSecondary, size: 16),
@@ -6518,7 +7012,7 @@ class _PreviewScreenState extends State<PreviewScreen> {
             child: Container(
               decoration: BoxDecoration(
                 border: Border.all(
-                  color: AppColors.border.withValues(alpha: 0.1),
+                  color: AppColors.border(brightness).withValues(alpha: 0.1),
                   width: 1,
                 ),
               ),

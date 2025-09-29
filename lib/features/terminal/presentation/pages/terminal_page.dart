@@ -336,10 +336,11 @@ class _TerminalPageState extends State<TerminalPage> {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
     return Scaffold(
       backgroundColor: AppColors.terminalBackground,
       appBar: AppBar(
-        backgroundColor: AppColors.surface,
+        backgroundColor: AppColors.surface(brightness),
         elevation: 0,
         title: Row(
           children: [
@@ -401,7 +402,7 @@ class _TerminalPageState extends State<TerminalPage> {
           ),
           Container(
             padding: const EdgeInsets.all(16),
-            color: AppColors.surface,
+            color: AppColors.surface(brightness),
             child: Row(
               children: [
                 Text(

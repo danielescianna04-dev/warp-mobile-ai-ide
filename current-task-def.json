@@ -1,0 +1,125 @@
+{
+    "taskDefinitionArn": "arn:aws:ecs:eu-north-1:703686967361:task-definition/warp-mobile-ai-ide-prod-task:2",
+    "containerDefinitions": [
+        {
+            "name": "warp-mobile-ai-ide-container",
+            "image": "703686967361.dkr.ecr.eu-north-1.amazonaws.com/warp-mobile-ai-ide:latest",
+            "cpu": 0,
+            "links": [],
+            "portMappings": [
+                {
+                    "containerPort": 8083,
+                    "hostPort": 8083,
+                    "protocol": "tcp"
+                },
+                {
+                    "containerPort": 8084,
+                    "hostPort": 8084,
+                    "protocol": "tcp"
+                },
+                {
+                    "containerPort": 3000,
+                    "hostPort": 3000,
+                    "protocol": "tcp"
+                },
+                {
+                    "containerPort": 8080,
+                    "hostPort": 8080,
+                    "protocol": "tcp"
+                },
+                {
+                    "containerPort": 8081,
+                    "hostPort": 8081,
+                    "protocol": "tcp"
+                },
+                {
+                    "containerPort": 8082,
+                    "hostPort": 8082,
+                    "protocol": "tcp"
+                }
+            ],
+            "essential": true,
+            "entryPoint": [],
+            "command": [],
+            "environment": [
+                {
+                    "name": "PORT",
+                    "value": "3000"
+                },
+                {
+                    "name": "NODE_ENV",
+                    "value": "production"
+                }
+            ],
+            "environmentFiles": [],
+            "mountPoints": [],
+            "volumesFrom": [],
+            "secrets": [],
+            "dnsServers": [],
+            "dnsSearchDomains": [],
+            "extraHosts": [],
+            "dockerSecurityOptions": [],
+            "dockerLabels": {},
+            "ulimits": [],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/warp-mobile-ai-ide-prod",
+                    "awslogs-region": "eu-north-1",
+                    "awslogs-stream-prefix": "ecs"
+                },
+                "secretOptions": []
+            },
+            "systemControls": [],
+            "credentialSpecs": []
+        }
+    ],
+    "family": "warp-mobile-ai-ide-prod-task",
+    "taskRoleArn": "arn:aws:iam::703686967361:role/warp-mobile-ai-ide-prod-ECSTaskRole-RAPVsNl1Vkso",
+    "executionRoleArn": "arn:aws:iam::703686967361:role/warp-mobile-ai-ide-prod-ECSTaskExecutionRole-b1dl2vim290G",
+    "networkMode": "awsvpc",
+    "revision": 2,
+    "volumes": [],
+    "status": "ACTIVE",
+    "requiresAttributes": [
+        {
+            "name": "com.amazonaws.ecs.capability.logging-driver.awslogs"
+        },
+        {
+            "name": "ecs.capability.execution-role-awslogs"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.ecr-auth"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.19"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.17"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.task-iam-role"
+        },
+        {
+            "name": "ecs.capability.execution-role-ecr-pull"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.18"
+        },
+        {
+            "name": "ecs.capability.task-eni"
+        }
+    ],
+    "placementConstraints": [],
+    "compatibilities": [
+        "EC2",
+        "FARGATE"
+    ],
+    "requiresCompatibilities": [
+        "FARGATE"
+    ],
+    "cpu": "512",
+    "memory": "1024",
+    "registeredAt": "2025-09-24T23:19:34.893000+02:00",
+    "registeredBy": "arn:aws:iam::703686967361:user/warp-admin"
+}

@@ -1,5 +1,5 @@
-name: warp_mobile_ai_ide
-description: "Mobile-first AI IDE bringing Warp + multi-model AI to iPhone and Android."
+name: drape
+description: "Drape - Mobile-first AI IDE with multi-model AI support for iOS and Android."
 publish_to: 'none'
 
 version: 1.0.0+1
