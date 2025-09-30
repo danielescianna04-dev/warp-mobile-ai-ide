@@ -391,77 +391,51 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
         ],
       ),
       actions: [
-        // Preview button (smart activation) - Modern design
-        Padding(
-          padding: const EdgeInsets.only(right: 4),
-          child: GestureDetector(
-            onTap: _previewUrl != null ? _openPreview : null,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeInOutCubic,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                gradient: _previewUrl != null
-                    ? LinearGradient(
-                        colors: [
-                          AppColors.success.withValues(alpha: 0.8),
-                          AppColors.success.withValues(alpha: 0.6),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      )
-                    : LinearGradient(
-                        colors: [
-                              AppColors.surface(Theme.of(context).brightness).withValues(alpha: 0.4),
-                              AppColors.surface(Theme.of(context).brightness).withValues(alpha: 0.2),
-                        ],
-                      ),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: _previewUrl != null
-                      ? AppColors.success.withValues(alpha: 0.3)
-                      : Colors.transparent,
-                  width: 1,
+        // Preview button - Minimal design
+        if (_previewUrl != null)
+          Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: GestureDetector(
+              onTap: _openPreview,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                decoration: BoxDecoration(
+                  color: brightness == Brightness.dark
+                      ? const Color(0xFF1E1E1E)
+                      : const Color(0xFFF5F5F5),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: brightness == Brightness.dark
+                        ? const Color(0xFF2A2A2A)
+                        : const Color(0xFFE5E5E5),
+                    width: 1,
+                  ),
                 ),
-                boxShadow: _previewUrl != null
-                    ? [
-                        BoxShadow(
-                          color: AppColors.success.withValues(alpha: 0.25),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                          spreadRadius: 1,
-                        ),
-                      ]
-                    : [],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    child: Icon(
-                      _previewUrl != null ? Icons.play_circle_filled : Icons.visibility_off,
-                      color: _previewUrl != null ? Colors.white : AppColors.textTertiary,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.play_circle_outline,
+                      color: AppColors.primary.withValues(alpha: 0.8),
                       size: 16,
                     ),
-                  ),
-                  if (_previewUrl != null) ...[
                     const SizedBox(width: 6),
                     Text(
                       'Preview',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: brightness == Brightness.dark
+                            ? const Color(0xFFE5E5E5)
+                            : const Color(0xFF1A1A1A),
                         fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
-                ],
+                ),
               ),
             ),
           ),
-        ),
-        // Stop process button (appears when preview is active) - Modern design
+        // Stop process button - Minimal design
         if (_previewUrl != null && _selectedRepository != null)
           Padding(
             padding: const EdgeInsets.only(right: 4),
@@ -470,30 +444,20 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
               child: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.error.withValues(alpha: 0.8),
-                      AppColors.error.withValues(alpha: 0.6),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  color: brightness == Brightness.dark
+                      ? const Color(0xFF1E1E1E)
+                      : const Color(0xFFF5F5F5),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: AppColors.error.withValues(alpha: 0.3),
+                    color: brightness == Brightness.dark
+                        ? const Color(0xFF2A2A2A)
+                        : const Color(0xFFE5E5E5),
                     width: 1,
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.error.withValues(alpha: 0.25),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
                 ),
                 child: Icon(
-                  Icons.stop_rounded,
-                  color: Colors.white,
+                  Icons.stop_circle_outlined,
+                  color: AppColors.error.withValues(alpha: 0.8),
                   size: 16,
                 ),
               ),
