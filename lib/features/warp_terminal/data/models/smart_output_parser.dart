@@ -107,15 +107,15 @@ class SmartOutputParser {
   }
   
   static SmartOutput _parseFlutterWebStart(String output) {
-    final urlMatch = RegExp(r'https?://[^\s]+').firstMatch(output);
+    final urlMatch = RegExp(r'https?://[^\\s]+').firstMatch(output);
     final url = urlMatch?.group(0);
     
     return SmartOutput(
       type: SmartOutputType.flutterStart,
-      title: '🚀 App Flutter avviata con successo',
-      subtitle: 'L\'applicazione web è ora in esecuzione',
+      title: 'App Flutter avviata',
+      subtitle: 'Applicazione web in esecuzione',
       url: url,
-      icon: Icons.rocket_launch_rounded,
+      icon: Icons.check_circle_outline,
       gradientColors: [
         const Color(0xFF10B981),
         const Color(0xFF059669),
@@ -127,10 +127,10 @@ class SmartOutputParser {
   static SmartOutput _parseFlutterBuild(String output) {
     return SmartOutput(
       type: SmartOutputType.flutterBuild,
-      title: '⚙️ Compilazione in corso...',
-      subtitle: 'Attendere il completamento del build',
+      title: 'Compilazione in corso',
+      subtitle: 'Build in esecuzione...',
       detail: _extractRelevantDetails(output),
-      icon: Icons.build_circle_outlined,
+      icon: Icons.build_outlined,
       gradientColors: [
         AppColors.primary.withValues(alpha: 0.8),
         AppColors.primary.withValues(alpha: 0.6),
@@ -140,18 +140,18 @@ class SmartOutputParser {
   }
   
   static SmartOutput _parseUrlAvailable(String output) {
-    final urlMatch = RegExp(r'https?://[^\s]+').firstMatch(output);
+    final urlMatch = RegExp(r'https?://[^\\s]+').firstMatch(output);
     final url = urlMatch?.group(0);
     
-    String title = '🌐 URL disponibile';
+    String title = 'URL disponibile';
     String? subtitle;
     
     if (output.contains('AWS') || output.contains('ECS')) {
-      subtitle = 'Deployed su AWS ECS Fargate';
+      subtitle = 'AWS ECS Fargate';
     } else if (output.contains('localhost')) {
-      subtitle = 'Ambiente di sviluppo locale';
+      subtitle = 'Ambiente locale';
     } else {
-      subtitle = 'Applicazione web accessibile';
+      subtitle = 'Web app accessibile';
     }
     
     return SmartOutput(
@@ -159,7 +159,7 @@ class SmartOutputParser {
       title: title,
       subtitle: subtitle,
       url: url,
-      icon: Icons.language_rounded,
+      icon: Icons.link_rounded,
       gradientColors: [
         const Color(0xFF06B6D4),
         const Color(0xFF0891B2),
@@ -169,15 +169,15 @@ class SmartOutputParser {
   }
   
   static SmartOutput _parseServerStart(String output) {
-    final portMatch = RegExp(r':(\d+)').firstMatch(output);
+    final portMatch = RegExp(r':(\\d+)').firstMatch(output);
     final port = portMatch?.group(1);
     
     return SmartOutput(
       type: SmartOutputType.serverRunning,
-      title: '🖥️ Server avviato',
-      subtitle: port != null ? 'In ascolto sulla porta $port' : 'Server in esecuzione',
+      title: 'Server avviato',
+      subtitle: port != null ? 'Porta $port' : 'In esecuzione',
       detail: _extractRelevantDetails(output),
-      icon: Icons.dns_rounded,
+      icon: Icons.circle_outlined,
       gradientColors: [
         const Color(0xFF8B5CF6),
         const Color(0xFF7C3AED),
@@ -189,9 +189,9 @@ class SmartOutputParser {
   static SmartOutput _parseSuccess(String output) {
     return SmartOutput(
       type: SmartOutputType.success,
-      title: '✅ Operazione completata',
+      title: 'Operazione completata',
       subtitle: _extractFirstLine(output).replaceAll('✓', '').replaceAll('✅', '').trim(),
-      icon: Icons.check_circle_rounded,
+      icon: Icons.check_circle_outline,
       gradientColors: [
         const Color(0xFF10B981),
         const Color(0xFF059669),
@@ -201,17 +201,17 @@ class SmartOutputParser {
   }
   
   static SmartOutput _parseError(String output) {
-    final errorLine = output.split('\n').firstWhere(
+    final errorLine = output.split('\\n').firstWhere(
       (line) => line.toLowerCase().contains('error'),
-      orElse: () => output.split('\n').first,
+      orElse: () => output.split('\\n').first,
     );
     
     return SmartOutput(
       type: SmartOutputType.error,
-      title: '❌ Errore riscontrato',
+      title: 'Errore',
       subtitle: errorLine.replaceAll('Error:', '').replaceAll('error:', '').trim(),
       detail: output.length < 200 ? output : null,
-      icon: Icons.error_rounded,
+      icon: Icons.error_outline,
       gradientColors: [
         const Color(0xFFEF4444),
         const Color(0xFFDC2626),
@@ -223,9 +223,9 @@ class SmartOutputParser {
   static SmartOutput _parseWarning(String output) {
     return SmartOutput(
       type: SmartOutputType.warning,
-      title: '⚠️ Attenzione',
+      title: 'Attenzione',
       subtitle: _extractFirstLine(output).replaceAll('Warning:', '').replaceAll('⚠', '').trim(),
-      icon: Icons.warning_rounded,
+      icon: Icons.warning_amber_outlined,
       gradientColors: [
         const Color(0xFFF59E0B),
         const Color(0xFFD97706),
@@ -237,9 +237,9 @@ class SmartOutputParser {
   static SmartOutput _parseProgress(String output) {
     return SmartOutput(
       type: SmartOutputType.progress,
-      title: '⏳ Operazione in corso',
+      title: 'In corso',
       subtitle: _extractFirstLine(output).replaceAll('...', '').trim(),
-      icon: Icons.hourglass_empty_rounded,
+      icon: Icons.more_horiz,
       gradientColors: [
         AppColors.primary.withValues(alpha: 0.6),
         AppColors.primary.withValues(alpha: 0.4),
