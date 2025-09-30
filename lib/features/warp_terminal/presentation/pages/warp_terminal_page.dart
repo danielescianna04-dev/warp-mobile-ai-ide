@@ -28,6 +28,7 @@ import '../widgets/terminal/terminal_input.dart';
 import '../widgets/terminal/terminal_output.dart';
 import '../widgets/terminal/welcome_view.dart';
 import '../widgets/smart_output_card.dart';
+import '../widgets/command_card.dart';
 import '../../data/models/terminal_item.dart';
 import '../../data/models/smart_output_parser.dart';
 import '../../../settings/presentation/pages/settings_page.dart';
@@ -1761,6 +1762,14 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
   }
 
   Widget _buildTerminalItem(TerminalItem item) {
+    // Per i comandi, usa la CommandCard minimal
+    if (item.type == TerminalItemType.command) {
+      return CommandCard(
+        command: item.content,
+        timestamp: item.timestamp,
+      );
+    }
+    
     // Per gli output (non comandi), usa le smart cards
     if (item.type == TerminalItemType.output || item.type == TerminalItemType.system) {
       final smartOutput = SmartOutputParser.parse(item.content);
@@ -1775,7 +1784,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
       );
     }
     
-    // Per comandi ed errori, usa lo stile minimale
+    // Per errori, usa lo stile minimale
     return _buildMinimalTerminalLine(item);
   }
   
