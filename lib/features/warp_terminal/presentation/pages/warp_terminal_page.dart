@@ -31,6 +31,7 @@ import '../widgets/smart_output_card.dart';
 import '../widgets/command_card.dart';
 import '../../data/models/terminal_item.dart';
 import '../../data/models/smart_output_parser.dart';
+import 'preview_web_screen.dart';
 import '../../../settings/presentation/pages/settings_page.dart';
 import '../../../settings/data/models/user_settings.dart';
 import '../../../create_app/presentation/pages/create_app_wizard_page.dart';
@@ -6604,7 +6605,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => PreviewScreen(url: _previewUrl!),
+        builder: (context) => PreviewWebScreen(url: _previewUrl!),
       ),
     );
   }
