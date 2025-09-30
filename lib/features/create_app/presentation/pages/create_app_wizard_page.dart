@@ -303,56 +303,96 @@ class _CreateAppWizardPageState extends State<CreateAppWizardPage>
   Widget _buildNavigationButtons(CreateAppWizardProvider provider) {
     final brightness = Theme.of(context).brightness;
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
       decoration: BoxDecoration(
-        color: AppColors.surface(brightness).withValues(alpha: 0.8),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.transparent,
+            AppColors.surface(brightness).withValues(alpha: 0.95),
+          ],
+          stops: const [0.0, 0.3],
+        ),
         border: Border(
           top: BorderSide(
-            color: AppColors.border(brightness).withValues(alpha: 0.2),
+            color: AppColors.primary.withValues(alpha: 0.1),
             width: 1,
           ),
         ),
-        // Blur effect
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 20,
-            offset: const Offset(0, -5),
-          ),
-        ],
       ),
       child: ClipRect(
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Row(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // Back button
-              if (provider.canGoBack)
-                Expanded(
-                  child: _buildNavigationButton(
-                    text: 'Indietro',
-                    icon: Icons.arrow_back_rounded,
-                    isSecondary: true,
-                    onTap: () => _handleBack(provider),
-                    enabled: !provider.isGenerating,
+              // Progress indicator migliorato
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.surface(brightness).withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.2),
+                    width: 1,
                   ),
                 ),
-              
-              if (provider.canGoBack) const SizedBox(width: 16),
-              
-              // Next/Create button
-              Expanded(
-                flex: provider.canGoBack ? 1 : 2,
-                child: _buildNavigationButton(
-                  text: provider.isLastStep ? 'Crea App' : 'Avanti',
-                  icon: provider.isLastStep 
-                      ? Icons.rocket_launch_rounded 
-                      : Icons.arrow_forward_rounded,
-                  isSecondary: false,
-                  onTap: () => _handleNext(provider),
-                  enabled: provider.isCurrentStepValid && !provider.isGenerating,
-                  isLoading: provider.isGenerating,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.timeline_rounded,
+                      color: AppColors.primary,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Passo ${provider.currentStep + 1} di ${CreateAppWizardProvider.totalSteps}',
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
+              ),
+              const SizedBox(height: 16),
+              
+              // Pulsanti di navigazione
+              Row(
+                children: [
+                  // Back button migliorato
+                  if (provider.canGoBack)
+                    Expanded(
+                      child: _buildNavigationButton(
+                        text: 'Indietro',
+                        icon: Icons.arrow_back_ios_rounded,
+                        isSecondary: true,
+                        onTap: () => _handleBack(provider),
+                        enabled: !provider.isGenerating,
+                      ),
+                    ),
+                  
+                  if (provider.canGoBack) const SizedBox(width: 20),
+                  
+                  // Next/Create button migliorato
+                  Expanded(
+                    flex: provider.canGoBack ? 2 : 3,
+                    child: _buildNavigationButton(
+                      text: provider.isLastStep ? '🚀 Crea App' : 'Avanti',
+                      icon: provider.isLastStep 
+                          ? Icons.rocket_launch_rounded 
+                          : Icons.arrow_forward_ios_rounded,
+                      isSecondary: false,
+                      onTap: () => _handleNext(provider),
+                      enabled: provider.isCurrentStepValid && !provider.isGenerating,
+                      isLoading: provider.isGenerating,
+                      isPrimary: true,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -368,55 +408,97 @@ class _CreateAppWizardPageState extends State<CreateAppWizardPage>
     required VoidCallback onTap,
     required bool enabled,
     bool isLoading = false,
+    bool isPrimary = false,
   }) {
     final brightness = Theme.of(context).brightness;
     
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOutCubic,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: enabled ? onTap : null,
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+          borderRadius: BorderRadius.circular(16),
+          splashColor: isPrimary 
+              ? Colors.white.withValues(alpha: 0.2)
+              : AppColors.primary.withValues(alpha: 0.1),
+          highlightColor: isPrimary 
+              ? Colors.white.withValues(alpha: 0.1)
+              : AppColors.primary.withValues(alpha: 0.05),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(
+              vertical: 18, 
+              horizontal: 24,
+            ),
             decoration: BoxDecoration(
               gradient: enabled && !isSecondary
-                  ? AppColors.heroGradient(brightness)
+                  ? LinearGradient(
+                      colors: [
+                        AppColors.primary,
+                        AppColors.primary.withValues(alpha: 0.9),
+                        AppColors.primaryTint,
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    )
                   : null,
               color: isSecondary
-                  ? AppColors.surface(brightness).withValues(alpha: 0.5)
+                  ? AppColors.surface(brightness).withValues(alpha: 0.8)
                   : enabled
                       ? null
-                      : AppColors.surface(brightness).withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(12),
+                      : AppColors.surface(brightness).withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: isSecondary
-                    ? AppColors.border(brightness).withValues(alpha: 0.3)
-                    : Colors.transparent,
-                width: 1,
+                    ? AppColors.border(brightness).withValues(alpha: 0.4)
+                    : enabled && !isSecondary
+                        ? AppColors.primary.withValues(alpha: 0.3)
+                        : Colors.transparent,
+                width: 1.5,
               ),
               boxShadow: enabled && !isSecondary
                   ? [
+                      // Ombra principale
                       BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
+                        color: AppColors.primary.withValues(alpha: 0.4),
+                        blurRadius: 15,
+                        offset: const Offset(0, 6),
+                        spreadRadius: 0,
+                      ),
+                      // Ombra secondaria più leggera
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.2),
+                        blurRadius: 25,
+                        offset: const Offset(0, 12),
+                        spreadRadius: 2,
                       ),
                     ]
-                  : null,
+                  : isSecondary
+                      ? [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.08),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ]
+                      : null,
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 if (isLoading)
                   SizedBox(
-                    width: 16,
-                    height: 16,
+                    width: 18,
+                    height: 18,
                     child: CircularProgressIndicator(
-                      strokeWidth: 2,
+                      strokeWidth: 2.5,
                       valueColor: AlwaysStoppedAnimation<Color>(
-                        isSecondary ? AppColors.textSecondary : Colors.white,
+                        isSecondary 
+                            ? AppColors.primary 
+                            : Colors.white,
                       ),
                     ),
                   )
@@ -424,23 +506,28 @@ class _CreateAppWizardPageState extends State<CreateAppWizardPage>
                   Icon(
                     icon,
                     color: isSecondary
-                        ? AppColors.textSecondary
+                        ? AppColors.primary
                         : enabled
                             ? Colors.white
                             : AppColors.textTertiary,
-                    size: 18,
+                    size: 20,
                   ),
-                const SizedBox(width: 8),
-                Text(
-                  text,
-                  style: TextStyle(
-                    color: isSecondary
-                        ? AppColors.textSecondary
-                        : enabled
-                            ? Colors.white
-                            : AppColors.textTertiary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Text(
+                    text,
+                    style: TextStyle(
+                      color: isSecondary
+                          ? AppColors.primary
+                          : enabled
+                              ? Colors.white
+                              : AppColors.textTertiary,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.2,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],

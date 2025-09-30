@@ -461,6 +461,43 @@ class GitHubService {
     }
   }
   
+  /// Create a new repository
+  Future<GitHubRepository?> createRepository(String name, {
+    String? description,
+    bool isPrivate = false,
+    bool autoInit = true,
+  }) async {
+    final token = await getStoredToken();
+    if (token == null) return null;
+    
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/user/repos'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          'name': name,
+          'description': description ?? 'Created with Warp Mobile AI IDE',
+          'private': isPrivate,
+          'auto_init': autoInit,
+        }),
+      );
+      
+      if (response.statusCode == 201) {
+        return GitHubRepository.fromJson(json.decode(response.body));
+      } else {
+        print('Error creating repository: ${response.statusCode}');
+        print('Response body: ${response.body}');
+      }
+    } catch (e) {
+      print('Error creating GitHub repository: $e');
+    }
+    return null;
+  }
+  
   Future<void> logout() async {
     await _storage.delete(key: _tokenKey);
     await _storage.delete(key: _userKey);

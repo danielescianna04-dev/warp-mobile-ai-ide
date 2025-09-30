@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../shared/constants/app_colors.dart';
-import '../providers/create_app_wizard_provider.dart';
+import '../../providers/create_app_wizard_provider.dart';
 
 class NameStep extends StatefulWidget {
   const NameStep({super.key});
@@ -10,7 +10,7 @@ class NameStep extends StatefulWidget {
   State<NameStep> createState() => _NameStepState();
 }
 
-class _NameStepState extends State<NameStep> with AutomaticKeepAliveStateMixin {
+class _NameStepState extends State<NameStep> {
   late TextEditingController _nameController;
   late TextEditingController _packageController;
   late TextEditingController _descriptionController;
@@ -18,8 +18,6 @@ class _NameStepState extends State<NameStep> with AutomaticKeepAliveStateMixin {
   late FocusNode _packageFocus;
   late FocusNode _descriptionFocus;
 
-  @override
-  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -50,7 +48,6 @@ class _NameStepState extends State<NameStep> with AutomaticKeepAliveStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    super.build(context);
     
     return Consumer<CreateAppWizardProvider>(
       builder: (context, provider, child) {
@@ -66,29 +63,38 @@ class _NameStepState extends State<NameStep> with AutomaticKeepAliveStateMixin {
         }
         
         return SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // Header with icon
               _buildHeader(),
               
-              const SizedBox(height: 32),
+              const SizedBox(height: 48),
               
-              // App name field
-              _buildAppNameField(provider),
+              // Form fields container
+              Container(
+                constraints: const BoxConstraints(maxWidth: 400),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // App name field
+                    _buildAppNameField(provider),
+                    
+                    const SizedBox(height: 28),
+                    
+                    // Package name field
+                    _buildPackageNameField(provider),
+                    
+                    const SizedBox(height: 28),
+                    
+                    // Description field
+                    _buildDescriptionField(provider),
+                  ],
+                ),
+              ),
               
-              const SizedBox(height: 24),
-              
-              // Package name field
-              _buildPackageNameField(provider),
-              
-              const SizedBox(height: 24),
-              
-              // Description field
-              _buildDescriptionField(provider),
-              
-              const SizedBox(height: 32),
+              const SizedBox(height: 40),
               
               // Tips section
               _buildTipsSection(),
@@ -104,43 +110,97 @@ class _NameStepState extends State<NameStep> with AutomaticKeepAliveStateMixin {
     return Center(
       child: Column(
         children: [
+          // Icona migliorata con gradiente e ombre più sofisticate
           Container(
-            width: 80,
-            height: 80,
+            width: 120,
+            height: 120,
             decoration: BoxDecoration(
-              gradient: AppColors.heroGradient(brightness),
-              borderRadius: BorderRadius.circular(24),
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.primary,
+                  AppColors.primary.withValues(alpha: 0.9),
+                  AppColors.primaryTint,
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                stops: const [0.0, 0.5, 1.0],
+              ),
+              borderRadius: BorderRadius.circular(30),
               boxShadow: [
+                // Ombra principale più profonda
                 BoxShadow(
-                  color: AppColors.primary.withValues(alpha: 0.3),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
+                  color: AppColors.primary.withValues(alpha: 0.4),
+                  blurRadius: 25,
+                  offset: const Offset(0, 15),
+                  spreadRadius: 0,
+                ),
+                // Seconda ombra più leggera e diffusa
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.2),
+                  blurRadius: 40,
+                  offset: const Offset(0, 25),
+                  spreadRadius: 5,
+                ),
+                // Ombra interna per effetto 3D
+                BoxShadow(
+                  color: Colors.white.withValues(alpha: 0.1),
+                  blurRadius: 5,
+                  offset: const Offset(-2, -2),
                 ),
               ],
             ),
             child: const Icon(
-              Icons.edit_rounded,
+              Icons.rocket_launch_rounded,
               color: Colors.white,
-              size: 32,
+              size: 48,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 32),
+          
+          // Titolo principale più impattante
           Text(
-            'Iniziamo con il nome',
+            'Diamo vita alla tua idea',
             style: TextStyle(
               color: AppColors.titleText(brightness),
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Scegli un nome memorabile per la tua applicazione',
-            style: TextStyle(
-              color: AppColors.bodyText(brightness).withValues(alpha: 0.8),
-              fontSize: 16,
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+              height: 1.1,
             ),
             textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 12),
+          
+          // Sottotitolo più chiaro e invitante
+          Container(
+            constraints: const BoxConstraints(maxWidth: 300),
+            child: Text(
+              'Scegli un nome unico e memorabile\nper la tua nuova applicazione',
+              style: TextStyle(
+                color: AppColors.bodyText(brightness).withValues(alpha: 0.85),
+                fontSize: 17,
+                height: 1.4,
+                fontWeight: FontWeight.w400,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          
+          // Elemento decorativo
+          const SizedBox(height: 24),
+          Container(
+            height: 3,
+            width: 60,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.primary.withValues(alpha: 0.3),
+                  AppColors.primary,
+                  AppColors.primary.withValues(alpha: 0.3),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(2),
+            ),
           ),
         ],
       ),
@@ -165,16 +225,23 @@ class _NameStepState extends State<NameStep> with AutomaticKeepAliveStateMixin {
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: AppColors.surface(brightness).withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(12),
+            color: AppColors.surface(brightness).withValues(alpha: 0.6),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: error != null
-                  ? AppColors.error.withValues(alpha: 0.5)
+                  ? AppColors.error.withValues(alpha: 0.6)
                   : _nameFocus.hasFocus
-                      ? AppColors.primary.withValues(alpha: 0.5)
-                      : AppColors.border(brightness).withValues(alpha: 0.3),
-              width: 1.5,
+                      ? AppColors.primary.withValues(alpha: 0.8)
+                      : AppColors.border(brightness).withValues(alpha: 0.4),
+              width: 2,
             ),
+            boxShadow: _nameFocus.hasFocus ? [
+              BoxShadow(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ] : [],
           ),
           child: TextField(
             controller: _nameController,
@@ -272,16 +339,23 @@ class _NameStepState extends State<NameStep> with AutomaticKeepAliveStateMixin {
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: AppColors.surface(brightness).withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(12),
+            color: AppColors.surface(brightness).withValues(alpha: 0.6),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: error != null
-                  ? AppColors.error.withValues(alpha: 0.5)
+                  ? AppColors.error.withValues(alpha: 0.6)
                   : _packageFocus.hasFocus
-                      ? AppColors.primary.withValues(alpha: 0.5)
-                      : AppColors.border(brightness).withValues(alpha: 0.3),
-              width: 1.5,
+                      ? AppColors.primary.withValues(alpha: 0.8)
+                      : AppColors.border(brightness).withValues(alpha: 0.4),
+              width: 2,
             ),
+            boxShadow: _packageFocus.hasFocus ? [
+              BoxShadow(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ] : [],
           ),
           child: TextField(
             controller: _packageController,
@@ -407,16 +481,23 @@ class _NameStepState extends State<NameStep> with AutomaticKeepAliveStateMixin {
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: AppColors.surface(brightness).withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(12),
+            color: AppColors.surface(brightness).withValues(alpha: 0.6),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: error != null
-                  ? AppColors.error.withValues(alpha: 0.5)
+                  ? AppColors.error.withValues(alpha: 0.6)
                   : _descriptionFocus.hasFocus
-                      ? AppColors.primary.withValues(alpha: 0.5)
-                      : AppColors.border(brightness).withValues(alpha: 0.3),
-              width: 1.5,
+                      ? AppColors.primary.withValues(alpha: 0.8)
+                      : AppColors.border(brightness).withValues(alpha: 0.4),
+              width: 2,
             ),
+            boxShadow: _descriptionFocus.hasFocus ? [
+              BoxShadow(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ] : [],
           ),
           child: TextField(
             controller: _descriptionController,
@@ -492,60 +573,139 @@ class _NameStepState extends State<NameStep> with AutomaticKeepAliveStateMixin {
   Widget _buildTipsSection() {
     final brightness = Theme.of(context).brightness;
     return Container(
-      padding: const EdgeInsets.all(20),
+      constraints: const BoxConstraints(maxWidth: 500),
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppColors.surface(brightness).withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppColors.border(brightness).withValues(alpha: 0.2),
-          width: 1,
+        gradient: LinearGradient(
+          colors: [
+            AppColors.surface(brightness).withValues(alpha: 0.4),
+            AppColors.surface(brightness).withValues(alpha: 0.6),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppColors.primary.withValues(alpha: 0.15),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header con icona più bella
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.primary.withValues(alpha: 0.2),
+                      AppColors.primary.withValues(alpha: 0.3),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
-                  Icons.lightbulb_outline,
+                  Icons.tips_and_updates_rounded,
                   color: AppColors.primary,
-                  size: 20,
+                  size: 22,
                 ),
               ),
-              const SizedBox(width: 12),
-              Text(
-                'Suggerimenti',
-                style: TextStyle(
-                  color: AppColors.titleText(brightness),
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Consigli utili',
+                      style: TextStyle(
+                        color: AppColors.titleText(brightness),
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Per creare un\'app di successo',
+                      style: TextStyle(
+                        color: AppColors.bodyText(brightness).withValues(alpha: 0.7),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
+          
+          // Lista suggerimenti migliorata
           ...[
-            '• Usa un nome breve e memorabile',
-            '• Evita caratteri speciali nel nome',
-            '• Il package name deve seguire il formato reverse domain',
-            '• Descrivi chiaramente lo scopo dell\'app',
-          ].map((tip) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Text(
-              tip,
-              style: TextStyle(
-                color: AppColors.bodyText(brightness).withValues(alpha: 0.9),
-                fontSize: 14,
-                height: 1.4,
+            {
+              'icon': Icons.short_text_rounded,
+              'text': 'Usa un nome breve e memorabile'
+            },
+            {
+              'icon': Icons.block_rounded,
+              'text': 'Evita caratteri speciali nel nome'
+            },
+            {
+              'icon': Icons.dns_rounded,
+              'text': 'Il package segue il formato reverse domain'
+            },
+            {
+              'icon': Icons.description_rounded,
+              'text': 'Descrivi chiaramente lo scopo dell\'app'
+            },
+          ].asMap().entries.map((entry) {
+            final index = entry.key;
+            final tip = entry.value;
+            return Container(
+              margin: EdgeInsets.only(
+                bottom: index < 3 ? 16 : 0,
               ),
-            ),
-          )),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      tip['icon'] as IconData,
+                      color: AppColors.primary.withValues(alpha: 0.8),
+                      size: 16,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(
+                      tip['text'] as String,
+                      style: TextStyle(
+                        color: AppColors.bodyText(brightness).withValues(alpha: 0.95),
+                        fontSize: 15,
+                        height: 1.4,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
         ],
       ),
     );

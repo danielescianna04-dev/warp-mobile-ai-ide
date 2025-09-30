@@ -3,11 +3,16 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../../shared/constants/app_colors.dart';
 import '../../../../core/wizard/create_app_models.dart';
-import '../providers/create_app_wizard_provider.dart';
+import '../../providers/create_app_wizard_provider.dart';
 
-class AppTypeStep extends StatelessWidget {
+class AppTypeStep extends StatefulWidget {
   const AppTypeStep({super.key});
 
+  @override
+  State<AppTypeStep> createState() => _AppTypeStepState();
+}
+
+class _AppTypeStepState extends State<AppTypeStep> {
   @override
   Widget build(BuildContext context) {
     return Consumer<CreateAppWizardProvider>(

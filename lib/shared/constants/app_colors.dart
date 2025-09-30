@@ -156,6 +156,30 @@ class AppColors {
   static RadialGradient heroGradient(Brightness brightness) =>
       brightness == Brightness.light ? lightHeroGradient : darkHeroGradient;
   
+  /// Background gradient per wizard e pagine speciali
+  static LinearGradient backgroundGradient(Brightness brightness) =>
+      brightness == Brightness.light
+          ? LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                lightBackground,
+                lightBackgroundAlt,
+                lightBackground,
+              ],
+              stops: const [0.0, 0.5, 1.0],
+            )
+          : LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                darkBackground,
+                const Color(0xFF0F0A15), // Sfumatura viola scura
+                darkBackground,
+              ],
+              stops: const [0.0, 0.5, 1.0],
+            );
+  
   // ===== GRADIENTI LEGACY - Deprecati =====
   @Deprecated('Use heroGradient(brightness) instead')
   static const LinearGradient aiGradient = LinearGradient(

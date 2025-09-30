@@ -2,11 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../shared/constants/app_colors.dart';
 import '../../../../core/wizard/create_app_models.dart';
-import '../providers/create_app_wizard_provider.dart';
+import '../../providers/create_app_wizard_provider.dart';
 
-class SummaryStep extends StatelessWidget {
+class SummaryStep extends StatefulWidget {
   const SummaryStep({super.key});
 
+  @override
+  State<SummaryStep> createState() => _SummaryStepState();
+}
+
+class _SummaryStepState extends State<SummaryStep> {
   @override
   Widget build(BuildContext context) {
     return Consumer<CreateAppWizardProvider>(
@@ -364,7 +369,14 @@ class SummaryStep extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: AppColors.heroGradient(brightness).scale(0.1),
+        gradient: LinearGradient(
+          colors: [
+            AppColors.primary.withValues(alpha: 0.1),
+            AppColors.primary.withValues(alpha: 0.05),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: AppColors.primary.withValues(alpha: 0.2),

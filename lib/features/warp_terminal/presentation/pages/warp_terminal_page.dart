@@ -27,7 +27,9 @@ import '../providers/terminal_provider.dart';
 import '../widgets/terminal/terminal_input.dart';
 import '../widgets/terminal/terminal_output.dart';
 import '../widgets/terminal/welcome_view.dart';
+import '../widgets/smart_output_card.dart';
 import '../../data/models/terminal_item.dart';
+import '../../data/models/smart_output_parser.dart';
 import '../../../settings/presentation/pages/settings_page.dart';
 import '../../../settings/data/models/user_settings.dart';
 import '../../../create_app/presentation/pages/create_app_wizard_page.dart';
@@ -304,9 +306,9 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
             children: [
               // Main content area
               Expanded(
-                child: _hasInteracted 
-                    ? _buildTerminalOutput() 
-                    : _buildWelcomeView(context),
+                child: _terminalItems.isEmpty && !_isLoading
+                    ? _buildWelcomeView(context)
+                    : _buildTerminalOutput(),
               ),
               // Input area always at bottom
               _buildInputArea(),
@@ -1741,41 +1743,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
           _buildAttachmentsPreview(),
         // Terminal output
         Expanded(
-          child: _terminalItems.isEmpty && !_isLoading 
-            ? Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.chat_bubble_outline,
-                        color: AppColors.textTertiary,
-                        size: 48,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Nuova Conversazione',
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Inizia scrivendo un messaggio qui sotto',
-                        style: TextStyle(
-                          color: AppColors.textTertiary,
-                          fontSize: 14,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            : ListView.builder(
+          child: ListView.builder(
                 controller: _outputScrollController,
                 itemCount: _terminalItems.length + (_isLoading ? 1 : 0),
                 itemBuilder: (context, index) {
@@ -1793,6 +1761,21 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
   }
 
   Widget _buildTerminalItem(TerminalItem item) {
+    // Per gli output (non comandi), usa le smart cards
+    if (item.type == TerminalItemType.output || item.type == TerminalItemType.system) {
+      final smartOutput = SmartOutputParser.parse(item.content);
+      return SmartOutputCard(
+        output: smartOutput,
+        onUrlTap: smartOutput.url != null ? () {
+          if (smartOutput.url!.startsWith('http')) {
+            _previewUrl = smartOutput.url;
+            setState(() {});
+          }
+        } : null,
+      );
+    }
+    
+    // Per comandi ed errori, usa lo stile minimale
     return _buildMinimalTerminalLine(item);
   }
   
@@ -1895,7 +1878,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
   }
   
   Widget _buildFlutterOutput(String content) {
-    RegExp urlRegex = RegExp(r'https?://[^\s]+');
+    RegExp urlRegex = RegExp(r'https?://[^\\s]+');
     Match? urlMatch = urlRegex.firstMatch(content);
     String? url = urlMatch?.group(0);
     
@@ -1903,11 +1886,12 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
       // Split content to highlight URL
       List<String> parts = content.split(url);
       
-      return SelectableText.rich(
-        TextSpan(
-          children: [
-            TextSpan(
-              text: parts[0],
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (parts[0].isNotEmpty)
+            SelectableText(
+              parts[0],
               style: const TextStyle(
                 color: Color(0xFFE2E8F0),
                 fontSize: 14,
@@ -1915,52 +1899,59 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
                 height: 1.4,
               ),
             ),
-            WidgetSpan(
-              child: GestureDetector(
-                onTap: () {
-                  Clipboard.setData(ClipboardData(text: url));
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF06B6D4).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        url,
-                        style: const TextStyle(
-                          color: Color(0xFF06B6D4),
-                          fontSize: 14,
-                          fontFamily: 'SF Mono',
-                          decoration: TextDecoration.underline,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      const Icon(
-                        Icons.copy_rounded,
-                        color: Color(0xFF06B6D4),
-                        size: 12,
-                      ),
-                    ],
-                  ),
+          GestureDetector(
+            onTap: () {
+              Clipboard.setData(ClipboardData(text: url));
+              _showSnackBar('✅ URL copiato negli appunti');
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              margin: const EdgeInsets.symmetric(vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF06B6D4).withOpacity(0.15),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: const Color(0xFF06B6D4).withOpacity(0.3),
+                  width: 1,
                 ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      url,
+                      style: const TextStyle(
+                        color: Color(0xFF06B6D4),
+                        fontSize: 13,
+                        fontFamily: 'SF Mono',
+                        decoration: TextDecoration.underline,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(
+                    Icons.copy_rounded,
+                    color: Color(0xFF06B6D4),
+                    size: 14,
+                  ),
+                ],
               ),
             ),
-            if (parts.length > 1)
-              TextSpan(
-                text: parts[1],
-                style: const TextStyle(
-                  color: Color(0xFFE2E8F0),
-                  fontSize: 14,
-                  fontFamily: 'SF Mono',
-                  height: 1.4,
-                ),
+          ),
+          if (parts.length > 1 && parts[1].isNotEmpty)
+            SelectableText(
+              parts[1],
+              style: const TextStyle(
+                color: Color(0xFFE2E8F0),
+                fontSize: 14,
+                fontFamily: 'SF Mono',
+                height: 1.4,
               ),
-          ],
-        ),
+            ),
+        ],
       );
     }
     
