@@ -24,7 +24,7 @@ class SmartOutputCard extends StatelessWidget {
         color: brightness == Brightness.dark 
             ? const Color(0xFF1E1E1E)
             : const Color(0xFFF5F5F5),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: output.gradientColors.first.withValues(alpha: 0.15),
           width: 1,
@@ -115,7 +115,7 @@ class SmartOutputCard extends StatelessWidget {
           color: brightness == Brightness.dark
               ? const Color(0xFF2A2A2A)
               : const Color(0xFFEAEAEA),
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: brightness == Brightness.dark
                 ? const Color(0xFF3A3A3A)
