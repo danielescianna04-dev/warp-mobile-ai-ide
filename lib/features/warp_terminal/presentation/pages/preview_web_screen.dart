@@ -188,6 +188,7 @@ class _PreviewWebScreenState extends State<PreviewWebScreen> {
             hintText: 'Modifica al volo con AI...',
             showModeToggle: false,
             showModelSelector: false,
+            useSyntaxHighlighting: false,
             onSend: _sendCommand,
           ),
         ],

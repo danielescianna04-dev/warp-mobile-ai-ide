@@ -3,12 +3,13 @@ import '../../../../shared/constants/app_colors.dart';
 import '../../../../core/terminal/syntax_text_field.dart';
 
 class TerminalInputBox extends StatelessWidget {
-  final TextEditingController controller;
+  final dynamic controller; // Può essere TextEditingController o SyntaxHighlightingController
   final FocusNode focusNode;
   final String hintText;
   final bool showModelSelector;
   final bool showModeToggle;
   final bool isTerminalMode;
+  final bool useSyntaxHighlighting;
   final VoidCallback? onSend;
   final ValueChanged<String>? onChanged;
   final Widget? modelSelector;
@@ -23,6 +24,7 @@ class TerminalInputBox extends StatelessWidget {
     this.showModelSelector = true,
     this.showModeToggle = true,
     this.isTerminalMode = true,
+    this.useSyntaxHighlighting = true,
     this.onSend,
     this.onChanged,
     this.modelSelector,
@@ -106,35 +108,64 @@ class TerminalInputBox extends StatelessWidget {
                   const SizedBox(width: 12),
                   // Input field
                   Expanded(
-                    child: SyntaxTextField(
-                      controller: controller,
-                      focusNode: focusNode,
-                      maxLines: null,
-                      constraints: const BoxConstraints(maxHeight: 120),
-                      style: TextStyle(
-                        color: AppColors.titleText(brightness),
-                        fontSize: 14,
-                        fontFamily: 'SF Mono',
-                        height: 1.4,
-                      ),
-                      hintText: hintText,
-                      hintStyle: TextStyle(
-                        color: AppColors.bodyText(brightness).withValues(alpha: 0.5),
-                        fontSize: 14,
-                      ),
-                      decoration: const InputDecoration(
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 14,
-                        ),
-                        isDense: false,
-                      ),
-                      onChanged: onChanged,
-                      onSubmitted: (_) => onSend?.call(),
-                    ),
+                    child: useSyntaxHighlighting
+                        ? SyntaxTextField(
+                            controller: controller,
+                            focusNode: focusNode,
+                            maxLines: null,
+                            constraints: const BoxConstraints(maxHeight: 120),
+                            style: TextStyle(
+                              color: AppColors.titleText(brightness),
+                              fontSize: 14,
+                              fontFamily: 'SF Mono',
+                              height: 1.4,
+                            ),
+                            hintText: hintText,
+                            hintStyle: TextStyle(
+                              color: AppColors.bodyText(brightness).withValues(alpha: 0.5),
+                              fontSize: 14,
+                            ),
+                            decoration: const InputDecoration(
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 14,
+                              ),
+                              isDense: false,
+                            ),
+                            onChanged: onChanged,
+                            onSubmitted: (_) => onSend?.call(),
+                          )
+                        : TextField(
+                            controller: controller as TextEditingController,
+                            focusNode: focusNode,
+                            maxLines: null,
+                            style: TextStyle(
+                              color: AppColors.titleText(brightness),
+                              fontSize: 14,
+                              fontFamily: 'SF Mono',
+                              height: 1.4,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: hintText,
+                              hintStyle: TextStyle(
+                                color: AppColors.bodyText(brightness).withValues(alpha: 0.5),
+                                fontSize: 14,
+                              ),
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 14,
+                              ),
+                              isDense: false,
+                            ),
+                            onChanged: onChanged,
+                            onSubmitted: (_) => onSend?.call(),
+                          ),
                   ),
                   const SizedBox(width: 12),
                   // Send button
