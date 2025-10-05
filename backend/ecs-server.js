@@ -39,6 +39,46 @@ function getTaskPublicIP() {
         req.end();
     });
 }
+
+// Function to detect running web servers
+async function detectRunningServers() {
+    try {
+        const { exec } = require('child_process');
+        const { promisify } = require('util');
+        const execAsync = promisify(exec);
+        
+        // Use netstat alternative: check /proc/net/tcp
+        const result = await execAsync('cat /proc/net/tcp | tail -n +2');
+        const lines = result.stdout.split('\n').filter(line => line.trim());
+        
+        const exposedPorts = {};
+        const loadBalancerUrl = 'http://warp-flutter-alb-1904513476.us-west-2.elb.amazonaws.com';
+        
+        for (const line of lines) {
+            const parts = line.trim().split(/\s+/);
+            if (parts.length < 4) continue;
+            
+            // Parse local address (format: hex_ip:hex_port)
+            const localAddr = parts[1];
+            const [, hexPort] = localAddr.split(':');
+            if (!hexPort) continue;
+            
+            const port = parseInt(hexPort, 16);
+            
+            // Check if port is in LISTEN state (0A = LISTEN)
+            const state = parts[3];
+            if (state === '0A' && port >= 3000 && port <= 9999) {
+                console.log(`🌐 Detected server on port ${port}`);
+                exposedPorts[`${port}/tcp`] = `${loadBalancerUrl}/proxy/${port}`;
+            }
+        }
+        
+        return exposedPorts;
+    } catch (error) {
+        console.error('Error detecting servers:', error.message);
+        return {};
+    }
+}
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -92,6 +132,27 @@ app.get('/health', (req, res) => {
         lastActivity: new Date(lastActivity).toISOString(),
         environment: 'ecs-fargate'
     });
+});
+
+// Proxy for Node.js servers running on different ports
+app.use('/proxy/:port', (req, res) => {
+    const port = req.params.port;
+    const targetUrl = `http://localhost:${port}${req.url}`;
+    
+    console.log(`🔀 Proxying request to: ${targetUrl}`);
+    
+    const http = require('http');
+    const proxyReq = http.request(targetUrl, (proxyRes) => {
+        res.writeHead(proxyRes.statusCode, proxyRes.headers);
+        proxyRes.pipe(res);
+    });
+    
+    proxyReq.on('error', (error) => {
+        console.error(`Proxy error for port ${port}:`, error.message);
+        res.status(502).json({ error: `Server on port ${port} not responding` });
+    });
+    
+    req.pipe(proxyReq);
 });
 
 // Serve Flutter Web apps statically
@@ -267,6 +328,15 @@ app.post('/execute-heavy', async (req, res) => {
             console.log(`Executing in directory: ${actualWorkingDir}`);
             const result = await executeCommand(actualCommand, actualWorkingDir);
             
+            // Detect running servers after command execution
+            const exposedPorts = await detectRunningServers();
+            const webUrl = Object.values(exposedPorts)[0] || null;
+            const webServerDetected = Object.keys(exposedPorts).length > 0;
+            
+            if (webServerDetected) {
+                console.log('🚀 Web server detected! Ports:', exposedPorts);
+            }
+            
             res.json({
                 success: true,
                 output: result.stdout,
@@ -275,7 +345,10 @@ app.post('/execute-heavy', async (req, res) => {
                 environment: 'ecs-fargate',
                 executionTime: result.executionTime,
                 workingDir: actualWorkingDir,
-                repository: repoName
+                repository: repoName,
+                exposedPorts,
+                webUrl,
+                webServerDetected
             });
         }
 
@@ -286,6 +359,95 @@ app.post('/execute-heavy', async (req, res) => {
             error: error.message,
             environment: 'ecs-fargate',
             repository: repoName
+        });
+    }
+});
+
+// Track Node.js server processes
+const nodeServerProcesses = new Map();
+
+// Endpoint per avviare server Node.js in background
+app.post('/node/server/start', async (req, res) => {
+    const { file, port = 8080, repository = 'node-app' } = req.body;
+    
+    if (!file) {
+        return res.status(400).json({ error: 'File path is required' });
+    }
+    
+    resetIdleTimer();
+    
+    try {
+        // Check if server is already running for this repository
+        if (nodeServerProcesses.has(repository)) {
+            const loadBalancerUrl = 'http://warp-flutter-alb-1904513476.us-west-2.elb.amazonaws.com';
+            const webUrl = `${loadBalancerUrl}/proxy/${port}`;
+            
+            return res.json({
+                success: true,
+                message: `Node.js server already running for ${repository}`,
+                url: webUrl,
+                repository,
+                port
+            });
+        }
+        
+        console.log(`Starting Node.js server: ${file} on port ${port}`);
+        
+        // Start Node.js server process
+        const serverProcess = spawn('node', [file], {
+            cwd: path.dirname(file),
+            stdio: ['ignore', 'pipe', 'pipe'],
+            detached: false
+        });
+        
+        nodeServerProcesses.set(repository, {
+            process: serverProcess,
+            port,
+            startTime: Date.now(),
+            file
+        });
+        
+        let startupOutput = '';
+        
+        serverProcess.stdout.on('data', (data) => {
+            const output = data.toString();
+            startupOutput += output;
+            console.log(`[Node Server ${repository}]:`, output);
+        });
+        
+        serverProcess.stderr.on('data', (data) => {
+            const output = data.toString();
+            startupOutput += output;
+            console.log(`[Node Server ${repository} ERROR]:`, output);
+        });
+        
+        serverProcess.on('close', (code) => {
+            console.log(`Node server for ${repository} exited with code ${code}`);
+            nodeServerProcesses.delete(repository);
+        });
+        
+        // Wait a bit for server to start
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        const loadBalancerUrl = 'http://warp-flutter-alb-1904513476.us-west-2.elb.amazonaws.com';
+        const webUrl = `${loadBalancerUrl}/proxy/${port}`;
+        
+        console.log(`🌐 Node.js server URL: ${webUrl}`);
+        
+        res.json({
+            success: true,
+            message: 'Node.js server started successfully',
+            url: webUrl,
+            repository,
+            port,
+            startupOutput
+        });
+        
+    } catch (error) {
+        console.error('Error starting Node.js server:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
         });
     }
 });
