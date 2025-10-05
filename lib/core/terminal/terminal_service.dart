@@ -406,17 +406,6 @@ class TerminalService {
         if (responseData['webServerDetected'] == true || responseData['webUrl'] != null) {
           print('🚀 Web server detected! Ports: $_exposedPorts');
         }
-        
-        // TEMPORARY: Client-side detection for Node.js servers until backend is updated
-        if (command.contains('node ') && command.contains('.js') && 
-            !command.contains('--version') && !command.contains('--help')) {
-          print('🔍 Debug: Detected Node.js server command, simulating port detection');
-          // Simulate server detection on common ports
-          final loadBalancerUrl = 'http://warp-flutter-alb-1904513476.us-west-2.elb.amazonaws.com';
-          _exposedPorts['8080/tcp'] = '$loadBalancerUrl/proxy/8080';
-          _exposedPorts['3000/tcp'] = '$loadBalancerUrl/proxy/3000';
-          print('🚀 Simulated web server detection! Ports: $_exposedPorts');
-        }
 
         return result;
       } else {

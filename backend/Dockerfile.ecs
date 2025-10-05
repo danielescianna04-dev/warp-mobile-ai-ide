@@ -94,22 +94,19 @@ RUN git config --system --add safe.directory /opt/flutter \
     && $FLUTTER_HOME/bin/flutter precache --web \
     && $FLUTTER_HOME/bin/flutter --version
 
-# Crea utente non-root per sicurezza
-RUN groupadd -r warpuser && useradd -r -g warpuser -m -d /home/warpuser warpuser \
-    && mkdir -p /tmp/projects /tmp/.pub-cache /tmp/warp-users \
-    && chown -R warpuser:warpuser /tmp/projects /tmp/.pub-cache /tmp/warp-users /opt/flutter \
-    && chmod -R 755 /opt/flutter
-
-# Crea directory di lavoro e configura permessi
+# Crea directory di lavoro
 WORKDIR /workspace
-RUN chown -R warpuser:warpuser /workspace
 
 # Copia il backend Express
 COPY package*.json ./
 RUN npm ci --only=production
 
 COPY . .
-RUN chown -R warpuser:warpuser /workspace
+
+# Crea directory necessarie con permessi corretti
+RUN mkdir -p /tmp/projects /tmp/.pub-cache /tmp/warp-users /tmp/public \
+    && chmod -R 777 /tmp/projects /tmp/.pub-cache /tmp/warp-users /tmp/public \
+    && chmod -R 755 /opt/flutter /workspace
 
 # Configurazione per ECS
 ENV PORT=3000
@@ -122,8 +119,8 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 # Espone le porte
 EXPOSE 3000 8080 8081 8082 8083 8084
 
-# Cambia all'utente non-root
-USER warpuser
+# Run as root for ECS (needed for /proc/net/tcp access)
+# USER root is implicit
 
 # Avvia il server Express
 CMD ["node", "ecs-server.js"]
