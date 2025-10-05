@@ -134,7 +134,7 @@ app.get('/health', (req, res) => {
     });
 });
 
-// Proxy for Node.js servers running on different ports (v2)
+// Proxy for Node.js servers running on different ports (v3 - fixed)
 app.use('/proxy/:port', (req, res) => {
     const port = req.params.port;
     const targetUrl = `http://localhost:${port}${req.url}`;
