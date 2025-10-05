@@ -220,63 +220,24 @@ class _CreateAppWizardPageState extends State<CreateAppWizardPage>
   Widget _buildProgressIndicator(CreateAppWizardProvider provider) {
     final brightness = Theme.of(context).brightness;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      child: Column(
-        children: [
-          // Progress bar
-          Container(
-            height: 4,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      child: Container(
+        height: 2,
+        decoration: BoxDecoration(
+          color: AppColors.surface(brightness).withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(1),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(1),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOutCubic,
+            width: MediaQuery.of(context).size.width * provider.progress,
             decoration: BoxDecoration(
-              color: AppColors.surface(brightness).withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(2),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(2),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeInOutCubic,
-                width: MediaQuery.of(context).size.width * provider.progress,
-                decoration: BoxDecoration(
-                  gradient: AppColors.heroGradient(brightness),
-                ),
-              ),
+              color: AppColors.primary.withValues(alpha: 0.8),
             ),
           ),
-          
-          const SizedBox(height: 12),
-          
-          // Step indicators
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(CreateAppWizardProvider.totalSteps, (index) {
-              final isActive = index == provider.currentStep;
-              final isCompleted = index < provider.currentStep;
-              
-              return Container(
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isActive
-                        ? AppColors.primary
-                        : isCompleted
-                            ? AppColors.success
-                            : AppColors.surface(brightness).withValues(alpha: 0.4),
-                    border: Border.all(
-                      color: isActive
-                          ? AppColors.primary.withValues(alpha: 0.3)
-                          : Colors.transparent,
-                      width: 2,
-                    ),
-                  ),
-                ),
-              );
-            }),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -289,247 +250,54 @@ class _CreateAppWizardPageState extends State<CreateAppWizardPage>
         // This won't be called since physics is disabled
         // Navigation is handled by provider methods
       },
-      children: const [
-        NameStep(),
-        AppTypeStep(), 
-        FrameworkStep(),
-        FeaturesStep(),
-        TemplateStep(),
-        SummaryStep(),
+      children: [
+        // Step 0: Preset selection (era NameStep)
+        const NameStep(),
+        // Step 1: Nome app quando custom è selezionato, o salta al summary per preset
+        provider.wizardData.isCustomFlow 
+            ? const AppTypeStep()
+            : const SummaryStep(), // Vai direttamente al summary per preset
+        const FrameworkStep(),
+        const FeaturesStep(),
+        const TemplateStep(),
+        const SummaryStep(),
       ],
     );
   }
 
   Widget _buildNavigationButtons(CreateAppWizardProvider provider) {
     final brightness = Theme.of(context).brightness;
+    final isDark = brightness == Brightness.dark;
+    
     return Container(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
             Colors.transparent,
-            AppColors.surface(brightness).withValues(alpha: 0.95),
+            isDark 
+                ? const Color(0xFF000000).withValues(alpha: 0.85)
+                : const Color(0xFFFAFAFA).withValues(alpha: 0.85),
           ],
-          stops: const [0.0, 0.3],
-        ),
-        border: Border(
-          top: BorderSide(
-            color: AppColors.primary.withValues(alpha: 0.1),
-            width: 1,
-          ),
+          stops: const [0.0, 0.1],
         ),
       ),
       child: ClipRect(
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Progress indicator migliorato
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: AppColors.surface(brightness).withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: AppColors.primary.withValues(alpha: 0.2),
-                    width: 1,
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.timeline_rounded,
-                      color: AppColors.primary,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Passo ${provider.currentStep + 1} di ${CreateAppWizardProvider.totalSteps}',
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              
-              // Pulsanti di navigazione
-              Row(
-                children: [
-                  // Back button migliorato
-                  if (provider.canGoBack)
-                    Expanded(
-                      child: _buildNavigationButton(
-                        text: 'Indietro',
-                        icon: Icons.arrow_back_ios_rounded,
-                        isSecondary: true,
-                        onTap: () => _handleBack(provider),
-                        enabled: !provider.isGenerating,
-                      ),
-                    ),
-                  
-                  if (provider.canGoBack) const SizedBox(width: 20),
-                  
-                  // Next/Create button migliorato
-                  Expanded(
-                    flex: provider.canGoBack ? 2 : 3,
-                    child: _buildNavigationButton(
-                      text: provider.isLastStep ? '🚀 Crea App' : 'Avanti',
-                      icon: provider.isLastStep 
-                          ? Icons.rocket_launch_rounded 
-                          : Icons.arrow_forward_ios_rounded,
-                      isSecondary: false,
-                      onTap: () => _handleNext(provider),
-                      enabled: provider.isCurrentStepValid && !provider.isGenerating,
-                      isLoading: provider.isGenerating,
-                      isPrimary: true,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavigationButton({
-    required String text,
-    required IconData icon,
-    required bool isSecondary,
-    required VoidCallback onTap,
-    required bool enabled,
-    bool isLoading = false,
-    bool isPrimary = false,
-  }) {
-    final brightness = Theme.of(context).brightness;
-    
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOutCubic,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: enabled ? onTap : null,
-          borderRadius: BorderRadius.circular(16),
-          splashColor: isPrimary 
-              ? Colors.white.withValues(alpha: 0.2)
-              : AppColors.primary.withValues(alpha: 0.1),
-          highlightColor: isPrimary 
-              ? Colors.white.withValues(alpha: 0.1)
-              : AppColors.primary.withValues(alpha: 0.05),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(
-              vertical: 18, 
-              horizontal: 24,
-            ),
-            decoration: BoxDecoration(
-              gradient: enabled && !isSecondary
-                  ? LinearGradient(
-                      colors: [
-                        AppColors.primary,
-                        AppColors.primary.withValues(alpha: 0.9),
-                        AppColors.primaryTint,
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    )
-                  : null,
-              color: isSecondary
-                  ? AppColors.surface(brightness).withValues(alpha: 0.8)
-                  : enabled
-                      ? null
-                      : AppColors.surface(brightness).withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: isSecondary
-                    ? AppColors.border(brightness).withValues(alpha: 0.4)
-                    : enabled && !isSecondary
-                        ? AppColors.primary.withValues(alpha: 0.3)
-                        : Colors.transparent,
-                width: 1.5,
-              ),
-              boxShadow: enabled && !isSecondary
-                  ? [
-                      // Ombra principale
-                      BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.4),
-                        blurRadius: 15,
-                        offset: const Offset(0, 6),
-                        spreadRadius: 0,
-                      ),
-                      // Ombra secondaria più leggera
-                      BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.2),
-                        blurRadius: 25,
-                        offset: const Offset(0, 12),
-                        spreadRadius: 2,
-                      ),
-                    ]
-                  : isSecondary
-                      ? [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.08),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          ),
-                        ]
-                      : null,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+            child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (isLoading)
-                  SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        isSecondary 
-                            ? AppColors.primary 
-                            : Colors.white,
-                      ),
-                    ),
-                  )
-                else
-                  Icon(
-                    icon,
-                    color: isSecondary
-                        ? AppColors.primary
-                        : enabled
-                            ? Colors.white
-                            : AppColors.textTertiary,
-                    size: 20,
-                  ),
-                const SizedBox(width: 10),
-                Flexible(
-                  child: Text(
-                    text,
-                    style: TextStyle(
-                      color: isSecondary
-                          ? AppColors.primary
-                          : enabled
-                              ? Colors.white
-                              : AppColors.textTertiary,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.2,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
+                // Progress indicator più piccolo
+                _buildCompactProgressIndicator(provider, isDark),
+                
+                const SizedBox(height: 8),
+                
+                // Pulsante di navigazione più piccolo
+                _buildCompactNavigationButton(provider, isDark),
               ],
             ),
           ),
@@ -537,6 +305,7 @@ class _CreateAppWizardPageState extends State<CreateAppWizardPage>
       ),
     );
   }
+
 
   Widget _buildLoadingOverlay() {
     return Positioned.fill(
@@ -608,11 +377,29 @@ class _CreateAppWizardPageState extends State<CreateAppWizardPage>
     if (provider.isLastStep) {
       _handleCreateApp(provider);
     } else {
+      final currentStep = provider.currentStep;
       provider.nextStep();
-      _pageController.nextPage(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOutCubic,
-      );
+      
+      // Calcola lo step di destinazione
+      int targetStep = provider.currentStep;
+      
+      // Se abbiamo selezionato un preset e siamo al step 1, salta al summary
+      if (currentStep == 1 && 
+          provider.wizardData.isPresetSelected && 
+          targetStep == CreateAppWizardProvider.totalSteps - 1) {
+        // Animazione diretta al summary (step 5)
+        _pageController.animateToPage(
+          targetStep,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOutCubic,
+        );
+      } else {
+        // Navigazione normale
+        _pageController.nextPage(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOutCubic,
+        );
+      }
     }
   }
 
@@ -707,6 +494,257 @@ class _CreateAppWizardPageState extends State<CreateAppWizardPage>
     } else {
       Navigator.pop(context);
     }
+  }
+
+  Widget _buildCompactProgressIndicator(CreateAppWizardProvider provider, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: isDark
+            ? const Color(0xFF1A1A1A).withValues(alpha: 0.7)
+            : Colors.white.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: AppColors.primary.withValues(alpha: 0.1),
+          width: 0.5,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Icona più piccola
+          Container(
+            width: 18,
+            height: 18,
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(
+              provider.isLastStep
+                  ? Icons.rocket_launch_rounded
+                  : Icons.auto_awesome_rounded,
+              color: Colors.white,
+              size: 10,
+            ),
+          ),
+          
+          const SizedBox(width: 8),
+          
+          // Testo del progresso più piccolo
+          Text(
+            '${provider.currentStep + 1}/${CreateAppWizardProvider.totalSteps}',
+            style: TextStyle(
+              color: AppColors.primary,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.2,
+            ),
+          ),
+          
+          const SizedBox(width: 8),
+          
+          // Barra di progresso più piccola
+          Container(
+            width: 40,
+            height: 2,
+            decoration: BoxDecoration(
+              color: isDark
+                  ? const Color(0xFF2A2A2A)
+                  : const Color(0xFFE0E0E0),
+              borderRadius: BorderRadius.circular(1),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(1),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOutCubic,
+                width: 40 * provider.progress,
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactNavigationButton(CreateAppWizardProvider provider, bool isDark) {
+    final isEnabled = provider.isCurrentStepValid && !provider.isGenerating;
+    final isLastStep = provider.isLastStep;
+    final buttonText = isLastStep ? 'Crea' : 'Avanti';
+    final buttonIcon = isLastStep 
+        ? Icons.rocket_launch_rounded 
+        : Icons.arrow_forward_rounded;
+    
+    return Row(
+      children: [
+        // Pulsante Indietro compatto (se disponibile)
+        if (provider.canGoBack && !provider.isGenerating)
+          Expanded(
+            flex: 1,
+            child: InkWell(
+              onTap: () => _handleBack(provider),
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? const Color(0xFF2A2A2A).withValues(alpha: 0.7)
+                      : const Color(0xFFE8E8E8).withValues(alpha: 0.7),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isDark
+                        ? const Color(0xFF404040)
+                        : const Color(0xFFD0D0D0),
+                    width: 0.5,
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.arrow_back_ios_rounded,
+                      color: isDark ? const Color(0xFF888888) : const Color(0xFF666666),
+                      size: 14,
+                    ),
+                    const SizedBox(width: 3),
+                    Text(
+                      'Indietro',
+                      style: TextStyle(
+                        color: isDark ? const Color(0xFF888888) : const Color(0xFF666666),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        
+        if (provider.canGoBack && !provider.isGenerating)
+          const SizedBox(width: 8),
+        
+        // Pulsante principale compatto
+        Expanded(
+          flex: provider.canGoBack ? 2 : 3,
+          child: InkWell(
+            onTap: isEnabled ? () => _handleNext(provider) : null,
+            borderRadius: BorderRadius.circular(12),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeInOutCubic,
+              padding: const EdgeInsets.symmetric(
+                vertical: 10, 
+                horizontal: 14,
+              ),
+              decoration: BoxDecoration(
+                gradient: isEnabled
+                    ? LinearGradient(
+                        colors: isLastStep
+                            ? [
+                                const Color(0xFF6C5CE7),
+                                const Color(0xFF74B9FF),
+                              ]
+                            : [
+                                AppColors.primary,
+                                AppColors.primaryTint,
+                              ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )
+                    : LinearGradient(
+                        colors: [
+                          (isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE8E8E8)),
+                          (isDark ? const Color(0xFF1E1E1E) : const Color(0xFFDDDDDD)),
+                        ],
+                      ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isEnabled
+                      ? (isLastStep
+                          ? Colors.white.withValues(alpha: 0.15)
+                          : AppColors.primary.withValues(alpha: 0.2))
+                      : Colors.transparent,
+                  width: 0.5,
+                ),
+                boxShadow: isEnabled
+                    ? [
+                        BoxShadow(
+                          color: isLastStep
+                              ? const Color(0xFF6C5CE7).withValues(alpha: 0.3)
+                              : AppColors.primary.withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                          spreadRadius: 0,
+                        ),
+                      ]
+                    : [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.04),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (provider.isGenerating)
+                    SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  else
+                    Icon(
+                      buttonIcon,
+                      color: isEnabled 
+                          ? Colors.white 
+                          : (isDark ? const Color(0xFF666666) : const Color(0xFF999999)),
+                      size: 16,
+                    ),
+                  
+                  const SizedBox(width: 4),
+                  
+                  Flexible(
+                    child: Text(
+                      provider.isGenerating 
+                          ? (isLastStep ? 'Creando...' : 'Loading...')
+                          : buttonText,
+                      style: TextStyle(
+                        color: isEnabled 
+                            ? Colors.white 
+                            : (isDark ? const Color(0xFF666666) : const Color(0xFF999999)),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.2,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  
+                  if (isLastStep && isEnabled && !provider.isGenerating)
+                    const Padding(
+                      padding: EdgeInsets.only(left: 4),
+                      child: Text('🚀', style: TextStyle(fontSize: 10)),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   void _handleQuickSetup(CreateAppWizardProvider provider, String type) {

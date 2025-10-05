@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../shared/constants/app_colors.dart';
 import '../../../../core/wizard/create_app_models.dart';
+import '../../../../core/wizard/preset_apps.dart';
 import '../../providers/create_app_wizard_provider.dart';
 
 class SummaryStep extends StatefulWidget {
@@ -29,6 +30,12 @@ class _SummaryStepState extends State<SummaryStep> {
               // Summary cards
               _buildSummaryCard('Nome App', provider.wizardData.appName, Icons.apps_rounded),
               const SizedBox(height: 16),
+              
+              // Preset info se è stato selezionato
+              if (provider.wizardData.isPresetSelected) ...[
+                _buildPresetCard(provider.wizardData.selectedPreset!),
+                const SizedBox(height: 16),
+              ],
               
               _buildSummaryCard(
                 'Tipo',
@@ -189,6 +196,109 @@ class _SummaryStepState extends State<SummaryStep> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPresetCard(String presetName) {
+    final brightness = Theme.of(context).brightness;
+    final presetType = PresetAppType.values.firstWhere(
+      (type) => type.name == presetName,
+      orElse: () => PresetAppType.custom,
+    );
+    final config = PresetAppsRepository.getConfig(presetType);
+    
+    if (config == null) return const SizedBox.shrink();
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface(brightness).withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: config.accentColor.withValues(alpha: 0.3),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: config.accentColor.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: config.accentColor.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              config.icon,
+              color: config.accentColor,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'PRESET SELEZIONATO',
+                      style: TextStyle(
+                        color: config.accentColor,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: config.accentColor.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        config.framework.toUpperCase(),
+                        style: TextStyle(
+                          color: config.accentColor,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  config.name,
+                  style: TextStyle(
+                    color: AppColors.titleText(brightness),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  config.description,
+                  style: TextStyle(
+                    color: AppColors.bodyText(brightness).withValues(alpha: 0.8),
+                    fontSize: 13,
+                    height: 1.3,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
             ),
           ),

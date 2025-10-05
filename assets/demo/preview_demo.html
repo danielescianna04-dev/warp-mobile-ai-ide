@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warp Mobile IDE - Demo Preview</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+            background: #0a0a0a;
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+        
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 30%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(139, 92, 246, 0.12) 0%, transparent 50%),
+                radial-gradient(circle at 50% 50%, rgba(236, 72, 153, 0.08) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+        }
+
+        .card {
+            background: white;
+            border-radius: 24px;
+            padding: 48px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            margin-bottom: 24px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .logo {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 20px;
+            margin: 0 auto 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        }
+
+        h1 {
+            font-size: 32px;
+            color: #1a1a2e;
+            margin-bottom: 12px;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            font-size: 18px;
+            color: #666;
+            font-weight: 400;
+        }
+
+        .demo-section {
+            margin-bottom: 32px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            color: #1a1a2e;
+            margin-bottom: 16px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .button {
+            display: inline-block;
+            padding: 16px 32px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin: 8px;
+            cursor: pointer;
+            border: none;
+            font-size: 16px;
+        }
+
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px rgba(102, 126, 234, 0.4);
+        }
+
+        .button.secondary {
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+
+        .button.secondary:hover {
+            background: #f8f9ff;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-top: 24px;
+        }
+
+        .feature-card {
+            background: #f8f9ff;
+            padding: 24px;
+            border-radius: 16px;
+            text-align: center;
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.2);
+        }
+
+        .feature-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+
+        .feature-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1a1a2e;
+            margin-bottom: 8px;
+        }
+
+        .feature-desc {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .code-block {
+            background: #1a1a2e;
+            color: #fff;
+            padding: 24px;
+            border-radius: 12px;
+            font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+            font-size: 14px;
+            margin: 16px 0;
+            overflow-x: auto;
+        }
+
+        .code-comment {
+            color: #7982a9;
+        }
+
+        .code-keyword {
+            color: #ff79c6;
+        }
+
+        .code-string {
+            color: #50fa7b;
+        }
+
+        .alert {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .alert-icon {
+            font-size: 24px;
+        }
+
+        .alert-text {
+            color: #856404;
+            font-size: 14px;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 32px;
+            padding-top: 32px;
+            border-top: 2px solid #f0f0f0;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 36px;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: #666;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="header">
+                <div class="logo pulse">🚀</div>
+                <h1>Warp Mobile IDE</h1>
+                <p class="subtitle">Il tuo IDE AI-powered direttamente nel terminale</p>
+            </div>
+
+            <div class="alert">
+                <span class="alert-icon">💡</span>
+                <div class="alert-text">
+                    <strong>Demo Mode:</strong> Stai visualizzando una preview demo. Esegui <code>flutter run</code> in un repository per vedere la tua app!
+                </div>
+            </div>
+
+            <div class="demo-section">
+                <div class="section-title">✨ Funzionalità AI</div>
+                <div class="feature-grid">
+                    <div class="feature-card" id="ai-edit">
+                        <div class="feature-icon">🎨</div>
+                        <div class="feature-title">Edit con AI</div>
+                        <div class="feature-desc">Modifica il codice con comandi naturali</div>
+                    </div>
+                    <div class="feature-card" id="ui-select">
+                        <div class="feature-icon">🎯</div>
+                        <div class="feature-title">Selezione UI</div>
+                        <div class="feature-desc">Clicca sugli elementi da modificare</div>
+                    </div>
+                    <div class="feature-card" id="hot-reload">
+                        <div class="feature-icon">⚡</div>
+                        <div class="feature-title">Hot Reload</div>
+                        <div class="feature-desc">Aggiornamenti in tempo reale</div>
+                    </div>
+                    <div class="feature-card" id="multi-model">
+                        <div class="feature-icon">🤖</div>
+                        <div class="feature-title">Multi-Model</div>
+                        <div class="feature-desc">Claude, GPT-4, Gemini</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="demo-section">
+                <div class="section-title">📝 Esempio di utilizzo</div>
+                <div class="code-block">
+                    <span class="code-comment">// 1. Clona un progetto Flutter</span><br>
+                    <span class="code-keyword">git</span> clone https://github.com/username/my-flutter-app<br>
+                    <span class="code-keyword">cd</span> my-flutter-app<br><br>
+                    
+                    <span class="code-comment">// 2. Apri Warp Terminal e avvia</span><br>
+                    <span class="code-keyword">flutter</span> run<br><br>
+                    
+                    <span class="code-comment">// 3. Usa l'AI per modificare</span><br>
+                    <span class="code-string">"Cambia il colore del pulsante in rosso"</span><br>
+                    <span class="code-string">"Aggiungi un'animazione al logo"</span><br>
+                    <span class="code-string">"Centra il testo verticalmente"</span>
+                </div>
+            </div>
+
+            <div class="demo-section" style="text-align: center;">
+                <button class="button" onclick="showDemo()">
+                    🎮 Prova la Demo Interattiva
+                </button>
+                <button class="button secondary" onclick="openDocs()">
+                    📚 Documentazione
+                </button>
+            </div>
+
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-number">10x</div>
+                    <div class="stat-label">Più veloce</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number">100%</div>
+                    <div class="stat-label">AI-powered</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number">∞</div>
+                    <div class="stat-label">Possibilità</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" style="text-align: center; padding: 24px;">
+            <p style="color: #666; font-size: 14px;">
+                Made with ❤️ by Warp Mobile Team<br>
+                <a href="https://github.com/yourusername/warp-mobile-ide" style="color: #667eea; text-decoration: none;">
+                    View on GitHub →
+                </a>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        function showDemo() {
+            alert('🎯 Attiva la modalità selezione cliccando l\'icona "touch" nella barra in alto!\n\nPoi clicca su qualsiasi elemento di questa pagina per selezionarlo e testare la funzionalità.');
+        }
+
+        function openDocs() {
+            alert('📚 La documentazione completa sarà presto disponibile!\n\nPer ora, inizia clonando un progetto Flutter e lanciando "flutter run".');
+        }
+
+        // Animate feature cards on hover
+        document.querySelectorAll('.feature-card').forEach(card => {
+            card.addEventListener('click', function() {
+                const title = this.querySelector('.feature-title').textContent;
+                alert(`✨ ${title}\n\nQuesta funzionalità sarà disponibile quando avvii un progetto Flutter reale!`);
+            });
+        });
+
+        // Add some interactivity
+        console.log('%c🚀 Warp Mobile IDE', 'font-size: 20px; font-weight: bold; color: #667eea;');
+        console.log('%cStai visualizzando la preview demo!', 'font-size: 14px; color: #666;');
+        console.log('%cEsegui "flutter run" in un repository per iniziare.', 'font-size: 14px; color: #50fa7b;');
+    </script>
+</body>
+</html>

@@ -97,7 +97,7 @@ class _FeaturesStepState extends State<FeaturesStep> {
         crossAxisCount: 2,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
-        childAspectRatio: 1.2,
+        childAspectRatio: 1.0,
       ),
       itemCount: AppFeature.values.length,
       itemBuilder: (context, index) {
@@ -129,7 +129,7 @@ class _FeaturesStepState extends State<FeaturesStep> {
           onTap: onTap,
           borderRadius: BorderRadius.circular(12),
           child: Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: isSelected
                   ? AppColors.primary.withValues(alpha: 0.1)
@@ -153,36 +153,40 @@ class _FeaturesStepState extends State<FeaturesStep> {
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
                   feature.icon,
-                  style: const TextStyle(fontSize: 28),
+                  style: const TextStyle(fontSize: 24),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 Text(
                   feature.title,
                   style: TextStyle(
                     color: isSelected
                         ? AppColors.primary
                         : AppColors.titleText(brightness),
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
+                    height: 1.2,
                   ),
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  feature.description,
-                  style: TextStyle(
-                    color: AppColors.bodyText(brightness).withValues(alpha: 0.8),
-                    fontSize: 11,
-                    height: 1.3,
+                const SizedBox(height: 4),
+                Flexible(
+                  child: Text(
+                    feature.description,
+                    style: TextStyle(
+                      color: AppColors.bodyText(brightness).withValues(alpha: 0.8),
+                      fontSize: 10,
+                      height: 1.2,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),

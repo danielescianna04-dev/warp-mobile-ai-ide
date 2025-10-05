@@ -15,6 +15,7 @@ class TerminalInputBox extends StatelessWidget {
   final Widget? modelSelector;
   final Widget? modeToggle;
   final Widget? toolsButton;
+  final bool useTransparentStyle; // Per preview con glassmorphism
   
   const TerminalInputBox({
     super.key,
@@ -30,6 +31,7 @@ class TerminalInputBox extends StatelessWidget {
     this.modelSelector,
     this.modeToggle,
     this.toolsButton,
+    this.useTransparentStyle = false,
   });
 
   @override
@@ -45,31 +47,49 @@ class TerminalInputBox extends StatelessWidget {
       ),
       child: Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              AppColors.surface(brightness).withValues(alpha: 0.98),
-              AppColors.surface(brightness).withValues(alpha: 0.92),
-            ],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
+          gradient: useTransparentStyle
+              ? LinearGradient(
+                  colors: [
+                    brightness == Brightness.dark
+                        ? const Color(0xFF2a2a2a).withValues(alpha: 0.7)
+                        : const Color(0xFFe0e0e0).withValues(alpha: 0.7),
+                    brightness == Brightness.dark
+                        ? const Color(0xFF1a1a1a).withValues(alpha: 0.7)
+                        : const Color(0xFFd0d0d0).withValues(alpha: 0.7),
+                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                )
+              : LinearGradient(
+                  colors: [
+                    AppColors.surface(brightness).withValues(alpha: 0.98),
+                    AppColors.surface(brightness).withValues(alpha: 0.92),
+                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: AppColors.primary.withValues(alpha: 0.15),
+            color: useTransparentStyle
+                ? (brightness == Brightness.dark
+                    ? Colors.white.withValues(alpha: 0.2)
+                    : Colors.black.withValues(alpha: 0.2))
+                : AppColors.primary.withValues(alpha: 0.15),
             width: 1.5,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.15),
+              color: Colors.black.withValues(alpha: useTransparentStyle ? 0.3 : 0.15),
               blurRadius: 30,
               offset: const Offset(0, 8),
               spreadRadius: 2,
             ),
-            BoxShadow(
-              color: AppColors.primary.withValues(alpha: 0.12),
-              blurRadius: 50,
-              offset: const Offset(0, 12),
-            ),
+            if (!useTransparentStyle)
+              BoxShadow(
+                color: AppColors.primary.withValues(alpha: 0.12),
+                blurRadius: 50,
+                offset: const Offset(0, 12),
+              ),
           ],
         ),
         child: Column(
@@ -106,9 +126,18 @@ class TerminalInputBox extends StatelessWidget {
                   else
                     _buildDefaultToolsButton(brightness),
                   const SizedBox(width: 12),
-                  // Input field
+                  // Input field con background
                   Expanded(
-                    child: useSyntaxHighlighting
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: useTransparentStyle
+                            ? (brightness == Brightness.dark
+                                ? const Color(0xFF1a1a1a).withValues(alpha: 0.5)
+                                : const Color(0xFFd0d0d0).withValues(alpha: 0.5))
+                            : null,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: useSyntaxHighlighting
                         ? SyntaxTextField(
                             controller: controller,
                             focusNode: focusNode,
@@ -166,6 +195,7 @@ class TerminalInputBox extends StatelessWidget {
                             onChanged: onChanged,
                             onSubmitted: (_) => onSend?.call(),
                           ),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   // Send button
@@ -180,42 +210,31 @@ class TerminalInputBox extends StatelessWidget {
   }
   
   Widget _buildDefaultModeToggle(Brightness brightness) {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: isTerminalMode 
-                ? AppColors.primary.withValues(alpha: 0.12)
-                : AppColors.surface(brightness).withValues(alpha: 0.3),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(
-            Icons.terminal,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.surface(brightness).withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.touch_app,
             size: 16,
-            color: isTerminalMode 
-                ? AppColors.primary
-                : AppColors.bodyText(brightness),
+            color: AppColors.bodyText(brightness),
           ),
-        ),
-        const SizedBox(width: 8),
-        Container(
-          padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: !isTerminalMode
-                ? AppColors.primary.withValues(alpha: 0.12)
-                : AppColors.surface(brightness).withValues(alpha: 0.3),
-            borderRadius: BorderRadius.circular(8),
+          const SizedBox(width: 6),
+          Text(
+            'Edit',
+            style: TextStyle(
+              color: AppColors.titleText(brightness),
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
           ),
-          child: Icon(
-            Icons.auto_awesome_outlined,
-            size: 16,
-            color: !isTerminalMode
-                ? AppColors.primary
-                : AppColors.bodyText(brightness),
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
   

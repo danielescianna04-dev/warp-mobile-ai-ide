@@ -310,6 +310,87 @@ app.get('/flutter/doctor', async (req, res) => {
     }
 });
 
+// Endpoint per testare la configurazione di Flutter
+app.get('/flutter/test', async (req, res) => {
+    resetIdleTimer();
+    
+    try {
+        const tests = [];
+        
+        // Test 1: which flutter
+        try {
+            const whichResult = await executeCommand('which flutter', '/tmp');
+            tests.push({
+                name: 'Flutter Binary Location',
+                success: whichResult.code === 0,
+                result: whichResult.stdout.trim() || 'Not found',
+                error: whichResult.stderr
+            });
+        } catch (e) {
+            tests.push({
+                name: 'Flutter Binary Location',
+                success: false,
+                result: 'Command failed',
+                error: e.message
+            });
+        }
+        
+        // Test 2: flutter --version
+        try {
+            const versionResult = await executeCommand('flutter --version', '/tmp');
+            tests.push({
+                name: 'Flutter Version',
+                success: versionResult.code === 0,
+                result: versionResult.stdout.trim(),
+                error: versionResult.stderr
+            });
+        } catch (e) {
+            tests.push({
+                name: 'Flutter Version',
+                success: false,
+                result: 'Command failed',
+                error: e.message
+            });
+        }
+        
+        // Test 3: PATH check
+        const currentPath = process.env.PATH || '';
+        const hasFlutterInPath = currentPath.includes('/opt/flutter/bin');
+        tests.push({
+            name: 'Flutter in PATH',
+            success: hasFlutterInPath,
+            result: hasFlutterInPath ? 'Flutter found in PATH' : 'Flutter NOT in PATH',
+            error: hasFlutterInPath ? '' : `Current PATH: ${currentPath}`
+        });
+        
+        // Test 4: Directory existence
+        const flutterExists = require('fs').existsSync('/opt/flutter/bin/flutter');
+        tests.push({
+            name: 'Flutter Binary File',
+            success: flutterExists,
+            result: flutterExists ? 'File exists' : 'File not found',
+            error: flutterExists ? '' : '/opt/flutter/bin/flutter not found'
+        });
+        
+        res.json({
+            success: true,
+            tests: tests,
+            environment: {
+                PATH: process.env.PATH,
+                FLUTTER_HOME: process.env.FLUTTER_HOME,
+                DART_HOME: process.env.DART_HOME,
+                PUB_CACHE: process.env.PUB_CACHE
+            }
+        });
+        
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
 // Map to track running Flutter web processes
 const flutterWebProcesses = new Map();
 
@@ -916,17 +997,29 @@ function executeCommand(command, cwd = '/tmp') {
             console.log(`Adjusted Flutter command: ${adjustedCommand}`);
         }
         
+        // Ensure Flutter and Dart are in PATH
+        const flutterPath = '/opt/flutter/bin';
+        const dartPath = '/opt/flutter/bin/cache/dart-sdk/bin';
+        const currentPath = process.env.PATH || '';
+        const fullPath = `${flutterPath}:${dartPath}:${currentPath}`;
+        
+        console.log(`🔍 Debug: Using PATH: ${fullPath}`);
+        console.log(`🔍 Debug: FLUTTER_HOME: /opt/flutter`);
+        
         const child = spawn('bash', ['-c', adjustedCommand], {
             cwd: cwd,
             stdio: ['pipe', 'pipe', 'pipe'],
             env: {
                 ...process.env,
-                PATH: '/opt/flutter/bin:' + process.env.PATH,
+                PATH: fullPath,
                 FLUTTER_HOME: '/opt/flutter',
+                DART_HOME: '/opt/flutter/bin/cache/dart-sdk',
                 PUB_CACHE: '/tmp/.pub-cache',
                 FLUTTER_ROOT: '/opt/flutter',
                 // Disable Flutter analytics to avoid root warnings
-                FLUTTER_SUPPRESS_ANALYTICS: 'true'
+                FLUTTER_SUPPRESS_ANALYTICS: 'true',
+                // Additional environment variables for Flutter
+                FLUTTER_DISABLE_ANALYTICS: 'true'
             }
         });
 
@@ -982,6 +1075,20 @@ app.listen(port, '0.0.0.0', () => {
     console.log(`🐍 Python: Available`);
     console.log(`🐳 Docker: Disabled (to be added)`);
     console.log(`⏰ Auto-shutdown after ${IDLE_TIMEOUT / 60000} minutes of inactivity`);
+    
+    // Debug PATH information
+    console.log(`🔍 Debug - Current PATH: ${process.env.PATH}`);
+    console.log(`🔍 Debug - FLUTTER_HOME: ${process.env.FLUTTER_HOME}`);
+    
+    // Test Flutter availability at startup
+    executeCommand('which flutter', '/tmp').then(result => {
+        console.log(`🔍 Debug - Flutter location: ${result.stdout.trim() || 'NOT FOUND'}`);
+        if (result.stderr) {
+            console.log(`🔍 Debug - Flutter location error: ${result.stderr}`);
+        }
+    }).catch(err => {
+        console.log(`🔍 Debug - Flutter test failed: ${err.message}`);
+    });
     
     // Inizia il timer di auto-shutdown
     resetIdleTimer();

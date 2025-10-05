@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/wizard/create_app_models.dart';
+import '../../../core/wizard/preset_apps.dart';
 import '../../../core/terminal/terminal_service.dart';
 import '../../../core/github/github_service.dart';
 
@@ -27,9 +28,9 @@ class CreateAppWizardProvider extends ChangeNotifier {
   String get currentStepTitle {
     switch (_currentStep) {
       case 0:
-        return 'Nome App';
+        return 'Scegli Template';
       case 1:
-        return 'Tipo Applicazione';
+        return _wizardData.isCustomFlow ? 'Tipo Applicazione' : 'Riepilogo';
       case 2:
         return 'Framework';
       case 3:
@@ -46,9 +47,11 @@ class CreateAppWizardProvider extends ChangeNotifier {
   String get currentStepDescription {
     switch (_currentStep) {
       case 0:
-        return 'Scegli un nome per la tua applicazione';
+        return 'Seleziona il tipo di app che vuoi creare';
       case 1:
-        return 'Seleziona su quale piattaforma verrà eseguita';
+        return _wizardData.isCustomFlow 
+            ? 'Seleziona su quale piattaforma verrà eseguita' 
+            : 'Verifica i dettagli e crea il progetto';
       case 2:
         return 'Scegli il framework di sviluppo';
       case 3:
@@ -66,14 +69,7 @@ class CreateAppWizardProvider extends ChangeNotifier {
     return _wizardData.isStepValid(_currentStep);
   }
   
-  // Navigation methods
-  void nextStep() {
-    if (canGoNext) {
-      _currentStep++;
-      _clearError();
-      notifyListeners();
-    }
-  }
+  // Navigation methods (il metodo nextStep è definito dopo i preset methods)
   
   void previousStep() {
     if (canGoBack) {
@@ -160,6 +156,181 @@ class CreateAppWizardProvider extends ChangeNotifier {
     _wizardData = _wizardData.copyWith(gitRepositoryName: repoName);
     _clearError();
     notifyListeners();
+  }
+  
+  // Preset management methods
+  void selectPreset(PresetAppType presetType) {
+    final config = PresetAppsRepository.getConfig(presetType);
+    if (config == null) return;
+    
+    if (presetType == PresetAppType.custom) {
+      // Seleziona il flusso custom
+      _wizardData = _wizardData.copyWith(
+        selectedPreset: 'custom',
+      );
+    } else {
+      // Applica la configurazione del preset
+      _wizardData = _wizardData.copyWith(
+        selectedPreset: presetType.name,
+        appType: _parseAppType(config.appType),
+        framework: _parseFramework(config.framework),
+        features: config.features.map((f) => _parseFeature(f)).where((f) => f != null).cast<AppFeature>().toList(),
+        template: _suggestTemplate(config.features),
+      );
+    }
+    
+    _clearError();
+    notifyListeners();
+  }
+  
+  // Helper methods for parsing preset configurations
+  AppType _parseAppType(String appTypeString) {
+    switch (appTypeString.toLowerCase()) {
+      case 'mobile':
+        return AppType.mobile;
+      case 'web':
+        return AppType.web;
+      case 'desktop':
+        return AppType.desktop;
+      default:
+        return AppType.mobile;
+    }
+  }
+  
+  Framework? _parseFramework(String frameworkString) {
+    switch (frameworkString.toLowerCase()) {
+      case 'flutter':
+        return Framework.flutter;
+      case 'react':
+        return Framework.react;
+      case 'nextjs':
+        return Framework.nextjs;
+      case 'vue':
+        return Framework.vue;
+      case 'angular':
+        return Framework.angular;
+      case 'svelte':
+        return Framework.svelte;
+      case 'react_native':
+        return Framework.reactNative;
+      case 'ionic':
+        return Framework.ionic;
+      case 'electron':
+        return Framework.electron;
+      case 'tauri':
+        return Framework.tauri;
+      default:
+        return Framework.flutter;
+    }
+  }
+  
+  AppFeature? _parseFeature(String featureString) {
+    switch (featureString.toLowerCase()) {
+      case 'markdown':
+      case 'ai_integration':
+        return AppFeature.api;
+      case 'cloud_sync':
+      case 'sync':
+        return AppFeature.database;
+      case 'search':
+        return AppFeature.analytics;
+      case 'tags':
+        return AppFeature.database;
+      case 'offline_mode':
+      case 'offline_play':
+        return AppFeature.fileStorage;
+      case 'chat_history':
+        return AppFeature.chat;
+      case 'voice_input':
+        return AppFeature.camera;
+      case 'markdown_support':
+        return AppFeature.fileStorage;
+      case 'themes':
+        return AppFeature.darkMode;
+      case 'maps':
+        return AppFeature.maps;
+      case 'filters':
+        return AppFeature.api;
+      case 'booking':
+      case 'payments':
+        return AppFeature.payments;
+      case 'reviews':
+        return AppFeature.socialLogin;
+      case 'game_logic':
+      case 'statistics':
+      case 'daily_challenge':
+        return AppFeature.analytics;
+      case 'animations':
+        return null; // Non abbiamo questa feature specifica
+      case 'task_management':
+        return AppFeature.pushNotifications;
+      case 'categories':
+        return AppFeature.database;
+      case 'notifications':
+        return AppFeature.pushNotifications;
+      case 'calendar':
+        return AppFeature.api;
+      case 'weather_api':
+        return AppFeature.api;
+      case 'location':
+        return AppFeature.maps;
+      case 'forecasts':
+        return AppFeature.api;
+      case 'widgets':
+        return AppFeature.analytics;
+      case 'product_catalog':
+      case 'cart':
+        return AppFeature.database;
+      case 'orders':
+        return AppFeature.api;
+      case 'wishlist':
+        return AppFeature.database;
+      case 'audio_player':
+      case 'playlists':
+        return AppFeature.fileStorage;
+      case 'equalizer':
+        return null; // Feature specifica
+      case 'streaming':
+        return AppFeature.api;
+      case 'lyrics':
+        return AppFeature.api;
+      default:
+        return null;
+    }
+  }
+  
+  AppTemplate? _suggestTemplate(List<String> features) {
+    if (features.contains('payments') || features.contains('cart')) {
+      return AppTemplate.ecommerce;
+    }
+    if (features.contains('chat_history') || features.contains('reviews')) {
+      return AppTemplate.social;
+    }
+    if (features.contains('task_management') || features.contains('notifications')) {
+      return AppTemplate.productivity;
+    }
+    if (features.contains('game_logic')) {
+      return AppTemplate.blank; // Per i giochi
+    }
+    if (features.contains('weather_api')) {
+      return AppTemplate.material; // Per app meteo
+    }
+    return AppTemplate.material;
+  }
+  
+  // Navigazione intelligente per i preset
+  void nextStep() {
+    if (canGoNext) {
+      // Se abbiamo un preset selezionato (non custom), saltiamo alcuni step
+      if (_wizardData.isPresetSelected && _currentStep == 1) {
+        // Dal preset selection, vai direttamente al summary
+        _currentStep = totalSteps - 1; // Vai al summary
+      } else {
+        _currentStep++;
+      }
+      _clearError();
+      notifyListeners();
+    }
   }
   
   // Helper methods

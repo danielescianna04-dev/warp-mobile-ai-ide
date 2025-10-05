@@ -4195,12 +4195,18 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
               );
             }
             
-            // Check for web server from TerminalService (Docker backend)
-            _updatePreviewFromTerminalService();
-            
-            // Fallback: check output for patterns (local mode)
-            if (_previewUrl == null) {
-              _checkForRunningApp(result.output);
+            // Se NON c'è repository selezionato e è flutter run, mostra SOLO demo
+            if (command.trim() == 'flutter run' && _selectedRepository == null) {
+              _openDemoPreview();
+            } else {
+              // Altrimenti controlla per server reali
+              // Check for web server from TerminalService (Docker backend)
+              _updatePreviewFromTerminalService();
+              
+              // Fallback: check output for patterns (local mode)
+              if (_previewUrl == null) {
+                _checkForRunningApp(result.output);
+              }
             }
             
             _isLoading = false;
@@ -6608,6 +6614,39 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
         builder: (context) => PreviewWebScreen(url: _previewUrl!),
       ),
     );
+  }
+  
+  void _openDemoPreview() {
+    // Mostra messaggio e apri la demo
+    setState(() {
+      _terminalItems.add(
+        TerminalItem(
+          content: '🎉 Demo Mode attivato!\n\n'
+                   '⚠️  Nessun repository selezionato.\n'
+                   'Stai per vedere una preview demo interattiva.\n\n'
+                   '🎯 Prova la modalità selezione elementi cliccando l\'icona "touch"!',
+          type: TerminalItemType.system,
+          timestamp: DateTime.now(),
+        )
+      );
+    });
+    
+    // Apri la demo dopo un breve delay per mostrare il messaggio
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const PreviewWebScreen(
+              url: 'asset:assets/demo/preview_demo.html',
+            ),
+          ),
+        );
+      }
+    });
+    
+    _showSnackBar('🎉 Demo preview aperta! Prova la selezione elementi');
+    _scrollToBottom();
   }
   
   Future<void> _stopFlutterProcess() async {

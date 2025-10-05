@@ -147,6 +147,7 @@ class CreateAppWizardData {
   final AppThemeConfig themeConfig;
   final bool useGitRepository;
   final String? gitRepositoryName;
+  final String? selectedPreset; // Nuovo campo per il preset selezionato
   
   const CreateAppWizardData({
     this.appName = '',
@@ -159,6 +160,7 @@ class CreateAppWizardData {
     this.themeConfig = const AppThemeConfig(),
     this.useGitRepository = false,
     this.gitRepositoryName,
+    this.selectedPreset, // Nuovo parametro per il preset
   });
   
   CreateAppWizardData copyWith({
@@ -172,6 +174,7 @@ class CreateAppWizardData {
     AppThemeConfig? themeConfig,
     bool? useGitRepository,
     String? gitRepositoryName,
+    String? selectedPreset, // Nuovo parametro nel copyWith
   }) {
     return CreateAppWizardData(
       appName: appName ?? this.appName,
@@ -184,6 +187,7 @@ class CreateAppWizardData {
       themeConfig: themeConfig ?? this.themeConfig,
       useGitRepository: useGitRepository ?? this.useGitRepository,
       gitRepositoryName: gitRepositoryName ?? this.gitRepositoryName,
+      selectedPreset: selectedPreset ?? this.selectedPreset,
     );
   }
   
@@ -209,20 +213,21 @@ class CreateAppWizardData {
   // Step validation
   bool isStepValid(int step) {
     switch (step) {
-      case 0: // Name step
-        return isNameValid;
-      case 1: // App type step  
-        return true; // sempre valido, ha default
+      case 0: // Name step - ora è preset selection o idea personalizzata
+        return selectedPreset != null || appName.trim().length >= 10; // valido se preset selezionato O idea scritta (min 10 caratteri)
+      case 1: // App type step o preset selection
+        return isCustomFlow ? true : isPresetSelected; // custom sempre valido, preset deve essere selezionato
       case 2: // Framework step
         return isFrameworkSelected;
-      case 3: // Features step
+      case 3: // Funzionalità step
         return hasMinimumFeatures;
       case 4: // Template step
         return isTemplateSelected;
       case 5: // Theme step
         return true; // sempre valido, ha default
       case 6: // Summary step
-        return isNameValid && isFrameworkSelected && hasMinimumFeatures && isTemplateSelected;
+        return isPresetSelected ? isFrameworkSelected && hasMinimumFeatures && isTemplateSelected
+               : isNameValid && isFrameworkSelected && hasMinimumFeatures && isTemplateSelected;
       default:
         return false;
     }
@@ -256,6 +261,12 @@ class CreateAppWizardData {
     }
   }
   
+  /// Verifica se è stato selezionato un preset (non custom)
+  bool get isPresetSelected => selectedPreset != null && selectedPreset != 'custom';
+  
+  /// Verifica se è un flusso personalizzato (custom o nessun preset)
+  bool get isCustomFlow => selectedPreset == null || selectedPreset == 'custom';
+
   Map<String, dynamic> toJson() {
     return {
       'appName': appName,
@@ -274,6 +285,7 @@ class CreateAppWizardData {
       },
       'useGitRepository': useGitRepository,
       'gitRepositoryName': gitRepositoryName,
+      'selectedPreset': selectedPreset,
     };
   }
 }
