@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../shared/constants/app_colors.dart';
 import '../widgets/terminal_input_box.dart';
 
@@ -36,28 +38,31 @@ class _PreviewWebScreenState extends State<PreviewWebScreen> {
   void _initializeWebView() {
     _webViewController = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(const Color(0x00000000))
+      ..setBackgroundColor(Colors.white)
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (String url) {
+            print('🌐 WebView loading: $url');
             setState(() {
               _isLoading = true;
               _currentUrl = url;
             });
           },
           onPageFinished: (String url) {
+            print('✅ WebView loaded: $url');
             setState(() {
               _isLoading = false;
             });
           },
           onWebResourceError: (WebResourceError error) {
+            print('❌ WebView error: ${error.description} (${error.errorCode})');
             setState(() {
               _isLoading = false;
             });
           },
         ),
       )
-      ..loadRequest(Uri.parse(widget.url));
+      ..loadRequest(Uri.parse(widget.url.endsWith('/') ? widget.url : '${widget.url}/'));
   }
   
   void _refreshWebView() {
@@ -110,6 +115,19 @@ class _PreviewWebScreenState extends State<PreviewWebScreen> {
           ),
         ),
         actions: [
+          IconButton(
+            onPressed: () async {
+              final Uri url = Uri.parse(widget.url);
+              if (await canLaunchUrl(url)) {
+                await launchUrl(url, mode: LaunchMode.externalApplication);
+              }
+            },
+            icon: Icon(
+              Icons.open_in_browser_rounded,
+              color: AppColors.bodyText(brightness),
+            ),
+            tooltip: 'Apri in Safari',
+          ),
           if (_isLoading)
             Container(
               padding: const EdgeInsets.all(16),
@@ -135,45 +153,6 @@ class _PreviewWebScreenState extends State<PreviewWebScreen> {
       ),
       body: Column(
         children: [
-          // URL bar minimal
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: BoxDecoration(
-              color: brightness == Brightness.dark
-                  ? const Color(0xFF1E1E1E)
-                  : const Color(0xFFF5F5F5),
-              border: Border(
-                bottom: BorderSide(
-                  color: brightness == Brightness.dark
-                      ? const Color(0xFF2A2A2A)
-                      : const Color(0xFFE5E5E5),
-                  width: 1,
-                ),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.link_rounded,
-                  color: AppColors.bodyText(brightness).withValues(alpha: 0.6),
-                  size: 16,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    _currentUrl ?? widget.url,
-                    style: TextStyle(
-                      color: AppColors.bodyText(brightness),
-                      fontSize: 12,
-                      fontFamily: 'SF Mono',
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
           // WebView
           Expanded(
             child: WebViewWidget(

@@ -48,7 +48,7 @@ async function detectRunningServers() {
         const execAsync = promisify(exec);
         
         const exposedPorts = {};
-        const loadBalancerUrl = 'http://warp-flutter-alb-1904513476.us-west-2.elb.amazonaws.com';
+        const loadBalancerUrl = 'https://api.drape.info';
         
         // Check both IPv4 and IPv6
         const files = ['/proc/net/tcp', '/proc/net/tcp6'];
@@ -314,6 +314,26 @@ app.post('/execute-heavy', async (req, res) => {
         // Handle special commands
         let actualCommand = command;
         let useSpecialEndpoint = false;
+        let friendlyMessage = null;
+        
+        // Check for common static server commands
+        const cmd = command.trim();
+        if (cmd === 'python -m http.server' || cmd.startsWith('python -m http.server ') ||
+            cmd === 'python3 -m http.server' || cmd.startsWith('python3 -m http.server ') ||
+            cmd === 'npx serve' || cmd.startsWith('npx serve ') ||
+            cmd === 'serve' || cmd === 'preview') {
+            
+            // Extract port if specified
+            let port = 6789;
+            const portMatch = cmd.match(/\b(\d{4,5})\b/);
+            if (portMatch) {
+                port = parseInt(portMatch[1]);
+            }
+            
+            actualCommand = `(node /workspace/static-server.js . ${port} > /tmp/server.log 2>&1 &) && sleep 2 && echo "✅ Server avviato sulla porta ${port}"`;
+            friendlyMessage = `🚀 Avvio del server in corso...\n\n✅ Applicazione pronta!\nPuoi visualizzarla cliccando su Preview`;
+            console.log(`🌐 Transformed '${cmd}' to static server on port ${port}`);
+        }
         
         // Check for special Flutter web commands
         console.log('🔍 DEBUG: Checking command for special handling:', command);
@@ -418,7 +438,7 @@ app.post('/execute-heavy', async (req, res) => {
             
             res.json({
                 success: true,
-                output: result.stdout,
+                output: friendlyMessage || result.stdout,
                 error: result.stderr,
                 exitCode: result.code,
                 environment: 'ecs-fargate',
@@ -458,7 +478,7 @@ app.post('/node/server/start', async (req, res) => {
     try {
         // Check if server is already running for this repository
         if (nodeServerProcesses.has(repository)) {
-            const loadBalancerUrl = 'http://warp-flutter-alb-1904513476.us-west-2.elb.amazonaws.com';
+            const loadBalancerUrl = 'https://api.drape.info';
             const webUrl = `${loadBalancerUrl}/proxy/${port}`;
             
             return res.json({
@@ -508,7 +528,7 @@ app.post('/node/server/start', async (req, res) => {
         // Wait a bit for server to start
         await new Promise(resolve => setTimeout(resolve, 2000));
         
-        const loadBalancerUrl = 'http://warp-flutter-alb-1904513476.us-west-2.elb.amazonaws.com';
+        const loadBalancerUrl = 'https://api.drape.info';
         const webUrl = `${loadBalancerUrl}/proxy/${port}`;
         
         console.log(`🌐 Node.js server URL: ${webUrl}`);
@@ -835,7 +855,7 @@ app.post('/flutter/web/start', async (req, res) => {
         });
         
         // Use Load Balancer URL instead of IP:port
-        const loadBalancerUrl = 'http://warp-flutter-alb-1904513476.us-west-2.elb.amazonaws.com';
+        const loadBalancerUrl = 'https://api.drape.info';
         const webUrl = `${loadBalancerUrl}/app/${repository}`;
         console.log(`🌐 Final Flutter URL: ${webUrl}`);
         console.log(`📦 App available at: ${webUrl}`);

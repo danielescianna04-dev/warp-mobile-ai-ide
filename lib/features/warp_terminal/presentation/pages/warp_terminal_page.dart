@@ -392,110 +392,64 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
         ],
       ),
       actions: [
-        // Preview button - Minimal design
+        // Preview button - Minimal refined
         if (_previewUrl != null)
           Padding(
-            padding: const EdgeInsets.only(right: 4),
-            child: GestureDetector(
-              onTap: _openPreview,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                decoration: BoxDecoration(
-                  color: brightness == Brightness.dark
-                      ? const Color(0xFF1E1E1E)
-                      : const Color(0xFFF5F5F5),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: brightness == Brightness.dark
-                        ? const Color(0xFF2A2A2A)
-                        : const Color(0xFFE5E5E5),
-                    width: 1,
+            padding: const EdgeInsets.only(right: 6),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: _openPreview,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.play_circle_outline,
-                      color: AppColors.primary.withValues(alpha: 0.8),
-                      size: 16,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Preview',
-                      style: TextStyle(
-                        color: brightness == Brightness.dark
-                            ? const Color(0xFFE5E5E5)
-                            : const Color(0xFF1A1A1A),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.play_arrow_rounded,
+                        color: AppColors.primary,
+                        size: 16,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 4),
+                      Text(
+                        'Preview',
+                        style: TextStyle(
+                          color: AppColors.primary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        // Stop process button - Minimal design
+        // Stop button - Minimal refined
         if (_previewUrl != null && _selectedRepository != null)
           Padding(
-            padding: const EdgeInsets.only(right: 4),
-            child: GestureDetector(
-              onTap: _stopFlutterProcess,
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: brightness == Brightness.dark
-                      ? const Color(0xFF1E1E1E)
-                      : const Color(0xFFF5F5F5),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: brightness == Brightness.dark
-                        ? const Color(0xFF2A2A2A)
-                        : const Color(0xFFE5E5E5),
-                    width: 1,
+            padding: const EdgeInsets.only(right: 6),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: _stopFlutterProcess,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                ),
-                child: Icon(
-                  Icons.stop_circle_outlined,
-                  color: AppColors.error.withValues(alpha: 0.8),
-                  size: 16,
-                ),
-              ),
-            ),
-          ),
-        if (_terminalItems.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(right: 4),
-            child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  _terminalItems.clear();
-                  _hasInteracted = false;
-                  _previewUrl = null; // Reset preview quando clear
-                });
-              },
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                          AppColors.surface(Theme.of(context).brightness).withValues(alpha: 0.6),
-                          AppColors.surface(Theme.of(context).brightness).withValues(alpha: 0.3),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+                  child: Icon(
+                    Icons.stop_rounded,
+                    color: AppColors.error,
+                    size: 16,
                   ),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: AppColors.textSecondary.withValues(alpha: 0.2),
-                    width: 1,
-                  ),
-                ),
-                child: Icon(
-                  Icons.clear_all_rounded,
-                  color: AppColors.textSecondary,
-                  size: 16,
                 ),
               ),
             ),
@@ -5662,12 +5616,17 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
     return Container(
       margin: const EdgeInsets.only(bottom: 2),
       child: InkWell(
-        onTap: () {
+        onTap: () async {
           setState(() {
             _selectedRepository = repo;
           });
           Navigator.pop(context);
-          _showSnackBar('Repository ${repo.name} selezionata!');
+          _showSnackBar('Clonazione ${repo.name}...');
+          
+          // Clone repository automatically
+          final repoName = repo.name.replaceAll('.', '_').replaceAll('-', '_');
+          final cloneCommand = 'rm -rf /tmp/projects/$repoName && git clone ${repo.cloneUrl} /tmp/projects/$repoName';
+          await TerminalService().executeCommand(cloneCommand);
         },
         borderRadius: BorderRadius.circular(8),
         child: Container(
@@ -6525,33 +6484,21 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
     print('🔍 Debug: exposedPorts: ${terminalService.exposedPorts}');
     
     if (terminalService.hasWebServerRunning) {
-      // Usa l'URL dinamico restituito dal server AWS invece di URL fisso
-      final webUrls = terminalService.exposedPorts.values.toList();
-      String? webUrl;
+      // Usa getWebServerUrl() che restituisce l'ultima porta (user server, non backend)
+      final webUrl = terminalService.getWebServerUrl();
       
-      // Usa l'URL dinamico dal backend AWS ECS invece di localhost hardcoded
-      if (webUrls.isNotEmpty) {
-        // Filtra gli URL localhost per usare solo URL pubblici
-        webUrl = webUrls.firstWhere(
-          (url) => !url.contains('localhost') && !url.contains('127.0.0.1'),
-          orElse: () => webUrls.first, // Fallback al primo se non ci sono URL pubblici
-        );
-      } else {
-        // Solo come fallback se non ci sono URL dal backend
-        print('⚠️ Warning: Nessun URL dal backend, usando localhost come fallback');
-        webUrl = 'http://localhost:3001';
-      }
-      
-      print('🔍 Debug: Using dynamic web URL: $webUrl');
-      if (webUrl != _previewUrl) {
-        setState(() {
-          _previewUrl = webUrl;
-        });
-        print('🚀 Web server detected from backend: $webUrl');
-        print('🔍 Debug: Preview URL set to: $_previewUrl');
-        
-        // Show a notification that the preview is available
-        _showSnackBar('🎆 Server avviato! Preview disponibile');
+      if (webUrl != null) {
+        print('🔍 Debug: Using dynamic web URL: $webUrl');
+        if (webUrl != _previewUrl) {
+          setState(() {
+            _previewUrl = webUrl;
+          });
+          print('🚀 Web server detected from backend: $webUrl');
+          print('🔍 Debug: Preview URL set to: $_previewUrl');
+          
+          // Show a notification that the preview is available
+          _showSnackBar('🎆 Server avviato! Preview disponibile');
+        }
       }
     } else {
       print('🔍 Debug: No web server running detected');

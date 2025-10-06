@@ -833,11 +833,11 @@ class TerminalService {
   bool get hasWebServerRunning => _exposedPorts.isNotEmpty;
   
   String? getWebServerUrl() {
-    // Return the first available port URL
-    for (String url in _exposedPorts.values) {
-      if (url.isNotEmpty) return url;
-    }
-    return null;
+    // Return the last available port URL (user servers are added after backend port 3000)
+    if (_exposedPorts.isEmpty) return null;
+    var url = _exposedPorts.values.last;
+    // Convert HTTP Load Balancer URLs to HTTPS domain
+    return url.replaceAll('http://warp-flutter-alb-1904513476.us-west-2.elb.amazonaws.com', 'https://api.drape.info');
   }
   
   bool get isRemoteMode => _useRemoteTerminal;

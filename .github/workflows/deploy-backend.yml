@@ -9,7 +9,7 @@ on:
 
 env:
   AWS_REGION: us-west-2
-  ECR_REPOSITORY: warp-ecs-flutter
+  ECR_REPOSITORY: warp-flutter-backend
   ECS_CLUSTER: warp-flutter-cluster
   ECS_SERVICE: warp-flutter-service
 

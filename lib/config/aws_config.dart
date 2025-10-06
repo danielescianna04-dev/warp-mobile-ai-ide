@@ -1,8 +1,8 @@
 /// AWS Configuration for Production Deployment
 class AWSConfig {
-  // AWS ECS Load Balancer Configuration - UPDATED FOR ECS FARGATE BACKEND
-  static const String apiBaseUrl = 'http://warp-flutter-alb-1904513476.us-west-2.elb.amazonaws.com';
-  static const String wsBaseUrl = 'ws://warp-flutter-alb-1904513476.us-west-2.elb.amazonaws.com';
+  // AWS ECS Load Balancer Configuration - UPDATED FOR HTTPS WITH CUSTOM DOMAIN
+  static const String apiBaseUrl = 'https://api.drape.info';
+  static const String wsBaseUrl = 'wss://api.drape.info';
   
   // API Endpoints (mapped to ECS server endpoints)
   static const String healthEndpoint = '/health';
@@ -21,8 +21,8 @@ class AWSConfig {
   
   // Session configuration
   static const Duration sessionTimeout = Duration(hours: 2);
-  static const Duration commandTimeout = Duration(minutes: 5);
-  static const Duration aiTimeout = Duration(minutes: 1);
+  static const Duration commandTimeout = Duration(minutes: 15);
+  static const Duration aiTimeout = Duration(minutes: 2);
   
   // Get full URL for endpoint
   static String getEndpointUrl(String endpoint) {
