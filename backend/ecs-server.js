@@ -338,7 +338,8 @@ app.post('/execute-heavy', async (req, res) => {
             
             // Detect running servers after command execution
             const exposedPorts = await detectRunningServers();
-            const webUrl = Object.values(exposedPorts)[0] || null;
+            const ports = Object.values(exposedPorts);
+            const webUrl = ports[ports.length - 1] || null;
             const webServerDetected = Object.keys(exposedPorts).length > 0;
             
             if (webServerDetected) {
