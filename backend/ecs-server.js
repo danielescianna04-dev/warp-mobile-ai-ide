@@ -151,7 +151,14 @@ app.use('/proxy/:port', (req, res) => {
     
     const http = require('http');
     const proxyReq = http.request(targetUrl, (proxyRes) => {
-        res.writeHead(proxyRes.statusCode, proxyRes.headers);
+        // Add CORS headers
+        const headers = {
+            ...proxyRes.headers,
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type'
+        };
+        res.writeHead(proxyRes.statusCode, headers);
         proxyRes.pipe(res);
     });
     
