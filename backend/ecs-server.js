@@ -319,9 +319,7 @@ app.post('/execute-heavy', async (req, res) => {
         // Check for common static server commands
         const cmd = command.trim();
         if (cmd === 'python -m http.server' || cmd.startsWith('python -m http.server ') ||
-            cmd === 'python3 -m http.server' || cmd.startsWith('python3 -m http.server ') ||
-            cmd === 'npx serve' || cmd.startsWith('npx serve ') ||
-            cmd === 'serve' || cmd === 'preview') {
+            cmd === 'python3 -m http.server' || cmd.startsWith('python3 -m http.server ')) {
             
             // Extract port if specified
             let port = 6789;
@@ -331,7 +329,24 @@ app.post('/execute-heavy', async (req, res) => {
             }
             
             actualCommand = `(node /workspace/static-server.js . ${port} > /tmp/server.log 2>&1 &) && sleep 2 && echo "✅ Server avviato sulla porta ${port}"`;
-            friendlyMessage = `🚀 Avvio del server in corso...\n\n✅ Applicazione pronta!\nPuoi visualizzarla cliccando su Preview`;
+            friendlyMessage = `🐍 Avvio server Python...\n\n✅ Server pronto!\nClicca Preview per visualizzare`;
+            console.log(`🌐 Transformed '${cmd}' to static server on port ${port}`);
+        } else if (cmd === 'npx serve' || cmd.startsWith('npx serve ')) {
+            
+            let port = 6789;
+            const portMatch = cmd.match(/\b(\d{4,5})\b/);
+            if (portMatch) {
+                port = parseInt(portMatch[1]);
+            }
+            
+            actualCommand = `(node /workspace/static-server.js . ${port} > /tmp/server.log 2>&1 &) && sleep 2 && echo "✅ Server avviato sulla porta ${port}"`;
+            friendlyMessage = `📦 Avvio server Node...\n\n✅ Server pronto!\nClicca Preview per visualizzare`;
+            console.log(`🌐 Transformed '${cmd}' to static server on port ${port}`);
+        } else if (cmd === 'serve' || cmd === 'preview') {
+            
+            let port = 6789;
+            actualCommand = `(node /workspace/static-server.js . ${port} > /tmp/server.log 2>&1 &) && sleep 2 && echo "✅ Server avviato sulla porta ${port}"`;
+            friendlyMessage = `🚀 Avvio applicazione...\n\n✅ App pronta!\nClicca Preview per visualizzare`;
             console.log(`🌐 Transformed '${cmd}' to static server on port ${port}`);
         }
         
