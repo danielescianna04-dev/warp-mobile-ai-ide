@@ -142,7 +142,70 @@ app.get('/health', (req, res) => {
     });
 });
 
-// Proxy for Node.js servers running on different ports (v3 - fixed)
+// Proxy with CSS inlining for iOS WebView
+app.get('/proxy/:port/*', async (req, res) => {
+    const port = req.params.port;
+    const path = req.params[0] || '';
+    const targetUrl = `http://localhost:${port}/${path}`;
+    
+    console.log(`🔀 Proxying request to: ${targetUrl}`);
+    
+    const http = require('http');
+    const proxyReq = http.request(targetUrl, (proxyRes) => {
+        // If HTML, inline CSS
+        if (proxyRes.headers['content-type']?.includes('text/html')) {
+            let html = '';
+            proxyRes.on('data', chunk => html += chunk);
+            proxyRes.on('end', async () => {
+                // Fetch CSS and inline it
+                try {
+                    const cssUrl = `http://localhost:${port}/styles.css`;
+                    const cssReq = http.request(cssUrl, (cssRes) => {
+                        let css = '';
+                        cssRes.on('data', chunk => css += chunk);
+                        cssRes.on('end', () => {
+                            // Inject CSS into HTML
+                            html = html.replace('</head>', `<style>${css}</style></head>`);
+                            res.setHeader('Content-Type', 'text/html');
+                            res.setHeader('Access-Control-Allow-Origin', '*');
+                            res.send(html);
+                        });
+                    });
+                    cssReq.on('error', () => {
+                        // If CSS fetch fails, send HTML as-is
+                        res.setHeader('Content-Type', 'text/html');
+                        res.setHeader('Access-Control-Allow-Origin', '*');
+                        res.send(html);
+                    });
+                    cssReq.end();
+                } catch (e) {
+                    res.setHeader('Content-Type', 'text/html');
+                    res.setHeader('Access-Control-Allow-Origin', '*');
+                    res.send(html);
+                }
+            });
+        } else {
+            // For non-HTML, proxy as-is
+            const headers = {
+                ...proxyRes.headers,
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type'
+            };
+            res.writeHead(proxyRes.statusCode, headers);
+            proxyRes.pipe(res);
+        }
+    });
+    
+    proxyReq.on('error', (error) => {
+        console.error(`Proxy error for port ${port}:`, error.message);
+        res.status(502).json({ error: `Server on port ${port} not responding` });
+    });
+    
+    proxyReq.end();
+});
+
+// Fallback for other proxy requests
 app.use('/proxy/:port', (req, res) => {
     const port = req.params.port;
     const targetUrl = `http://localhost:${port}${req.url}`;
