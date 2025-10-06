@@ -71,8 +71,7 @@ async function detectRunningServers() {
                     
                     // Check if port is in LISTEN state (0A = LISTEN)
                     const state = parts[3];
-                    // Exclude port 3000 (backend itself) and only detect user servers
-                    if (state === '0A' && port > 3000 && port <= 9999) {
+                    if (state === '0A' && port >= 3000 && port <= 9999) {
                         console.log(`🌐 Detected server on port ${port} (${file})`);
                         exposedPorts[`${port}/tcp`] = `${loadBalancerUrl}/proxy/${port}`;
                     }
