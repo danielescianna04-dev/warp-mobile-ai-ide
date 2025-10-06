@@ -1238,6 +1238,11 @@ process.on('SIGINT', () => {
     process.exit(0);
 });
 
+// Health check endpoint for ALB
+app.get('/', (req, res) => {
+    res.status(200).json({ status: 'healthy', service: 'warp-backend' });
+});
+
 // Avvia il server
 app.listen(port, '0.0.0.0', () => {
     console.log(`🚀 ECS Fargate server running on port ${port}`);
