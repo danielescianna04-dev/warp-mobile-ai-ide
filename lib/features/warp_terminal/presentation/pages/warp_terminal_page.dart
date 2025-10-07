@@ -5884,7 +5884,39 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
           }
           
           final cloneCommand = 'rm -rf /tmp/projects/$repoName && git clone $cloneUrl /tmp/projects/$repoName';
-          await TerminalService().executeCommand(cloneCommand);
+          
+          // Show command in terminal
+          setState(() {
+            _terminalItems.add(
+              TerminalItem(
+                content: 'git clone ${repo.name}',
+                type: TerminalItemType.command,
+                timestamp: DateTime.now(),
+              )
+            );
+            _isLoading = true;
+          });
+          
+          // Execute clone
+          final result = await TerminalService().executeCommand(cloneCommand);
+          
+          // Show result
+          setState(() {
+            if (result.output.isNotEmpty || result.errorDetails != null) {
+              _terminalItems.add(
+                TerminalItem(
+                  content: result.isSuccess ? 'Repository clonato con successo' : (result.errorDetails ?? 'Errore durante la clonazione'),
+                  type: result.isSuccess ? TerminalItemType.system : TerminalItemType.error,
+                  timestamp: DateTime.now(),
+                  errorDetails: result.errorDetails,
+                  exitCode: result.exitCode,
+                )
+              );
+            }
+            _isLoading = false;
+          });
+          
+          _scrollToBottom();
         },
         borderRadius: BorderRadius.circular(8),
         child: Container(
