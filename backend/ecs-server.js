@@ -316,38 +316,116 @@ app.post('/execute-heavy', async (req, res) => {
         let useSpecialEndpoint = false;
         let friendlyMessage = null;
         
-        // Check for common static server commands
+        // Check for persistent server commands
         const cmd = command.trim();
-        if (cmd === 'python -m http.server' || cmd.startsWith('python -m http.server ') ||
-            cmd === 'python3 -m http.server' || cmd.startsWith('python3 -m http.server ')) {
+        const serverCommands = [
+            { pattern: /^(python3?|py)\s+-m\s+http\.server(\s+\d+)?/, port: 8000, icon: '🐍', name: 'Python' },
+            { pattern: /^npx\s+serve(\s+-p\s+\d+|\s+\d+)?/, port: 3000, icon: '📦', name: 'Node' },
+            { pattern: /^serve(\s+-p\s+\d+|\s+\d+)?/, port: 3000, icon: '🚀', name: 'Serve' },
+            { pattern: /^preview$/, port: 6789, icon: '🚀', name: 'Preview' },
+            { pattern: /^node\s+\S+\.js/, port: 3000, icon: '🟢', name: 'Node.js' },
+            { pattern: /^npm\s+(run\s+)?start/, port: 3000, icon: '📦', name: 'NPM' },
+            { pattern: /^yarn\s+start/, port: 3000, icon: '🧶', name: 'Yarn' },
+            { pattern: /^php\s+-S/, port: 8000, icon: '🐘', name: 'PHP' },
+            { pattern: /^ruby\s+-run\s+-e\s+httpd/, port: 8080, icon: '💎', name: 'Ruby' }
+        ];
+        
+        let matchedCommand = null;
+        for (const serverCmd of serverCommands) {
+            if (serverCmd.pattern.test(cmd)) {
+                matchedCommand = serverCmd;
+                break;
+            }
+        }
+        
+        if (matchedCommand) {
+            // Extract port from command or use default
+            let port = matchedCommand.port;
+            const portPatterns = [
+                /\s+(\d{4,5})(?:\s|$)/,
+                /-p\s+(\d{4,5})/,
+                /--port[=\s]+(\d{4,5})/,
+                /:(\d{4,5})/
+            ];
             
-            // Extract port if specified
-            let port = 6789;
-            const portMatch = cmd.match(/\b(\d{4,5})\b/);
-            if (portMatch) {
-                port = parseInt(portMatch[1]);
+            for (const pattern of portPatterns) {
+                const match = cmd.match(pattern);
+                if (match) {
+                    port = parseInt(match[1]);
+                    break;
+                }
             }
             
-            actualCommand = `(node /workspace/static-server.js . ${port} > /tmp/server.log 2>&1 &) && sleep 2 && echo "✅ Server avviato sulla porta ${port}"`;
-            friendlyMessage = `🐍 Avvio server Python...\n\n✅ Server pronto!\nClicca Preview per visualizzare`;
-            console.log(`🌐 Transformed '${cmd}' to static server on port ${port}`);
-        } else if (cmd === 'npx serve' || cmd.startsWith('npx serve ')) {
-            
-            let port = 6789;
-            const portMatch = cmd.match(/\b(\d{4,5})\b/);
-            if (portMatch) {
-                port = parseInt(portMatch[1]);
+            // Check if server already running
+            if (staticServerProcesses.has(repoName)) {
+                const existing = staticServerProcesses.get(repoName);
+                friendlyMessage = `✅ Server già attivo sulla porta ${existing.port}!\nClicca Preview per visualizzare`;
+                
+                res.json({
+                    success: true,
+                    output: friendlyMessage,
+                    error: '',
+                    exitCode: 0,
+                    environment: 'ecs-fargate',
+                    executionTime: 0,
+                    workingDir: actualWorkingDir,
+                    repository: repoName,
+                    exposedPorts: await detectRunningServers(),
+                    webUrl: `https://api.drape.info/proxy/${existing.port}`,
+                    webServerDetected: true
+                });
+                return;
             }
             
-            actualCommand = `(node /workspace/static-server.js . ${port} > /tmp/server.log 2>&1 &) && sleep 2 && echo "✅ Server avviato sulla porta ${port}"`;
-            friendlyMessage = `📦 Avvio server Node...\n\n✅ Server pronto!\nClicca Preview per visualizzare`;
-            console.log(`🌐 Transformed '${cmd}' to static server on port ${port}`);
-        } else if (cmd === 'serve' || cmd === 'preview') {
+            // Start server as persistent process
+            const serverProcess = spawn('bash', ['-c', cmd], {
+                cwd: actualWorkingDir,
+                detached: false,
+                stdio: ['ignore', 'pipe', 'pipe']
+            });
             
-            let port = 6789;
-            actualCommand = `(pkill -f "static-server.js.*${port}" 2>/dev/null || true) && (nohup node /workspace/static-server.js . ${port} > /tmp/server-${port}.log 2>&1 &) && sleep 2 && echo "✅ Server avviato sulla porta ${port}"`;
-            friendlyMessage = `🚀 Avvio applicazione...\n\n✅ App pronta!\nClicca Preview per visualizzare`;
-            console.log(`🌐 Transformed '${cmd}' to static server on port ${port}`);
+            staticServerProcesses.set(repoName, {
+                process: serverProcess,
+                port,
+                startTime: Date.now(),
+                command: cmd
+            });
+            
+            let startupOutput = '';
+            serverProcess.stdout.on('data', (data) => {
+                startupOutput += data.toString();
+                console.log(`[Server ${repoName}]:`, data.toString());
+            });
+            
+            serverProcess.stderr.on('data', (data) => {
+                console.error(`[Server ${repoName} ERROR]:`, data.toString());
+            });
+            
+            serverProcess.on('close', (code) => {
+                console.log(`Server for ${repoName} exited with code ${code}`);
+                staticServerProcesses.delete(repoName);
+            });
+            
+            // Wait for server to start
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            friendlyMessage = `${matchedCommand.icon} Server ${matchedCommand.name} avviato!\n\n✅ Porta ${port} attiva\nClicca Preview per visualizzare`;
+            
+            const exposedPorts = await detectRunningServers();
+            res.json({
+                success: true,
+                output: friendlyMessage,
+                error: '',
+                exitCode: 0,
+                environment: 'ecs-fargate',
+                executionTime: 2000,
+                workingDir: actualWorkingDir,
+                repository: repoName,
+                exposedPorts,
+                webUrl: `https://api.drape.info/proxy/${port}`,
+                webServerDetected: true
+            });
+            return;
         }
         
         // Check for special Flutter web commands
@@ -479,6 +557,7 @@ app.post('/execute-heavy', async (req, res) => {
 
 // Track Node.js server processes
 const nodeServerProcesses = new Map();
+const staticServerProcesses = new Map();
 
 // Endpoint per avviare server Node.js in background
 app.post('/node/server/start', async (req, res) => {
@@ -947,6 +1026,77 @@ app.post('/flutter/web/stop', (req, res) => {
             message: `No running Flutter web app found for ${repository}`
         });
     }
+});
+
+// Endpoint per fermare server statici
+app.post('/server/stop', (req, res) => {
+    const { repository } = req.body;
+    resetIdleTimer();
+    
+    if (staticServerProcesses.has(repository)) {
+        const processInfo = staticServerProcesses.get(repository);
+        processInfo.process.kill('SIGTERM');
+        staticServerProcesses.delete(repository);
+        
+        res.json({
+            success: true,
+            message: `Server for ${repository} stopped`
+        });
+    } else {
+        res.json({
+            success: false,
+            message: `No running server found for ${repository}`
+        });
+    }
+});
+
+// Endpoint per ottenere lo stato di tutti i server
+app.get('/server/status', async (req, res) => {
+    resetIdleTimer();
+    
+    const servers = [];
+    
+    // Static servers
+    for (const [repo, info] of staticServerProcesses.entries()) {
+        servers.push({
+            repository: repo,
+            type: 'static',
+            port: info.port,
+            command: info.command || 'static-server',
+            uptime: Date.now() - info.startTime,
+            url: `https://api.drape.info/proxy/${info.port}`
+        });
+    }
+    
+    // Node servers
+    for (const [repo, info] of nodeServerProcesses.entries()) {
+        servers.push({
+            repository: repo,
+            type: 'node',
+            port: info.port,
+            file: info.file,
+            uptime: Date.now() - info.startTime,
+            url: `https://api.drape.info/proxy/${info.port}`
+        });
+    }
+    
+    // Flutter web apps
+    for (const [repo, info] of flutterWebProcesses.entries()) {
+        servers.push({
+            repository: repo,
+            type: info.type || 'flutter-web',
+            port: info.port,
+            command: info.command,
+            uptime: Date.now() - info.startTime,
+            url: info.type === 'flutter-run' ? `https://api.drape.info/proxy/${info.port}` : `https://api.drape.info/app/${repo}`
+        });
+    }
+    
+    res.json({
+        success: true,
+        servers,
+        exposedPorts: await detectRunningServers()
+    });
 });
 
 // NEW: Endpoint dedicato per flutter run (long-running process)
