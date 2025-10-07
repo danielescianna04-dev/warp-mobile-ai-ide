@@ -322,7 +322,9 @@ class TerminalService {
     try {
       // Use free Groq API (Llama 3.1) for fast message reformatting
       final prompt = '''Transform this technical message into a simple, user-friendly message in Italian. 
-Keep it short (max 2 lines), clear, and friendly. Don't include technical jargon or emojis.
+Keep it short (max 2-3 lines), clear, and friendly. 
+If it's an error about missing repository/project, suggest alternatives like "crea un'applicazione" or "seleziona un progetto da GitHub".
+Don't include technical jargon or emojis.
 
 Technical message: $technicalMessage
 
@@ -340,8 +342,8 @@ User-friendly message:''';
           'messages': [
             {'role': 'user', 'content': prompt}
           ],
-          'max_tokens': 100,
-          'temperature': 0.3,
+          'max_tokens': 150,
+          'temperature': 0.4,
         }),
       ).timeout(const Duration(seconds: 3));
 
