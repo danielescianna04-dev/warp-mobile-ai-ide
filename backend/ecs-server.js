@@ -1096,12 +1096,14 @@ app.post('/server/stop', (req, res) => {
         
         res.json({
             success: true,
-            message: `Server for ${repository} stopped`
+            output: `Server fermato con successo`,
+            exitCode: 0
         });
     } else {
         res.json({
             success: false,
-            message: `No running server found for ${repository}`
+            output: `Nessun server attivo trovato`,
+            exitCode: 1
         });
     }
 });

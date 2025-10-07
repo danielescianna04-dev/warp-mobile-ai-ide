@@ -319,6 +319,17 @@ class TerminalService {
   }
 
   Future<String> _reformatErrorForUser(String technicalMessage) async {
+    // Skip reformatting if message is already in Italian and user-friendly
+    if (technicalMessage.contains('Server fermato') || 
+        technicalMessage.contains('successo') ||
+        technicalMessage.contains('Nessun server') ||
+        !technicalMessage.contains(RegExp(r'[A-Z][a-z]+\s[A-Z]')) && // No CamelCase
+        !technicalMessage.contains('Error') &&
+        !technicalMessage.contains('failed') &&
+        technicalMessage.length < 100) {
+      return technicalMessage;
+    }
+    
     try {
       // Use free Groq API (Llama 3.1) for fast message reformatting
       final prompt = '''Trasforma questo messaggio tecnico in un messaggio semplice e amichevole in italiano.
