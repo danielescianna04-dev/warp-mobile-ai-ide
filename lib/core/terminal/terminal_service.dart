@@ -332,7 +332,7 @@ User-friendly message:''';
         url,
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer gsk_YOUR_FREE_GROQ_KEY', // Free API key
+          'Authorization': 'Bearer ${const String.fromEnvironment('GROQ_API_KEY', defaultValue: '')}',
         },
         body: json.encode({
           'model': 'llama-3.1-8b-instant', // Fast and free
