@@ -319,7 +319,7 @@ class TerminalService {
 
   Future<String> _reformatErrorForUser(String technicalError) async {
     try {
-      // Use a simple prompt to make error user-friendly
+      // Use free Groq API (Llama 3.1) for fast error reformatting
       final prompt = '''Transform this technical error into a simple, user-friendly message in Italian. 
 Keep it short (max 2 lines), clear, and actionable. Don't include technical jargon.
 
@@ -327,19 +327,29 @@ Technical error: $technicalError
 
 User-friendly message:''';
 
-      final url = Uri.parse('${AWSConfig.apiBaseUrl}/ai/chat');
+      final url = Uri.parse('https://api.groq.com/openai/v1/chat/completions');
       final response = await http.post(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer gsk_YOUR_FREE_GROQ_KEY', // Free API key
+        },
         body: json.encode({
-          'message': prompt,
-          'model': 'gpt-4o-mini', // Fast and cheap for simple reformatting
+          'model': 'llama-3.1-8b-instant', // Fast and free
+          'messages': [
+            {'role': 'user', 'content': prompt}
+          ],
+          'max_tokens': 100,
+          'temperature': 0.3,
         }),
-      ).timeout(const Duration(seconds: 5));
+      ).timeout(const Duration(seconds: 3));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        return data['response']?.trim() ?? technicalError;
+        final message = data['choices']?[0]?['message']?['content']?.trim();
+        if (message != null && message.isNotEmpty) {
+          return message;
+        }
       }
     } catch (e) {
       print('⚠️ Error reformatting failed: $e');
