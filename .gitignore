@@ -61,3 +61,4 @@ yarn-error.log*
 # 🧪 Test files temporanei
 test-api-keys.js
 setup-api-keys.sh
+lib/config/api_keys.dart

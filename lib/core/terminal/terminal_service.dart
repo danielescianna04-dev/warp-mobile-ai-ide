@@ -7,6 +7,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:uuid/uuid.dart';
 import 'package:http/http.dart' as http;
 import '../../config/aws_config.dart';
+import '../../config/api_keys.dart';
 
 // Terminal output stream controller for real-time updates
 StreamController<CommandResult> terminalOutputStreamController = StreamController<CommandResult>.broadcast();
@@ -332,7 +333,7 @@ User-friendly message:''';
         url,
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${const String.fromEnvironment('GROQ_API_KEY', defaultValue: '')}',
+          'Authorization': 'Bearer ${ApiKeys.groqApiKey}',
         },
         body: json.encode({
           'model': 'llama-3.1-8b-instant', // Fast and free
