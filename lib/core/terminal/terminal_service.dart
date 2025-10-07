@@ -317,6 +317,38 @@ class TerminalService {
     }
   }
 
+  Future<String> _reformatErrorForUser(String technicalError) async {
+    try {
+      // Use a simple prompt to make error user-friendly
+      final prompt = '''Transform this technical error into a simple, user-friendly message in Italian. 
+Keep it short (max 2 lines), clear, and actionable. Don't include technical jargon.
+
+Technical error: $technicalError
+
+User-friendly message:''';
+
+      final url = Uri.parse('${AWSConfig.apiBaseUrl}/ai/chat');
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'message': prompt,
+          'model': 'gpt-4o-mini', // Fast and cheap for simple reformatting
+        }),
+      ).timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['response']?.trim() ?? technicalError;
+      }
+    } catch (e) {
+      print('⚠️ Error reformatting failed: $e');
+    }
+    
+    // Fallback to original error
+    return technicalError;
+  }
+
   Future<CommandResult> _executeAWSCommand(String command) async {
     try {
       if (_sessionId == null) {
@@ -372,6 +404,11 @@ class TerminalService {
         // Get output, fallback to error if no output available
         String commandOutput = responseData['output'] ?? responseData['error'] ?? 'No output';
         String? errorDetails = responseData['error'];
+        
+        // If command failed and we have an error, reformat it for users
+        if (!isSuccess && errorDetails != null && errorDetails.isNotEmpty) {
+          commandOutput = await _reformatErrorForUser(errorDetails);
+        }
         
         // Add execution info to error details for technical users
         String executionInfo = '';
