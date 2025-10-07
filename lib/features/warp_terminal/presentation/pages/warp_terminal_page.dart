@@ -5240,13 +5240,11 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
       _currentChatTitle = null;
       
       // Reset input state
-      _inputController.clear();
-      _currentInput = '';
+      _commandController.clear();
       
       // Don't reset repository - keep it for context
       // Users can manually change repository if needed
     });
-    _commandController.clear();
     Navigator.pop(context);
     
     // Focus sulla textfield dopo aver chiuso il drawer
@@ -5790,21 +5788,20 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
       _currentChatTitle = chat.title;
       
       // Reset terminal state
-      _inputController.clear();
-      _currentInput = '';
+      _commandController.clear();
       
       // Restore repository context if available
       if (chat.repositoryName != null) {
         // Find repository in the list if available
-        _selectedRepository = _repositories.firstWhere(
+        _selectedRepository = _gitHubRepositories.firstWhere(
           (repo) => repo.name == chat.repositoryName,
-          orElse: () => _repositories.isNotEmpty ? _repositories.first : GitHubRepository(
+          orElse: () => _gitHubRepositories.isNotEmpty ? _gitHubRepositories.first : github_service.GitHubRepository(
             id: 0,
             name: chat.repositoryName!,
             fullName: chat.repositoryName!,
             description: '',
             cloneUrl: '',
-            htmlUrl: '',
+            url: '',
             language: null,
             isPrivate: false,
             updatedAt: DateTime.now(),
