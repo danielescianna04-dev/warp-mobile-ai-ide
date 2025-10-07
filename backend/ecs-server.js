@@ -356,25 +356,34 @@ app.post('/execute-heavy', async (req, res) => {
                 }
             }
             
-            // Check if server already running
+            // Check if server already running for THIS repository
             if (staticServerProcesses.has(repoName)) {
                 const existing = staticServerProcesses.get(repoName);
-                friendlyMessage = `✅ Server già attivo sulla porta ${existing.port}!\nClicca Preview per visualizzare`;
                 
-                res.json({
-                    success: true,
-                    output: friendlyMessage,
-                    error: '',
-                    exitCode: 0,
-                    environment: 'ecs-fargate',
-                    executionTime: 0,
-                    workingDir: actualWorkingDir,
-                    repository: repoName,
-                    exposedPorts: await detectRunningServers(),
-                    webUrl: `https://api.drape.info/proxy/${existing.port}`,
-                    webServerDetected: true
-                });
-                return;
+                // Check if it's serving the same directory
+                if (existing.workingDir === actualWorkingDir) {
+                    friendlyMessage = `✅ Server già attivo sulla porta ${existing.port}!\nClicca Preview per visualizzare`;
+                    
+                    res.json({
+                        success: true,
+                        output: friendlyMessage,
+                        error: '',
+                        exitCode: 0,
+                        environment: 'ecs-fargate',
+                        executionTime: 0,
+                        workingDir: actualWorkingDir,
+                        repository: repoName,
+                        exposedPorts: await detectRunningServers(),
+                        webUrl: `https://api.drape.info/proxy/${existing.port}`,
+                        webServerDetected: true
+                    });
+                    return;
+                } else {
+                    // Different directory - stop old server and start new one
+                    console.log(`Stopping old server for ${repoName} to start new one`);
+                    existing.process.kill('SIGTERM');
+                    staticServerProcesses.delete(repoName);
+                }
             }
             
             // Start server as persistent process using our static-server
@@ -388,7 +397,8 @@ app.post('/execute-heavy', async (req, res) => {
                 process: serverProcess,
                 port,
                 startTime: Date.now(),
-                command: cmd
+                command: cmd,
+                workingDir: actualWorkingDir
             });
             
             let startupOutput = '';
