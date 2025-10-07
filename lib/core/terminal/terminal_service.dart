@@ -320,13 +320,15 @@ class TerminalService {
 
   Future<String> _reformatErrorForUser(String technicalMessage) async {
     // Skip reformatting if message is already in Italian and user-friendly
-    if (technicalMessage.contains('Server fermato') || 
+    if ((technicalMessage.contains('Server fermato') || 
         technicalMessage.contains('successo') ||
-        technicalMessage.contains('Nessun server') ||
-        !technicalMessage.contains(RegExp(r'[A-Z][a-z]+\s[A-Z]')) && // No CamelCase
+        technicalMessage.contains('Nessun server')) &&
+        !technicalMessage.contains('bash:') &&
+        !technicalMessage.contains('error:') &&
         !technicalMessage.contains('Error') &&
         !technicalMessage.contains('failed') &&
-        technicalMessage.length < 100) {
+        !technicalMessage.contains('fatal:') &&
+        !technicalMessage.contains('No such')) {
       return technicalMessage;
     }
     
