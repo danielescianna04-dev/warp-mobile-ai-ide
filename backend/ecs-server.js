@@ -356,6 +356,37 @@ app.post('/execute-heavy', async (req, res) => {
                 }
             }
             
+            // Check if directory exists and has files
+            if (!fs.existsSync(actualWorkingDir)) {
+                res.json({
+                    success: false,
+                    output: '',
+                    error: `Directory not found: ${actualWorkingDir}\nPlease select a repository first or clone a project.`,
+                    exitCode: 1,
+                    environment: 'ecs-fargate',
+                    executionTime: 0,
+                    workingDir: actualWorkingDir,
+                    repository: repoName
+                });
+                return;
+            }
+            
+            // Check if directory has any files to serve
+            const files = fs.readdirSync(actualWorkingDir).filter(f => !f.startsWith('.'));
+            if (files.length === 0) {
+                res.json({
+                    success: false,
+                    output: '',
+                    error: `Directory is empty: ${actualWorkingDir}\nNothing to serve.`,
+                    exitCode: 1,
+                    environment: 'ecs-fargate',
+                    executionTime: 0,
+                    workingDir: actualWorkingDir,
+                    repository: repoName
+                });
+                return;
+            }
+            
             // Check if server already running for THIS repository
             if (staticServerProcesses.has(repoName)) {
                 const existing = staticServerProcesses.get(repoName);
