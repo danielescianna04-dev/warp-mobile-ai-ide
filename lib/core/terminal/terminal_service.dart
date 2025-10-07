@@ -428,8 +428,11 @@ Messaggio user-friendly:''';
         } else if (rawError != null && rawError.isNotEmpty) {
           // No output but has error - reformat error for display
           commandOutput = await _reformatErrorForUser(rawError);
+        } else if (isSuccess) {
+          // Success but no output - command executed silently
+          commandOutput = ''; // Don't show anything for silent commands
         } else {
-          commandOutput = 'No output';
+          commandOutput = 'Comando fallito';
         }
         
         // Add execution info to error details for technical users

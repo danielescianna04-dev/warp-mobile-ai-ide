@@ -4342,7 +4342,10 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
           });
         } else {
           setState(() {
-            if (result.output.isNotEmpty || result.errorDetails != null) {
+            // Only add terminal item if there's something to show
+            if ((result.output.isNotEmpty && result.output != 'No output') || 
+                result.errorDetails != null || 
+                result.exitCode != 0) {
               _terminalItems.add(
                 TerminalItem(
                   content: result.output.isNotEmpty ? result.output : (result.errorDetails ?? 'Error'),
