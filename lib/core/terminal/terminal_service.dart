@@ -321,14 +321,14 @@ class TerminalService {
   Future<String> _reformatErrorForUser(String technicalMessage) async {
     try {
       // Use free Groq API (Llama 3.1) for fast message reformatting
-      final prompt = '''Transform this technical message into a simple, user-friendly message in Italian. 
-Keep it short (max 2-3 lines), clear, and friendly. 
-If it's an error about missing repository/project, suggest alternatives like "crea un'applicazione" or "seleziona un progetto da GitHub".
-Don't include technical jargon or emojis.
+      final prompt = '''Trasforma questo messaggio tecnico in un messaggio semplice e amichevole in italiano.
+Massimo 1-2 righe, chiaro e diretto. 
+Se manca un progetto, suggerisci brevemente: "Seleziona un progetto da GitHub o creane uno nuovo".
+Niente emoji, niente elenchi puntati, niente formattazioni speciali.
 
-Technical message: $technicalMessage
+Messaggio tecnico: $technicalMessage
 
-User-friendly message:''';
+Messaggio user-friendly:''';
 
       final url = Uri.parse('https://api.groq.com/openai/v1/chat/completions');
       final response = await http.post(
@@ -342,8 +342,8 @@ User-friendly message:''';
           'messages': [
             {'role': 'user', 'content': prompt}
           ],
-          'max_tokens': 150,
-          'temperature': 0.4,
+          'max_tokens': 80,
+          'temperature': 0.3,
         }),
       ).timeout(const Duration(seconds: 3));
 
