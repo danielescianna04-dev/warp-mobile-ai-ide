@@ -414,13 +414,22 @@ User-friendly message:''';
         final executionTime = responseData['executionTime'] ?? 0;
         final exitCode = responseData['exitCode'] ?? (isSuccess ? 0 : 1);
         
-        // Get output, fallback to error if no output available
-        String commandOutput = responseData['output'] ?? responseData['error'] ?? 'No output';
-        String? errorDetails = responseData['error'];
+        // Get output and error
+        String? rawOutput = responseData['output'];
+        String? rawError = responseData['error'];
         
-        // Reformat output for users (both success and error messages)
-        if (commandOutput.isNotEmpty && commandOutput != 'No output') {
-          commandOutput = await _reformatErrorForUser(commandOutput);
+        // Determine what to show to user
+        String commandOutput = '';
+        String? errorDetails = rawError;
+        
+        if (rawOutput != null && rawOutput.isNotEmpty) {
+          // Has output - reformat it
+          commandOutput = await _reformatErrorForUser(rawOutput);
+        } else if (rawError != null && rawError.isNotEmpty) {
+          // No output but has error - reformat error for display
+          commandOutput = await _reformatErrorForUser(rawError);
+        } else {
+          commandOutput = 'No output';
         }
         
         // Add execution info to error details for technical users
