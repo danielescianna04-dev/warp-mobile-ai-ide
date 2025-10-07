@@ -111,12 +111,12 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
                       const SizedBox(height: 16),
                       // Subtitle
                       Text(
-                        'AI-Powered Development',
+                        'AI-Powered Mobile IDE',
                         style: TextStyle(
                           fontSize: 16,
-                          fontWeight: FontWeight.w400,
-                          color: AppColors.bodyText(brightness).withOpacity(0.6),
-                          letterSpacing: 2,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.bodyText(brightness).withOpacity(0.7),
+                          letterSpacing: 3,
                         ),
                       ),
                     ],
