@@ -13,14 +13,14 @@ class SplashPage extends StatefulWidget {
 class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
-  late Animation<double> _scaleAnimation;
+  late Animation<double> _slideAnimation;
 
   @override
   void initState() {
     super.initState();
     
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 1200),
       vsync: this,
     );
 
@@ -29,21 +29,21 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
       end: 1.0,
     ).animate(CurvedAnimation(
       parent: _controller,
-      curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
+      curve: const Interval(0.0, 0.7, curve: Curves.easeOut),
     ));
 
-    _scaleAnimation = Tween<double>(
-      begin: 0.8,
-      end: 1.0,
+    _slideAnimation = Tween<double>(
+      begin: 20.0,
+      end: 0.0,
     ).animate(CurvedAnimation(
       parent: _controller,
-      curve: const Interval(0.0, 0.6, curve: Curves.easeOutCubic),
+      curve: const Interval(0.0, 0.7, curve: Curves.easeOutCubic),
     ));
 
     _controller.forward();
 
     // Navigate after animation
-    Future.delayed(const Duration(milliseconds: 2000), () {
+    Future.delayed(const Duration(milliseconds: 1800), () {
       if (mounted) {
         Navigator.of(context).pushReplacement(
           PageRouteBuilder(
@@ -55,7 +55,7 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
                 child: child,
               );
             },
-            transitionDuration: const Duration(milliseconds: 400),
+            transitionDuration: const Duration(milliseconds: 300),
           ),
         );
       }
@@ -84,31 +84,38 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
             builder: (context, child) {
               return Opacity(
                 opacity: _fadeAnimation.value,
-                child: Transform.scale(
-                  scale: _scaleAnimation.value,
+                child: Transform.translate(
+                  offset: Offset(0, _slideAnimation.value),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Drape text with gradient - animated letter by letter
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _buildAnimatedLetter('D', 0.0),
-                          _buildAnimatedLetter('r', 0.1),
-                          _buildAnimatedLetter('a', 0.2),
-                          _buildAnimatedLetter('p', 0.3),
-                          _buildAnimatedLetter('e', 0.4),
-                        ],
+                      // Drape text with gradient
+                      ShaderMask(
+                        shaderCallback: (bounds) => LinearGradient(
+                          colors: [
+                            AppColors.purpleLight,
+                            AppColors.purpleMedium,
+                          ],
+                        ).createShader(bounds),
+                        child: Text(
+                          'Drape',
+                          style: TextStyle(
+                            fontSize: 64,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                            letterSpacing: -1,
+                          ),
+                        ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       // Subtitle
                       Text(
-                        'AI-Powered Mobile IDE',
+                        'AI-POWERED MOBILE IDE',
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: 13,
                           fontWeight: FontWeight.w500,
-                          color: AppColors.bodyText(brightness).withOpacity(0.7),
-                          letterSpacing: 3,
+                          color: AppColors.bodyText(brightness).withOpacity(0.5),
+                          letterSpacing: 4,
                         ),
                       ),
                     ],
@@ -119,48 +126,6 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildAnimatedLetter(String letter, double delay) {
-    final brightness = Theme.of(context).brightness;
-    
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        // Calculate animation value with delay
-        final start = delay;
-        final end = delay + 0.3;
-        final value = (((_controller.value - start) / (end - start)).clamp(0.0, 1.0));
-        
-        return Transform.translate(
-          offset: Offset(0, 50 * (1 - value)),
-          child: Opacity(
-            opacity: value,
-            child: Transform.scale(
-              scale: 0.5 + (0.5 * value),
-              child: ShaderMask(
-                shaderCallback: (bounds) => LinearGradient(
-                  colors: [
-                    AppColors.purpleLight,
-                    AppColors.purpleMedium,
-                    AppColors.purpleDark,
-                  ],
-                ).createShader(bounds),
-                child: Text(
-                  letter,
-                  style: TextStyle(
-                    fontSize: 72,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                    letterSpacing: -2,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 }
