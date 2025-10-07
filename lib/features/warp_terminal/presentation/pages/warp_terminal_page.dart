@@ -1781,16 +1781,9 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
       );
     }
     
-    // Debug logs
-    print('🔍 Building content for item type: ${item.type}');
-    print('🔍 Has exitCode: ${item.exitCode != null} (value: ${item.exitCode})');
-    print('🔍 Has errorDetails: ${item.errorDetails != null} (length: ${item.errorDetails?.length})');
-    
     // Show expandable details for output and errors when details are available
     if ((item.type == TerminalItemType.output || item.type == TerminalItemType.error) && 
         (item.errorDetails != null || item.exitCode != null)) {
-      
-      print('✅ Showing expandable details panel');
       
       // Check for special Flutter output first
       if (item.type == TerminalItemType.output && 
@@ -1812,85 +1805,149 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
               fontFamily: 'SF Mono',
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Theme(
-            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-            child: ExpansionTile(
-              tilePadding: EdgeInsets.zero,
-              childrenPadding: const EdgeInsets.only(left: 12, top: 8),
-              title: Text(
-                'Show details',
-                style: TextStyle(
-                  color: textColor.withOpacity(0.7),
-                  fontSize: 12,
-                  fontFamily: 'SF Mono',
+            data: Theme.of(context).copyWith(
+              dividerColor: Colors.transparent,
+              splashColor: Colors.transparent,
+              highlightColor: Colors.transparent,
+            ),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: textColor.withOpacity(0.15),
+                  width: 1,
                 ),
               ),
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: textColor.withOpacity(0.2),
-                      width: 1,
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (item.exitCode != null) ...[
-                        Row(
-                          children: [
-                            Text(
-                              'Exit Code: ',
-                              style: TextStyle(
-                                color: textColor.withOpacity(0.8),
-                                fontSize: 12,
-                                fontFamily: 'SF Mono',
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            Text(
-                              '${item.exitCode}',
-                              style: TextStyle(
-                                color: item.exitCode == 0 
-                                    ? const Color(0xFF10B981) 
-                                    : const Color(0xFFEF4444),
-                                fontSize: 12,
-                                fontFamily: 'SF Mono',
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-                      if (item.errorDetails != null && item.errorDetails!.isNotEmpty) ...[
-                        Text(
-                          item.type == TerminalItemType.error ? 'Error Output:' : 'Additional Output:',
-                          style: TextStyle(
-                            color: textColor.withOpacity(0.8),
-                            fontSize: 12,
-                            fontFamily: 'SF Mono',
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        SelectableText(
-                          item.errorDetails!,
-                          style: TextStyle(
-                            color: textColor.withOpacity(0.9),
-                            fontSize: 12,
-                            fontFamily: 'SF Mono',
-                          ),
-                        ),
-                      ],
-                    ],
+              child: ExpansionTile(
+                tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                leading: Icon(
+                  Icons.info_outline_rounded,
+                  color: textColor.withOpacity(0.6),
+                  size: 16,
+                ),
+                title: Text(
+                  'Details',
+                  style: TextStyle(
+                    color: textColor.withOpacity(0.8),
+                    fontSize: 13,
+                    fontFamily: 'SF Mono',
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-              ],
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (item.exitCode != null) ...[
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: item.exitCode == 0 
+                                      ? const Color(0xFF10B981).withOpacity(0.2)
+                                      : const Color(0xFFEF4444).withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(
+                                    color: item.exitCode == 0 
+                                        ? const Color(0xFF10B981).withOpacity(0.4)
+                                        : const Color(0xFFEF4444).withOpacity(0.4),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      item.exitCode == 0 
+                                          ? Icons.check_circle_outline_rounded
+                                          : Icons.error_outline_rounded,
+                                      color: item.exitCode == 0 
+                                          ? const Color(0xFF10B981)
+                                          : const Color(0xFFEF4444),
+                                      size: 14,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Exit ${item.exitCode}',
+                                      style: TextStyle(
+                                        color: item.exitCode == 0 
+                                            ? const Color(0xFF10B981)
+                                            : const Color(0xFFEF4444),
+                                        fontSize: 12,
+                                        fontFamily: 'SF Mono',
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+                        if (item.errorDetails != null && item.errorDetails!.isNotEmpty) ...[
+                          Row(
+                            children: [
+                              Icon(
+                                item.type == TerminalItemType.error 
+                                    ? Icons.warning_amber_rounded
+                                    : Icons.description_outlined,
+                                color: textColor.withOpacity(0.6),
+                                size: 14,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                item.type == TerminalItemType.error ? 'Error Output' : 'Additional Output',
+                                style: TextStyle(
+                                  color: textColor.withOpacity(0.7),
+                                  fontSize: 11,
+                                  fontFamily: 'SF Mono',
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.4),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: textColor.withOpacity(0.1),
+                                width: 1,
+                              ),
+                            ),
+                            child: SelectableText(
+                              item.errorDetails!,
+                              style: TextStyle(
+                                color: textColor.withOpacity(0.85),
+                                fontSize: 11,
+                                fontFamily: 'SF Mono',
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -4260,11 +4317,6 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
         } else {
           setState(() {
             if (result.output.isNotEmpty) {
-              print('🔍 Creating TerminalItem with:');
-              print('   - type: ${result.isSuccess ? 'output' : 'error'}');
-              print('   - exitCode: ${result.exitCode}');
-              print('   - errorDetails: ${result.errorDetails}');
-              
               _terminalItems.add(
                 TerminalItem(
                   content: result.output,
