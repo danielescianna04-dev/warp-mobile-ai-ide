@@ -339,6 +339,21 @@ app.post('/execute-heavy', async (req, res) => {
         }
         
         if (matchedCommand) {
+            // Check if repository context is provided
+            if (!repository || repository === 'default-project') {
+                res.json({
+                    success: false,
+                    output: '',
+                    error: `No repository selected.\nPlease select a repository from GitHub before starting a server.`,
+                    exitCode: 1,
+                    environment: 'ecs-fargate',
+                    executionTime: 0,
+                    workingDir: actualWorkingDir,
+                    repository: repoName
+                });
+                return;
+            }
+            
             // Extract port from command or use default
             let port = matchedCommand.port;
             const portPatterns = [
