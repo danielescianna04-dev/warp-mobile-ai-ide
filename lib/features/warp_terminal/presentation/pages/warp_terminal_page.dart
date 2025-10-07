@@ -5787,14 +5787,16 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
 
   void _loadChatSession(ChatSession chat) {
     setState(() {
+      // Clear current terminal state first
+      _terminalItems.clear();
+      _commandController.clear();
+      
+      // Load chat messages
       _terminalItems = List.from(chat.messages);
       _selectedModel = chat.aiModel;
       _hasInteracted = true;
       _currentChatSession = chat;
       _currentChatTitle = chat.title;
-      
-      // Reset terminal state
-      _commandController.clear();
       
       // Restore repository context if available
       if (chat.repositoryName != null) {
@@ -5815,6 +5817,9 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
             updatedAt: DateTime.now(),
           ),
         );
+      } else {
+        // No repository in this chat - clear repository context
+        _selectedRepository = null;
       }
     });
     Navigator.pop(context);
