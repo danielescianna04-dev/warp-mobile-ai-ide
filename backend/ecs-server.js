@@ -377,8 +377,8 @@ app.post('/execute-heavy', async (req, res) => {
                 return;
             }
             
-            // Start server as persistent process
-            const serverProcess = spawn('bash', ['-c', cmd], {
+            // Start server as persistent process using our static-server
+            const serverProcess = spawn('node', ['/workspace/static-server.js', '.', port.toString()], {
                 cwd: actualWorkingDir,
                 detached: false,
                 stdio: ['ignore', 'pipe', 'pipe']
