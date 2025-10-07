@@ -319,15 +319,15 @@ app.post('/execute-heavy', async (req, res) => {
         // Check for persistent server commands
         const cmd = command.trim();
         const serverCommands = [
-            { pattern: /^(python3?|py)\s+-m\s+http\.server(\s+\d+)?/, port: 8000, icon: '🐍', name: 'Python' },
-            { pattern: /^npx\s+serve(\s+-p\s+\d+|\s+\d+)?/, port: 3000, icon: '📦', name: 'Node' },
-            { pattern: /^serve(\s+-p\s+\d+|\s+\d+)?/, port: 3000, icon: '🚀', name: 'Serve' },
+            { pattern: /^(python3?|py)\s+-m\s+http\.server(\s+\d+)?/, port: 6789, icon: '🐍', name: 'Python' },
+            { pattern: /^npx\s+serve(\s+-p\s+\d+|\s+\d+)?/, port: 6789, icon: '📦', name: 'Node' },
+            { pattern: /^serve(\s+-p\s+\d+|\s+\d+)?/, port: 6789, icon: '🚀', name: 'Serve' },
             { pattern: /^preview$/, port: 6789, icon: '🚀', name: 'Preview' },
-            { pattern: /^node\s+\S+\.js/, port: 3000, icon: '🟢', name: 'Node.js' },
-            { pattern: /^npm\s+(run\s+)?start/, port: 3000, icon: '📦', name: 'NPM' },
-            { pattern: /^yarn\s+start/, port: 3000, icon: '🧶', name: 'Yarn' },
-            { pattern: /^php\s+-S/, port: 8000, icon: '🐘', name: 'PHP' },
-            { pattern: /^ruby\s+-run\s+-e\s+httpd/, port: 8080, icon: '💎', name: 'Ruby' }
+            { pattern: /^node\s+\S+\.js/, port: 6789, icon: '🟢', name: 'Node.js' },
+            { pattern: /^npm\s+(run\s+)?start/, port: 6789, icon: '📦', name: 'NPM' },
+            { pattern: /^yarn\s+start/, port: 6789, icon: '🧶', name: 'Yarn' },
+            { pattern: /^php\s+-S/, port: 6789, icon: '🐘', name: 'PHP' },
+            { pattern: /^ruby\s+-run\s+-e\s+httpd/, port: 6789, icon: '💎', name: 'Ruby' }
         ];
         
         let matchedCommand = null;
