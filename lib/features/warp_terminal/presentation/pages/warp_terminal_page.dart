@@ -6870,47 +6870,37 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
         _isLoading = true;
       });
       
-      // Set repository context before stopping
-      TerminalService().setCurrentRepository(_selectedRepository?.name);
-      
-      // Execute stop command - this will be handled by our backend
-      final result = await TerminalService().executeCommand('flutter stop');
+      // Stop the server directly
+      await TerminalService().stopServer(_selectedRepository!.name);
       
       setState(() {
         _terminalItems.add(
           TerminalItem(
-            content: result.output.isNotEmpty ? result.output : '🛑 Flutter process stopped',
-            type: result.isSuccess ? TerminalItemType.system : TerminalItemType.error,
+            content: 'Server fermato con successo',
+            type: TerminalItemType.system,
             timestamp: DateTime.now(),
           )
         );
         
         // Clear preview URL when stopped
-        if (result.isSuccess) {
-          _previewUrl = null;
-        }
-        
+        _previewUrl = null;
         _isLoading = false;
       });
       
-      if (result.isSuccess) {
-        _showSnackBar('🛑 Processo Flutter terminato');
-      } else {
-        _showSnackBar('❌ Errore nel fermare il processo');
-      }
+      _showSnackBar('🛑 Server terminato');
       
     } catch (e) {
       setState(() {
         _terminalItems.add(
           TerminalItem(
-            content: 'Errore nel fermare il processo Flutter: $e',
+            content: 'Errore nel fermare il server: $e',
             type: TerminalItemType.error,
             timestamp: DateTime.now(),
           )
         );
         _isLoading = false;
       });
-      _showSnackBar('❌ Errore nel fermare il processo');
+      _showSnackBar('❌ Errore nel fermare il server');
     }
     
     _scrollToBottom();
