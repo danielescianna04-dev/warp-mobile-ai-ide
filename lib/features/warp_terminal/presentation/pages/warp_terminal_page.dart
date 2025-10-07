@@ -5870,9 +5870,17 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
           Navigator.pop(context);
           _showSnackBar('Clonazione ${repo.name}...');
           
-          // Clone repository automatically - keep original name with dots/dashes
+          // Clone repository automatically - use token for private repos
           final repoName = repo.name.replaceAll('.', '_');
-          final cloneCommand = 'rm -rf /tmp/projects/$repoName && git clone ${repo.cloneUrl} /tmp/projects/$repoName';
+          String cloneUrl = repo.cloneUrl;
+          
+          // If private repository, use token
+          if (repo.isPrivate && _gitHubToken != null && _gitHubToken!.isNotEmpty) {
+            // Convert https://github.com/user/repo.git to https://token@github.com/user/repo.git
+            cloneUrl = cloneUrl.replaceFirst('https://github.com/', 'https://$_gitHubToken@github.com/');
+          }
+          
+          final cloneCommand = 'rm -rf /tmp/projects/$repoName && git clone $cloneUrl /tmp/projects/$repoName';
           await TerminalService().executeCommand(cloneCommand);
         },
         borderRadius: BorderRadius.circular(8),
