@@ -1799,137 +1799,180 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
         ),
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(8),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.black.withOpacity(0.25),
+                Colors.black.withOpacity(0.15),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: textColor.withOpacity(0.15),
+              color: textColor.withOpacity(0.12),
               width: 1,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-          child: ExpansionTile(
-            tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-            title: SelectableText.rich(
-              TextSpan(
-                children: item.type == TerminalItemType.output
-                    ? TerminalSyntaxHighlighter.highlightOutput(item.content, textColor)
-                    : [TextSpan(text: item.content, style: TextStyle(color: textColor))],
-              ),
-              style: TextStyle(
-                fontSize: 14,
-                fontFamily: 'SF Mono',
-              ),
-            ),
-            trailing: Icon(
-              Icons.keyboard_arrow_down_rounded,
-              color: textColor.withOpacity(0.5),
-              size: 20,
-            ),
-            children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(6),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: ExpansionTile(
+              tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              title: SelectableText.rich(
+                TextSpan(
+                  children: item.type == TerminalItemType.output
+                      ? TerminalSyntaxHighlighter.highlightOutput(item.content, textColor)
+                      : [TextSpan(text: item.content, style: TextStyle(color: textColor))],
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (item.exitCode != null) ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: item.exitCode == 0 
-                              ? const Color(0xFF10B981).withOpacity(0.2)
-                              : const Color(0xFFEF4444).withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(
-                            color: item.exitCode == 0 
-                                ? const Color(0xFF10B981).withOpacity(0.4)
-                                : const Color(0xFFEF4444).withOpacity(0.4),
-                            width: 1,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              item.exitCode == 0 
-                                  ? Icons.check_circle_outline_rounded
-                                  : Icons.error_outline_rounded,
-                              color: item.exitCode == 0 
-                                  ? const Color(0xFF10B981)
-                                  : const Color(0xFFEF4444),
-                              size: 14,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontFamily: 'SF Mono',
+                ),
+              ),
+              trailing: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: textColor.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: textColor.withOpacity(0.6),
+                  size: 18,
+                ),
+              ),
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.25),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: textColor.withOpacity(0.08),
+                      width: 1,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (item.exitCode != null) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: item.exitCode == 0 
+                                  ? [
+                                      const Color(0xFF10B981).withOpacity(0.25),
+                                      const Color(0xFF10B981).withOpacity(0.15),
+                                    ]
+                                  : [
+                                      const Color(0xFFEF4444).withOpacity(0.25),
+                                      const Color(0xFFEF4444).withOpacity(0.15),
+                                    ],
                             ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Exit ${item.exitCode}',
-                              style: TextStyle(
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: item.exitCode == 0 
+                                  ? const Color(0xFF10B981).withOpacity(0.3)
+                                  : const Color(0xFFEF4444).withOpacity(0.3),
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                item.exitCode == 0 
+                                    ? Icons.check_circle_rounded
+                                    : Icons.error_rounded,
                                 color: item.exitCode == 0 
                                     ? const Color(0xFF10B981)
                                     : const Color(0xFFEF4444),
+                                size: 16,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Exit ${item.exitCode}',
+                                style: TextStyle(
+                                  color: item.exitCode == 0 
+                                      ? const Color(0xFF10B981)
+                                      : const Color(0xFFEF4444),
+                                  fontSize: 13,
+                                  fontFamily: 'SF Mono',
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                      ],
+                      if (item.errorDetails != null && item.errorDetails!.isNotEmpty) ...[
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: textColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Icon(
+                                item.type == TerminalItemType.error 
+                                    ? Icons.warning_amber_rounded
+                                    : Icons.description_outlined,
+                                color: textColor.withOpacity(0.7),
+                                size: 14,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              item.type == TerminalItemType.error ? 'Error Output' : 'Additional Output',
+                              style: TextStyle(
+                                color: textColor.withOpacity(0.8),
                                 fontSize: 12,
                                 fontFamily: 'SF Mono',
                                 fontWeight: FontWeight.w600,
+                                letterSpacing: 0.3,
                               ),
                             ),
                           ],
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                    if (item.errorDetails != null && item.errorDetails!.isNotEmpty) ...[
-                      Row(
-                        children: [
-                          Icon(
-                            item.type == TerminalItemType.error 
-                                ? Icons.warning_amber_rounded
-                                : Icons.description_outlined,
-                            color: textColor.withOpacity(0.6),
-                            size: 14,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            item.type == TerminalItemType.error ? 'Error Output' : 'Additional Output',
-                            style: TextStyle(
-                              color: textColor.withOpacity(0.7),
-                              fontSize: 11,
-                              fontFamily: 'SF Mono',
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 0.5,
+                        const SizedBox(height: 10),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.4),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: textColor.withOpacity(0.08),
+                              width: 1,
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.4),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(
-                            color: textColor.withOpacity(0.1),
-                            width: 1,
+                          child: SelectableText(
+                            item.errorDetails!,
+                            style: TextStyle(
+                              color: textColor.withOpacity(0.9),
+                              fontSize: 12,
+                              fontFamily: 'SF Mono',
+                              height: 1.5,
+                            ),
                           ),
                         ),
-                        child: SelectableText(
-                          item.errorDetails!,
-                          style: TextStyle(
-                            color: textColor.withOpacity(0.85),
-                            fontSize: 11,
-                            fontFamily: 'SF Mono',
-                            height: 1.4,
-                          ),
-                        ),
-                      ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       );
