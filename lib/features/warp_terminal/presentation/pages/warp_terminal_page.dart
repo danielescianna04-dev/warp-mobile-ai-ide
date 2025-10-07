@@ -5622,6 +5622,15 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
       margin: const EdgeInsets.only(bottom: 2),
       child: InkWell(
         onTap: () async {
+          // Stop any running server for the old repository
+          if (_selectedRepository != null && _selectedRepository!.name != repo.name) {
+            try {
+              await TerminalService().stopServer(_selectedRepository!.name);
+            } catch (e) {
+              print('Error stopping server: $e');
+            }
+          }
+          
           setState(() {
             _selectedRepository = repo;
             // Reset terminal when switching repository
@@ -5785,7 +5794,16 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
     }
   }
 
-  void _loadChatSession(ChatSession chat) {
+  void _loadChatSession(ChatSession chat) async {
+    // Stop server if switching to different repository
+    if (_selectedRepository != null && chat.repositoryName != _selectedRepository!.name) {
+      try {
+        await TerminalService().stopServer(_selectedRepository!.name);
+      } catch (e) {
+        print('Error stopping server: $e');
+      }
+    }
+    
     setState(() {
       // Clear current terminal state first
       _terminalItems.clear();

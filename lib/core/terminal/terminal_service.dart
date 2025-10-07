@@ -926,6 +926,26 @@ class TerminalService {
     print('📁 Terminal repository context set to: ${repository ?? 'none'}');
   }
   
+  // Stop server for a specific repository
+  Future<void> stopServer(String repository) async {
+    if (!AWSConfig.useAWS) return;
+    
+    try {
+      final url = Uri.parse('${AWSConfig.apiBaseUrl}/server/stop');
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'repository': repository}),
+      ).timeout(const Duration(seconds: 10));
+      
+      if (response.statusCode == 200) {
+        print('🛑 Server stopped for repository: $repository');
+      }
+    } catch (e) {
+      print('⚠️ Error stopping server: $e');
+    }
+  }
+  
   void dispose() {
     _pingTimer?.cancel();
     _channel?.sink.close();
