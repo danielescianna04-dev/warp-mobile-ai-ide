@@ -1823,7 +1823,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
           child: ClipRRect(
             borderRadius: BorderRadius.circular(16),
             child: ExpansionTile(
-              tilePadding: const EdgeInsets.fromLTRB(18, 6, 18, 6),
+              tilePadding: const EdgeInsets.fromLTRB(18, 2, 18, 2),
               childrenPadding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
               title: SelectableText.rich(
                 TextSpan(
