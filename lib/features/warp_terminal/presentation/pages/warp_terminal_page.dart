@@ -2808,6 +2808,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
                         child: SyntaxTextField(
                           controller: _commandController,
                           focusNode: _commandFocusNode,
+                          enabled: !_isLoading,
                           maxLines: null,
                           constraints: const BoxConstraints(maxHeight: 120),
                             style: TextStyle(
