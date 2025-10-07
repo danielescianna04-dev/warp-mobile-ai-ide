@@ -5624,6 +5624,12 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
         onTap: () async {
           setState(() {
             _selectedRepository = repo;
+            // Reset terminal when switching repository
+            _terminalItems.clear();
+            _commandController.clear();
+            _hasInteracted = false;
+            _currentChatSession = null;
+            _currentChatTitle = null;
           });
           Navigator.pop(context);
           _showSnackBar('Clonazione ${repo.name}...');
