@@ -1781,9 +1781,16 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
       );
     }
     
+    // Debug logs
+    print('🔍 Building content for item type: ${item.type}');
+    print('🔍 Has exitCode: ${item.exitCode != null} (value: ${item.exitCode})');
+    print('🔍 Has errorDetails: ${item.errorDetails != null} (length: ${item.errorDetails?.length})');
+    
     // Show expandable details for output and errors when details are available
     if ((item.type == TerminalItemType.output || item.type == TerminalItemType.error) && 
         (item.errorDetails != null || item.exitCode != null)) {
+      
+      print('✅ Showing expandable details panel');
       
       // Check for special Flutter output first
       if (item.type == TerminalItemType.output && 
@@ -4253,6 +4260,11 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
         } else {
           setState(() {
             if (result.output.isNotEmpty) {
+              print('🔍 Creating TerminalItem with:');
+              print('   - type: ${result.isSuccess ? 'output' : 'error'}');
+              print('   - exitCode: ${result.exitCode}');
+              print('   - errorDetails: ${result.errorDetails}');
+              
               _terminalItems.add(
                 TerminalItem(
                   content: result.output,
