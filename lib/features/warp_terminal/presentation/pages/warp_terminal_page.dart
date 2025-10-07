@@ -1803,60 +1803,61 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Colors.black.withOpacity(0.25),
-                Colors.black.withOpacity(0.15),
+                Colors.black.withOpacity(0.3),
+                Colors.black.withOpacity(0.2),
               ],
             ),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: textColor.withOpacity(0.12),
-              width: 1,
+              color: textColor.withOpacity(0.15),
+              width: 1.5,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
+                color: Colors.black.withOpacity(0.15),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             child: ExpansionTile(
-              tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              tilePadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+              childrenPadding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
               title: SelectableText.rich(
                 TextSpan(
                   children: item.type == TerminalItemType.output
                       ? TerminalSyntaxHighlighter.highlightOutput(item.content, textColor)
-                      : [TextSpan(text: item.content, style: TextStyle(color: textColor))],
+                      : [TextSpan(text: item.content, style: TextStyle(color: textColor, fontWeight: FontWeight.w500))],
                 ),
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 15,
                   fontFamily: 'SF Mono',
+                  height: 1.5,
                 ),
               ),
               trailing: Container(
-                padding: const EdgeInsets.all(6),
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: textColor.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(8),
+                  color: textColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
                   Icons.keyboard_arrow_down_rounded,
-                  color: textColor.withOpacity(0.6),
-                  size: 18,
+                  color: textColor.withOpacity(0.7),
+                  size: 20,
                 ),
               ),
               children: [
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.25),
-                    borderRadius: BorderRadius.circular(10),
+                    color: Colors.black.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: textColor.withOpacity(0.08),
+                      color: textColor.withOpacity(0.1),
                       width: 1,
                     ),
                   ),
@@ -1865,24 +1866,24 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
                     children: [
                       if (item.exitCode != null) ...[
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               colors: item.exitCode == 0 
                                   ? [
-                                      const Color(0xFF10B981).withOpacity(0.25),
-                                      const Color(0xFF10B981).withOpacity(0.15),
+                                      const Color(0xFF10B981).withOpacity(0.3),
+                                      const Color(0xFF10B981).withOpacity(0.2),
                                     ]
                                   : [
-                                      const Color(0xFFEF4444).withOpacity(0.25),
-                                      const Color(0xFFEF4444).withOpacity(0.15),
+                                      const Color(0xFFEF4444).withOpacity(0.3),
+                                      const Color(0xFFEF4444).withOpacity(0.2),
                                     ],
                             ),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(10),
                             border: Border.all(
                               color: item.exitCode == 0 
-                                  ? const Color(0xFF10B981).withOpacity(0.3)
-                                  : const Color(0xFFEF4444).withOpacity(0.3),
+                                  ? const Color(0xFF10B981).withOpacity(0.4)
+                                  : const Color(0xFFEF4444).withOpacity(0.4),
                               width: 1.5,
                             ),
                           ),
@@ -1896,74 +1897,75 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
                                 color: item.exitCode == 0 
                                     ? const Color(0xFF10B981)
                                     : const Color(0xFFEF4444),
-                                size: 16,
+                                size: 18,
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 10),
                               Text(
                                 'Exit ${item.exitCode}',
                                 style: TextStyle(
                                   color: item.exitCode == 0 
                                       ? const Color(0xFF10B981)
                                       : const Color(0xFFEF4444),
-                                  fontSize: 13,
+                                  fontSize: 14,
                                   fontFamily: 'SF Mono',
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 16),
                       ],
                       if (item.errorDetails != null && item.errorDetails!.isNotEmpty) ...[
                         Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.all(6),
+                              padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: textColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(6),
+                                color: textColor.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(8),
                               ),
                               child: Icon(
                                 item.type == TerminalItemType.error 
                                     ? Icons.warning_amber_rounded
                                     : Icons.description_outlined,
-                                color: textColor.withOpacity(0.7),
-                                size: 14,
+                                color: textColor.withOpacity(0.8),
+                                size: 16,
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 10),
                             Text(
                               item.type == TerminalItemType.error ? 'Error Output' : 'Additional Output',
                               style: TextStyle(
-                                color: textColor.withOpacity(0.8),
-                                fontSize: 12,
+                                color: textColor.withOpacity(0.9),
+                                fontSize: 13,
                                 fontFamily: 'SF Mono',
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 0.3,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.2,
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 12),
                         Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.4),
-                            borderRadius: BorderRadius.circular(8),
+                            color: Colors.black.withOpacity(0.5),
+                            borderRadius: BorderRadius.circular(10),
                             border: Border.all(
-                              color: textColor.withOpacity(0.08),
+                              color: textColor.withOpacity(0.1),
                               width: 1,
                             ),
                           ),
                           child: SelectableText(
                             item.errorDetails!,
                             style: TextStyle(
-                              color: textColor.withOpacity(0.9),
-                              fontSize: 12,
+                              color: textColor.withOpacity(0.95),
+                              fontSize: 13,
                               fontFamily: 'SF Mono',
-                              height: 1.5,
+                              height: 1.6,
+                              fontWeight: FontWeight.w400,
                             ),
                           ),
                         ),
