@@ -5804,6 +5804,8 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
             htmlUrl: '',
             language: null,
             isPrivate: false,
+            stargazersCount: 0,
+            forksCount: 0,
             updatedAt: DateTime.now(),
           ),
         );
