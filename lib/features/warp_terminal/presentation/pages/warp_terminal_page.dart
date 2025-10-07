@@ -1781,32 +1781,26 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
       );
     }
     
-    if (item.type == TerminalItemType.output) {
-      // Check for special Flutter output
-      if (item.content.contains('Flutter web app') || 
-          item.content.contains('http://')) {
+    // Show expandable details for output and errors when details are available
+    if ((item.type == TerminalItemType.output || item.type == TerminalItemType.error) && 
+        (item.errorDetails != null || item.exitCode != null)) {
+      
+      // Check for special Flutter output first
+      if (item.type == TerminalItemType.output && 
+          (item.content.contains('Flutter web app') || item.content.contains('http://'))) {
         return _buildFlutterOutput(item.content);
       }
       
-      return SelectableText.rich(
-        TextSpan(
-          children: TerminalSyntaxHighlighter.highlightOutput(
-            item.content,
-            textColor,
-          ),
-        ),
-      );
-    }
-    
-    // Show expandable error details for errors
-    if (item.type == TerminalItemType.error && (item.errorDetails != null || item.exitCode != null)) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SelectableText(
-            item.content,
+          SelectableText.rich(
+            TextSpan(
+              children: item.type == TerminalItemType.output
+                  ? TerminalSyntaxHighlighter.highlightOutput(item.content, textColor)
+                  : [TextSpan(text: item.content, style: TextStyle(color: textColor))],
+            ),
             style: TextStyle(
-              color: textColor,
               fontSize: 14,
               fontFamily: 'SF Mono',
             ),
@@ -1840,20 +1834,35 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (item.exitCode != null) ...[
-                        Text(
-                          'Exit Code: ${item.exitCode}',
-                          style: TextStyle(
-                            color: textColor.withOpacity(0.8),
-                            fontSize: 12,
-                            fontFamily: 'SF Mono',
-                            fontWeight: FontWeight.w600,
-                          ),
+                        Row(
+                          children: [
+                            Text(
+                              'Exit Code: ',
+                              style: TextStyle(
+                                color: textColor.withOpacity(0.8),
+                                fontSize: 12,
+                                fontFamily: 'SF Mono',
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Text(
+                              '${item.exitCode}',
+                              style: TextStyle(
+                                color: item.exitCode == 0 
+                                    ? const Color(0xFF10B981) 
+                                    : const Color(0xFFEF4444),
+                                fontSize: 12,
+                                fontFamily: 'SF Mono',
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 8),
                       ],
-                      if (item.errorDetails != null) ...[
+                      if (item.errorDetails != null && item.errorDetails!.isNotEmpty) ...[
                         Text(
-                          'Error Output:',
+                          item.type == TerminalItemType.error ? 'Error Output:' : 'Additional Output:',
                           style: TextStyle(
                             color: textColor.withOpacity(0.8),
                             fontSize: 12,
@@ -1878,6 +1887,23 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
             ),
           ),
         ],
+      );
+    }
+    
+    if (item.type == TerminalItemType.output) {
+      // Check for special Flutter output
+      if (item.content.contains('Flutter web app') || 
+          item.content.contains('http://')) {
+        return _buildFlutterOutput(item.content);
+      }
+      
+      return SelectableText.rich(
+        TextSpan(
+          children: TerminalSyntaxHighlighter.highlightOutput(
+            item.content,
+            textColor,
+          ),
+        ),
       );
     }
     
