@@ -125,33 +125,36 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
   Widget _buildAnimatedLetter(String letter, double delay) {
     final brightness = Theme.of(context).brightness;
     
-    return TweenAnimationBuilder<double>(
-      duration: const Duration(milliseconds: 600),
-      tween: Tween(begin: 0.0, end: 1.0),
-      curve: Curves.elasticOut,
-      builder: (context, value, child) {
-        // Delay each letter
-        final adjustedValue = (value - delay).clamp(0.0, 1.0);
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        // Calculate animation value with delay
+        final start = delay;
+        final end = delay + 0.3;
+        final value = (((_controller.value - start) / (end - start)).clamp(0.0, 1.0));
         
         return Transform.translate(
-          offset: Offset(0, 30 * (1 - adjustedValue)),
+          offset: Offset(0, 50 * (1 - value)),
           child: Opacity(
-            opacity: adjustedValue,
-            child: ShaderMask(
-              shaderCallback: (bounds) => LinearGradient(
-                colors: [
-                  AppColors.purpleLight,
-                  AppColors.purpleMedium,
-                  AppColors.purpleDark,
-                ],
-              ).createShader(bounds),
-              child: Text(
-                letter,
-                style: TextStyle(
-                  fontSize: 72,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                  letterSpacing: -2,
+            opacity: value,
+            child: Transform.scale(
+              scale: 0.5 + (0.5 * value),
+              child: ShaderMask(
+                shaderCallback: (bounds) => LinearGradient(
+                  colors: [
+                    AppColors.purpleLight,
+                    AppColors.purpleMedium,
+                    AppColors.purpleDark,
+                  ],
+                ).createShader(bounds),
+                child: Text(
+                  letter,
+                  style: TextStyle(
+                    fontSize: 72,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                    letterSpacing: -2,
+                  ),
                 ),
               ),
             ),
