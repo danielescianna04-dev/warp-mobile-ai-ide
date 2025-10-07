@@ -5801,7 +5801,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
             fullName: chat.repositoryName!,
             description: '',
             cloneUrl: '',
-            url: '',
+            htmlUrl: '',
             language: null,
             isPrivate: false,
             updatedAt: DateTime.now(),
