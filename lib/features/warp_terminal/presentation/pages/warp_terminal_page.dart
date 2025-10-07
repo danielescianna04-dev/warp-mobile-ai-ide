@@ -5623,8 +5623,8 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
           Navigator.pop(context);
           _showSnackBar('Clonazione ${repo.name}...');
           
-          // Clone repository automatically
-          final repoName = repo.name.replaceAll('.', '_').replaceAll('-', '_');
+          // Clone repository automatically - keep original name with dots/dashes
+          final repoName = repo.name.replaceAll('.', '_');
           final cloneCommand = 'rm -rf /tmp/projects/$repoName && git clone ${repo.cloneUrl} /tmp/projects/$repoName';
           await TerminalService().executeCommand(cloneCommand);
         },

@@ -281,7 +281,7 @@ app.post('/execute-heavy', async (req, res) => {
         // Handle repository-specific commands
         let repoName = repository || 'default-project';
         if (repository || command.toLowerCase().includes('flutter')) {
-            const repoDir = `/tmp/projects/${repoName.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+            const repoDir = `/tmp/projects/${repoName.replace(/\./g, '_')}`;
             
             // Create repository directory if it doesn't exist
             if (!fs.existsSync(repoDir)) {
@@ -755,7 +755,7 @@ app.post('/flutter/web/start', async (req, res) => {
     resetIdleTimer();
     
     try {
-        const repoDir = `/tmp/projects/${repository.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+        const repoDir = `/tmp/projects/${repository.replace(/\./g, '_')}`;
         
         // Create repository directory if it doesn't exist
         if (!fs.existsSync(repoDir)) {
@@ -1109,7 +1109,7 @@ app.post('/flutter/run', async (req, res) => {
     console.log(`🚀 Working directory: ${workingDir}`);
     
     try {
-        const repoDir = workingDir || `/tmp/projects/${repository.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+        const repoDir = workingDir || `/tmp/projects/${repository.replace(/\./g, '_')}`;
         
         // Create repository directory if it doesn't exist
         if (!fs.existsSync(repoDir)) {
