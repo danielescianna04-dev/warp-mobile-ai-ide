@@ -49,11 +49,15 @@ class TerminalItem {
   final String content;
   final TerminalItemType type;
   final DateTime timestamp;
+  final String? errorDetails; // Full error output (stderr)
+  final int? exitCode; // Command exit code
 
   TerminalItem({
     required this.content,
     required this.type,
     required this.timestamp,
+    this.errorDetails,
+    this.exitCode,
   });
 }
 
@@ -1791,6 +1795,89 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
             textColor,
           ),
         ),
+      );
+    }
+    
+    // Show expandable error details for errors
+    if (item.type == TerminalItemType.error && (item.errorDetails != null || item.exitCode != null)) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SelectableText(
+            item.content,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 14,
+              fontFamily: 'SF Mono',
+            ),
+          ),
+          const SizedBox(height: 8),
+          Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: const EdgeInsets.only(left: 12, top: 8),
+              title: Text(
+                'Show details',
+                style: TextStyle(
+                  color: textColor.withOpacity(0.7),
+                  fontSize: 12,
+                  fontFamily: 'SF Mono',
+                ),
+              ),
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: textColor.withOpacity(0.2),
+                      width: 1,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (item.exitCode != null) ...[
+                        Text(
+                          'Exit Code: ${item.exitCode}',
+                          style: TextStyle(
+                            color: textColor.withOpacity(0.8),
+                            fontSize: 12,
+                            fontFamily: 'SF Mono',
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      if (item.errorDetails != null) ...[
+                        Text(
+                          'Error Output:',
+                          style: TextStyle(
+                            color: textColor.withOpacity(0.8),
+                            fontSize: 12,
+                            fontFamily: 'SF Mono',
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        SelectableText(
+                          item.errorDetails!,
+                          style: TextStyle(
+                            color: textColor.withOpacity(0.9),
+                            fontSize: 12,
+                            fontFamily: 'SF Mono',
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       );
     }
     
@@ -4145,6 +4232,8 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
                   content: result.output,
                   type: result.isSuccess ? TerminalItemType.output : TerminalItemType.error,
                   timestamp: DateTime.now(),
+                  errorDetails: result.errorDetails,
+                  exitCode: result.exitCode,
                 )
               );
             }

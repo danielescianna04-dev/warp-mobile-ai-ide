@@ -378,11 +378,14 @@ class TerminalService {
         
         // Get output, fallback to error if no output available
         String commandOutput = responseData['output'] ?? responseData['error'] ?? 'No output';
+        String? errorDetails = responseData['error'];
         
         final result = CommandResult(
           output: commandOutput + executionInfo,
           isSuccess: isSuccess,
           isClearCommand: command.trim() == 'clear',
+          errorDetails: errorDetails,
+          exitCode: exitCode,
         );
 
         // Update exposed ports if provided
@@ -958,11 +961,15 @@ class CommandResult {
   final String output;
   final bool isSuccess;
   final bool isClearCommand;
+  final String? errorDetails; // Full stderr output
+  final int? exitCode; // Command exit code
 
   CommandResult({
     required this.output,
     required this.isSuccess,
     this.isClearCommand = false,
+    this.errorDetails,
+    this.exitCode,
   });
 }
 
