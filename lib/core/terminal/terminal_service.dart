@@ -318,13 +318,13 @@ class TerminalService {
     }
   }
 
-  Future<String> _reformatErrorForUser(String technicalError) async {
+  Future<String> _reformatErrorForUser(String technicalMessage) async {
     try {
-      // Use free Groq API (Llama 3.1) for fast error reformatting
-      final prompt = '''Transform this technical error into a simple, user-friendly message in Italian. 
-Keep it short (max 2 lines), clear, and actionable. Don't include technical jargon.
+      // Use free Groq API (Llama 3.1) for fast message reformatting
+      final prompt = '''Transform this technical message into a simple, user-friendly message in Italian. 
+Keep it short (max 2 lines), clear, and friendly. Don't include technical jargon or emojis.
 
-Technical error: $technicalError
+Technical message: $technicalMessage
 
 User-friendly message:''';
 
@@ -353,11 +353,11 @@ User-friendly message:''';
         }
       }
     } catch (e) {
-      print('⚠️ Error reformatting failed: $e');
+      print('⚠️ Message reformatting failed: $e');
     }
     
-    // Fallback to original error
-    return technicalError;
+    // Fallback to original message
+    return technicalMessage;
   }
 
   Future<CommandResult> _executeAWSCommand(String command) async {
@@ -416,9 +416,9 @@ User-friendly message:''';
         String commandOutput = responseData['output'] ?? responseData['error'] ?? 'No output';
         String? errorDetails = responseData['error'];
         
-        // If command failed and we have an error, reformat it for users
-        if (!isSuccess && errorDetails != null && errorDetails.isNotEmpty) {
-          commandOutput = await _reformatErrorForUser(errorDetails);
+        // Reformat output for users (both success and error messages)
+        if (commandOutput.isNotEmpty && commandOutput != 'No output') {
+          commandOutput = await _reformatErrorForUser(commandOutput);
         }
         
         // Add execution info to error details for technical users
