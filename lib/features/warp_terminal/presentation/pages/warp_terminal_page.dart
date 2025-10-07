@@ -5077,11 +5077,14 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
       final isAuthenticated = await _gitHubService.isAuthenticated();
       if (isAuthenticated) {
         final user = await _gitHubService.getStoredUser();
+        final token = await _secureStorage.read(key: 'github_token');
+        
         if (user != null) {
           setState(() {
             _isGitHubConnected = true;
             _gitHubUser = user;
             _gitHubUsername = user.login;
+            _gitHubToken = token;
           });
           
           // Load repositories in background
