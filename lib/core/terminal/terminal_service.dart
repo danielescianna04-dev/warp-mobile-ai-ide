@@ -369,19 +369,23 @@ class TerminalService {
         final executionTime = responseData['executionTime'] ?? 0;
         final exitCode = responseData['exitCode'] ?? (isSuccess ? 0 : 1);
         
-        // Show execution info for ECS
-        String executionInfo = '';
-        if (executor == 'ecs-fargate') {
-          final status = isSuccess ? '✅' : '❌';
-          executionInfo = '\n$status Executed on ECS Fargate (${executionTime}ms) - Exit Code: $exitCode';
-        }
-        
         // Get output, fallback to error if no output available
         String commandOutput = responseData['output'] ?? responseData['error'] ?? 'No output';
         String? errorDetails = responseData['error'];
         
+        // Add execution info to error details for technical users
+        String executionInfo = '';
+        if (executor == 'ecs-fargate') {
+          executionInfo = 'Executed on ECS Fargate (${executionTime}ms)';
+          if (errorDetails != null && errorDetails.isNotEmpty) {
+            errorDetails = '$errorDetails\n\n$executionInfo';
+          } else {
+            errorDetails = executionInfo;
+          }
+        }
+        
         final result = CommandResult(
-          output: commandOutput + executionInfo,
+          output: commandOutput,
           isSuccess: isSuccess,
           isClearCommand: command.trim() == 'clear',
           errorDetails: errorDetails,
@@ -486,7 +490,7 @@ class TerminalService {
         }
         
         final result = CommandResult(
-          output: commandOutput + '\n\u2705 Executed on ECS Fargate - Flutter Web Specialized',
+          output: commandOutput,
           isSuccess: isSuccess,
           isClearCommand: false,
         );
