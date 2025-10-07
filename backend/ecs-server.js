@@ -345,7 +345,7 @@ app.post('/execute-heavy', async (req, res) => {
         } else if (cmd === 'serve' || cmd === 'preview') {
             
             let port = 6789;
-            actualCommand = `pkill -f "static-server.js.*${port}" 2>/dev/null; nohup node /workspace/static-server.js . ${port} > /tmp/server-${port}.log 2>&1 & sleep 2 && echo "✅ Server avviato sulla porta ${port}"`;
+            actualCommand = `(pkill -f "static-server.js.*${port}" 2>/dev/null || true) && (nohup node /workspace/static-server.js . ${port} > /tmp/server-${port}.log 2>&1 &) && sleep 2 && echo "✅ Server avviato sulla porta ${port}"`;
             friendlyMessage = `🚀 Avvio applicazione...\n\n✅ App pronta!\nClicca Preview per visualizzare`;
             console.log(`🌐 Transformed '${cmd}' to static server on port ${port}`);
         }
