@@ -289,7 +289,11 @@ app.post('/execute-heavy', async (req, res) => {
                 console.log(`Created repository directory: ${repoDir}`);
             }
             
-            actualWorkingDir = repoDir;
+            // Get or set current working directory for this repository
+            if (!repositoryWorkingDirs.has(repoName)) {
+                repositoryWorkingDirs.set(repoName, repoDir);
+            }
+            actualWorkingDir = repositoryWorkingDirs.get(repoName);
             
             // For Flutter commands, check if we need to initialize a Flutter project
             if (command.toLowerCase().includes('flutter') && !fs.existsSync(path.join(repoDir, 'pubspec.yaml'))) {
@@ -315,6 +319,53 @@ app.post('/execute-heavy', async (req, res) => {
         let actualCommand = command;
         let useSpecialEndpoint = false;
         let friendlyMessage = null;
+        
+        // Handle cd command to change working directory
+        if (command.trim().startsWith('cd ')) {
+            const targetDir = command.trim().substring(3).trim();
+            let newDir;
+            
+            if (targetDir === '..') {
+                // Go up one directory
+                newDir = path.dirname(actualWorkingDir);
+            } else if (targetDir.startsWith('/')) {
+                // Absolute path
+                newDir = targetDir;
+            } else {
+                // Relative path
+                newDir = path.join(actualWorkingDir, targetDir);
+            }
+            
+            // Check if directory exists
+            if (fs.existsSync(newDir) && fs.statSync(newDir).isDirectory()) {
+                repositoryWorkingDirs.set(repoName, newDir);
+                console.log(`Changed directory to: ${newDir}`);
+                
+                res.json({
+                    success: true,
+                    output: '',
+                    error: '',
+                    exitCode: 0,
+                    environment: 'ecs-fargate',
+                    executionTime: 0,
+                    workingDir: newDir,
+                    repository: repoName
+                });
+                return;
+            } else {
+                res.json({
+                    success: false,
+                    output: '',
+                    error: `bash: cd: ${targetDir}: No such file or directory`,
+                    exitCode: 1,
+                    environment: 'ecs-fargate',
+                    executionTime: 0,
+                    workingDir: actualWorkingDir,
+                    repository: repoName
+                });
+                return;
+            }
+        }
         
         // Check for persistent server commands
         const cmd = command.trim();
@@ -614,6 +665,9 @@ app.post('/execute-heavy', async (req, res) => {
 // Track Node.js server processes
 const nodeServerProcesses = new Map();
 const staticServerProcesses = new Map();
+
+// Track current working directory for each repository
+const repositoryWorkingDirs = new Map();
 
 // Endpoint per avviare server Node.js in background
 app.post('/node/server/start', async (req, res) => {
