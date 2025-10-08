@@ -257,35 +257,43 @@ app.post('/ai/chat', async (req, res) => {
                 console.log(`🔍 Web search: ${toolUse.input.query}`);
                 
                 try {
-                    // Usa Google Custom Search JSON API (100 query/giorno gratis)
-                    const apiKey = process.env.GOOGLE_SEARCH_API_KEY || 'AIzaSyDozmb2XvYAHjt09q9rRriJo703u0i8vjQ';
-                    const cx = process.env.GOOGLE_SEARCH_CX || '017576662512468239146:omuauf_lfve';
-                    
-                    const searchUrl = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${cx}&q=${encodeURIComponent(toolUse.input.query)}&num=3`;
+                    const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(toolUse.input.query)}&hl=it`;
                     const searchResponse = await axios.get(searchUrl, {
+                        headers: {
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                        },
                         timeout: 10000
                     });
                     
-                    const data = searchResponse.data;
+                    const html = searchResponse.data;
                     const results = [];
                     
-                    if (data.items && data.items.length > 0) {
-                        data.items.forEach((item, i) => {
-                            results.push(`${i + 1}. ${item.title}`);
-                            if (item.snippet) {
-                                results.push(`   ${item.snippet}`);
+                    // Estrai snippet di testo da Google (cerca div con classe che contiene testo)
+                    const snippetMatches = html.match(/<div[^>]*class="[^"]*VwiC3b[^"]*"[^>]*>(.*?)<\/div>/gs);
+                    const titleMatches = html.match(/<h3[^>]*class="[^"]*"[^>]*>(.*?)<\/h3>/gs);
+                    
+                    if (snippetMatches && snippetMatches.length > 0) {
+                        for (let i = 0; i < Math.min(3, snippetMatches.length); i++) {
+                            const snippet = snippetMatches[i]
+                                .replace(/<[^>]*>/g, '')
+                                .replace(/&nbsp;/g, ' ')
+                                .replace(/&quot;/g, '"')
+                                .replace(/&#39;/g, "'")
+                                .trim();
+                            
+                            if (snippet && snippet.length > 20) {
+                                results.push(`• ${snippet}\n`);
                             }
-                            results.push(`   🔗 ${item.link}\n`);
-                        });
+                        }
                     }
                     
                     toolResult = results.length > 0 
-                        ? `🔍 Risultati trovati:\n\n${results.join('\n')}`
+                        ? `🔍 Informazioni trovate:\n\n${results.join('\n')}`
                         : `Non ho trovato informazioni specifiche su "${toolUse.input.query}".`;
                         
                 } catch (searchError) {
                     console.error('Search error:', searchError.message);
-                    toolResult = `Errore nella ricerca: ${searchError.message}`;
+                    toolResult = `Ricerca non disponibile al momento.`;
                 }
             }
             
