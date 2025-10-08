@@ -133,6 +133,7 @@ app.use((req, res, next) => {
 });
 
 // Track processes and state
+// Updated: 2025-10-08 - Fixed working directory handling
 const nodeServerProcesses = new Map();
 const staticServerProcesses = new Map();
 const repositoryWorkingDirs = new Map();
