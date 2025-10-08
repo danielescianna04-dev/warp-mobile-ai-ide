@@ -1,8 +1,8 @@
 /// AWS Configuration for Production Deployment
 class AWSConfig {
   // AWS ECS Load Balancer Configuration - UPDATED FOR HTTPS WITH CUSTOM DOMAIN
-  static const String apiBaseUrl = 'https://api.drape.info';
-  static const String wsBaseUrl = 'wss://api.drape.info';
+  static const String apiBaseUrl = 'https://drape-ai-backend-74904913373.us-central1.run.app';
+  static const String wsBaseUrl = 'wss://drape-ai-backend-74904913373.us-central1.run.app';
   
   // API Endpoints (mapped to ECS server endpoints)
   static const String healthEndpoint = '/health';
