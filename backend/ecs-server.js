@@ -237,7 +237,7 @@ app.post('/ai/chat', async (req, res) => {
             body: JSON.stringify({
                 anthropic_version: 'bedrock-2023-05-31',
                 max_tokens: 4096,
-                system: 'Sei un assistente AI intelligente e versatile. Rispondi sempre in italiano in modo naturale e conversazionale. Puoi cercare informazioni su internet, gestire repository GitHub, e rispondere a qualsiasi domanda. Usa i tool disponibili quando necessario.',
+                system: 'Sei un assistente AI intelligente e versatile. Rispondi sempre in italiano in modo naturale e conversazionale. Quando usi il tool web_search e non trovi risultati specifici, fornisci comunque una risposta utile basata sulle tue conoscenze generali. Sii sempre disponibile e informativo.',
                 messages,
                 tools,
                 temperature: 0.7
@@ -268,16 +268,10 @@ app.post('/ai/chat', async (req, res) => {
                     
                     // Get abstract/answer
                     if (data.Abstract) {
-                        results.push(`📝 ${data.Abstract}`);
-                    }
-                    
-                    // Get related topics
-                    if (data.RelatedTopics && data.RelatedTopics.length > 0) {
-                        data.RelatedTopics.slice(0, 3).forEach(topic => {
-                            if (topic.Text) {
-                                results.push(`• ${topic.Text}`);
-                            }
-                        });
+                        results.push(`${data.Abstract}`);
+                        if (data.AbstractSource) {
+                            results.push(`\n📚 Fonte: ${data.AbstractSource}`);
+                        }
                     }
                     
                     // Get answer if available
@@ -285,13 +279,26 @@ app.post('/ai/chat', async (req, res) => {
                         results.push(`✅ ${data.Answer}`);
                     }
                     
+                    // Get related topics
+                    if (data.RelatedTopics && data.RelatedTopics.length > 0) {
+                        const topics = [];
+                        data.RelatedTopics.slice(0, 3).forEach(topic => {
+                            if (topic.Text) {
+                                topics.push(`• ${topic.Text}`);
+                            }
+                        });
+                        if (topics.length > 0) {
+                            results.push(`\n🔗 Informazioni correlate:\n${topics.join('\n')}`);
+                        }
+                    }
+                    
                     toolResult = results.length > 0 
-                        ? `Risultati per "${toolUse.input.query}":\n\n${results.join('\n\n')}`
-                        : `Ho cercato "${toolUse.input.query}" ma non ho trovato informazioni specifiche. Prova a riformulare la domanda.`;
+                        ? results.join('\n\n')
+                        : `Non ho trovato informazioni specifiche su "${toolUse.input.query}". Posso comunque aiutarti con informazioni generali o rispondere a domande specifiche.`;
                         
                 } catch (searchError) {
                     console.error('Search error:', searchError.message);
-                    toolResult = `Non sono riuscito a cercare informazioni su "${toolUse.input.query}". Riprova più tardi.`;
+                    toolResult = `La ricerca non è disponibile al momento. Posso comunque rispondere basandomi sulle mie conoscenze generali.`;
                 }
             }
             
@@ -366,7 +373,7 @@ app.post('/ai/chat', async (req, res) => {
                     body: JSON.stringify({
                         anthropic_version: 'bedrock-2023-05-31',
                         max_tokens: 4096,
-                        system: 'Sei un assistente AI intelligente e versatile. Rispondi sempre in italiano in modo naturale e conversazionale. Puoi cercare informazioni su internet, gestire repository GitHub, e rispondere a qualsiasi domanda. Usa i tool disponibili quando necessario.',
+                        system: 'Sei un assistente AI intelligente e versatile. Rispondi sempre in italiano in modo naturale e conversazionale. Quando usi il tool web_search e non trovi risultati specifici, fornisci comunque una risposta utile basata sulle tue conoscenze generali. Sii sempre disponibile e informativo.',
                         messages,
                         tools,
                         temperature: 0.7
