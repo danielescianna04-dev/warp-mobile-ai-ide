@@ -4474,40 +4474,34 @@ Respond ONLY with the JSON array, no explanation.
           return;
         }
         
-        // Show plan
-        setState(() {
-          _terminalItems.add(
-            TerminalItem(
-              content: '🤖 Agent Plan:\n${commands.map((c) => '  → $c').join('\n')}\n\nExecuting...',
-              type: TerminalItemType.output,
-              timestamp: DateTime.now(),
-            )
-          );
-        });
-        
-        // Execute commands sequentially
+        // Execute commands sequentially (no plan output)
         for (int i = 0; i < commands.length; i++) {
           final cmd = commands[i];
           
-          setState(() {
-            _terminalItems.add(
-              TerminalItem(
-                content: '${TerminalService().getPrompt()}$cmd',
-                type: TerminalItemType.command,
-                timestamp: DateTime.now(),
-              )
-            );
-          });
+          // Don't show echo commands in terminal
+          if (!cmd.startsWith('echo ')) {
+            setState(() {
+              _terminalItems.add(
+                TerminalItem(
+                  content: '${TerminalService().getPrompt()}$cmd',
+                  type: TerminalItemType.command,
+                  timestamp: DateTime.now(),
+                )
+              );
+            });
+          }
           
-          await Future.delayed(const Duration(milliseconds: 500));
+          await Future.delayed(const Duration(milliseconds: 300));
           
           TerminalService().setCurrentRepository(_selectedRepository?.name);
           final result = await TerminalService().executeCommand(cmd);
           
-          setState(() {
-            if ((result.output.isNotEmpty && result.output != 'No output') || 
-                result.errorDetails != null || 
-                result.exitCode != 0) {
+          // Only show meaningful output
+          if (!cmd.startsWith('echo ') && 
+              ((result.output.isNotEmpty && result.output != 'No output') || 
+               result.errorDetails != null || 
+               result.exitCode != 0)) {
+            setState(() {
               _terminalItems.add(
                 TerminalItem(
                   content: result.output.isNotEmpty ? result.output : (result.errorDetails ?? 'Error'),
@@ -4517,8 +4511,10 @@ Respond ONLY with the JSON array, no explanation.
                   exitCode: result.exitCode,
                 )
               );
-            }
-            
+            });
+          }
+          
+          setState(() {
             _updatePreviewFromTerminalService();
             if (_previewUrl == null) {
               _checkForRunningApp(result.output);
@@ -4531,7 +4527,7 @@ Respond ONLY with the JSON array, no explanation.
             setState(() {
               _terminalItems.add(
                 TerminalItem(
-                  content: '🔧 Agent detected error. Analyzing and fixing...',
+                  content: '🔧 Fixing error...',
                   type: TerminalItemType.output,
                   timestamp: DateTime.now(),
                 )
@@ -4709,13 +4705,6 @@ Respond ONLY with JSON array of fix commands, or ["skip"] if unfixable.
         }
         
         setState(() {
-          _terminalItems.add(
-            TerminalItem(
-              content: '✅ Agent task completed!',
-              type: TerminalItemType.output,
-              timestamp: DateTime.now(),
-            )
-          );
           _isLoading = false;
         });
       }
