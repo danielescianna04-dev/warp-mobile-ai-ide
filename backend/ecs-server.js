@@ -371,6 +371,39 @@ app.post('/execute-heavy', async (req, res) => {
             }
         }
         
+        // Handle npm install as a special long-running command
+        if (command.trim().match(/^npm\s+(install|i)(\s|$)/)) {
+            console.log('📦 Running npm install...');
+            
+            try {
+                const result = await executeCommand(command, actualWorkingDir);
+                
+                res.json({
+                    success: result.code === 0,
+                    output: result.stdout || '✅ Dependencies installed successfully',
+                    error: result.stderr,
+                    exitCode: result.code,
+                    environment: 'ecs-fargate',
+                    executionTime: result.executionTime,
+                    workingDir: actualWorkingDir,
+                    repository: repoName
+                });
+                return;
+            } catch (error) {
+                res.json({
+                    success: false,
+                    output: '',
+                    error: error.message,
+                    exitCode: 1,
+                    environment: 'ecs-fargate',
+                    executionTime: 0,
+                    workingDir: actualWorkingDir,
+                    repository: repoName
+                });
+                return;
+            }
+        }
+        
         // Check for persistent server commands
         const cmd = command.trim();
         const serverCommands = [
