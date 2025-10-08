@@ -426,7 +426,9 @@ app.post('/execute-heavy', async (req, res) => {
             { pattern: /^preview$/, port: 6789, icon: '🚀', name: 'Preview' },
             { pattern: /^node\s+\S+\.js/, port: 6789, icon: '🟢', name: 'Node.js' },
             { pattern: /^npm\s+(run\s+)?start/, port: 6789, icon: '📦', name: 'NPM' },
+            { pattern: /^npm\s+run\s+dev/, port: 3000, icon: '⚡', name: 'Next.js Dev' },
             { pattern: /^yarn\s+start/, port: 6789, icon: '🧶', name: 'Yarn' },
+            { pattern: /^yarn\s+dev/, port: 3000, icon: '⚡', name: 'Yarn Dev' },
             { pattern: /^php\s+-S/, port: 6789, icon: '🐘', name: 'PHP' },
             { pattern: /^ruby\s+-run\s+-e\s+httpd/, port: 6789, icon: '💎', name: 'Ruby' }
         ];
@@ -533,12 +535,26 @@ app.post('/execute-heavy', async (req, res) => {
                 }
             }
             
-            // Start server as persistent process using our static-server
-            const serverProcess = spawn('node', ['/workspace/static-server.js', '.', port.toString()], {
-                cwd: actualWorkingDir,
-                detached: false,
-                stdio: ['ignore', 'pipe', 'pipe']
-            });
+            // Start server as persistent process
+            let serverProcess;
+            
+            // For npm/yarn dev commands, use the original command
+            if (cmd.match(/^(npm|yarn)\s+(run\s+)?dev/)) {
+                const parts = cmd.split(/\s+/);
+                serverProcess = spawn(parts[0], parts.slice(1), {
+                    cwd: actualWorkingDir,
+                    detached: false,
+                    stdio: ['ignore', 'pipe', 'pipe'],
+                    env: { ...process.env, PORT: port.toString() }
+                });
+            } else {
+                // Use static-server for other commands
+                serverProcess = spawn('node', ['/workspace/static-server.js', '.', port.toString()], {
+                    cwd: actualWorkingDir,
+                    detached: false,
+                    stdio: ['ignore', 'pipe', 'pipe']
+                });
+            }
             
             staticServerProcesses.set(repoName, {
                 process: serverProcess,
