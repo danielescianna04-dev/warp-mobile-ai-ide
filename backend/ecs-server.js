@@ -257,22 +257,41 @@ app.post('/ai/chat', async (req, res) => {
                 console.log(`🔍 Web search: ${toolUse.input.query}`);
                 
                 try {
-                    const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(toolUse.input.query)}`;
+                    // Use DuckDuckGo Instant Answer API (no auth needed)
+                    const searchUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(toolUse.input.query)}&format=json&no_html=1`;
                     const searchResponse = await axios.get(searchUrl, {
-                        headers: { 'User-Agent': 'Mozilla/5.0' },
-                        timeout: 5000
+                        timeout: 10000
                     });
                     
-                    const results = searchResponse.data
-                        .match(/<a class="result__a"[^>]*>([^<]+)<\/a>/g)
-                        ?.slice(0, 5)
-                        .map(m => m.replace(/<[^>]+>/g, ''))
-                        .join('\n') || 'No results found';
+                    const data = searchResponse.data;
+                    let results = [];
                     
-                    toolResult = `Search results for "${toolUse.input.query}":\n${results}`;
+                    // Get abstract/answer
+                    if (data.Abstract) {
+                        results.push(`📝 ${data.Abstract}`);
+                    }
+                    
+                    // Get related topics
+                    if (data.RelatedTopics && data.RelatedTopics.length > 0) {
+                        data.RelatedTopics.slice(0, 3).forEach(topic => {
+                            if (topic.Text) {
+                                results.push(`• ${topic.Text}`);
+                            }
+                        });
+                    }
+                    
+                    // Get answer if available
+                    if (data.Answer) {
+                        results.push(`✅ ${data.Answer}`);
+                    }
+                    
+                    toolResult = results.length > 0 
+                        ? `Risultati per "${toolUse.input.query}":\n\n${results.join('\n\n')}`
+                        : `Ho cercato "${toolUse.input.query}" ma non ho trovato informazioni specifiche. Prova a riformulare la domanda.`;
+                        
                 } catch (searchError) {
-                    console.error('Search error:', searchError);
-                    toolResult = 'Search failed';
+                    console.error('Search error:', searchError.message);
+                    toolResult = `Non sono riuscito a cercare informazioni su "${toolUse.input.query}". Riprova più tardi.`;
                 }
             }
             
