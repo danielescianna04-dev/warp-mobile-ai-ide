@@ -237,6 +237,7 @@ app.post('/ai/chat', async (req, res) => {
             body: JSON.stringify({
                 anthropic_version: 'bedrock-2023-05-31',
                 max_tokens: 4096,
+                system: 'Sei un assistente AI che risponde SEMPRE in italiano. Non dire mai che puoi rispondere solo in inglese. Rispondi sempre nella lingua dell\'utente, che è italiano.',
                 messages,
                 tools,
                 temperature: 0.7
@@ -346,6 +347,7 @@ app.post('/ai/chat', async (req, res) => {
                     body: JSON.stringify({
                         anthropic_version: 'bedrock-2023-05-31',
                         max_tokens: 4096,
+                        system: 'Sei un assistente AI che risponde SEMPRE in italiano. Non dire mai che puoi rispondere solo in inglese. Rispondi sempre nella lingua dell\'utente, che è italiano.',
                         messages,
                         tools,
                         temperature: 0.7
