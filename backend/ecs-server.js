@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const cron = require('node-cron');
 const http = require('http');
+const axios = require('axios');
 const { BedrockRuntimeClient, InvokeModelCommand } = require('@aws-sdk/client-bedrock-runtime');
 
 
@@ -149,7 +150,7 @@ app.get('/health', (req, res) => {
     });
 });
 
-// Bedrock Claude AI endpoint
+// Bedrock Claude AI endpoint with tool calling
 app.post('/ai/chat', async (req, res) => {
     const { prompt, conversationHistory = [], model = 'claude-4.5' } = req.body;
     
@@ -164,7 +165,6 @@ app.post('/ai/chat', async (req, res) => {
             region: process.env.AWS_REGION || 'us-west-2'
         });
         
-        // Map model names to Bedrock model IDs
         const modelMap = {
             'claude-4.5': 'anthropic.claude-sonnet-4-5-20250929-v1:0',
             'claude-3.5': 'anthropic.claude-3-5-sonnet-20241022-v2:0',
@@ -174,7 +174,22 @@ app.post('/ai/chat', async (req, res) => {
         
         const modelId = modelMap[model] || modelMap['claude-3.5'];
         
-        // Format conversation for Claude
+        // Define tools
+        const tools = [{
+            name: 'web_search',
+            description: 'Search the internet for current information, news, facts, or any real-time data. Use this when you need up-to-date information beyond your training data.',
+            input_schema: {
+                type: 'object',
+                properties: {
+                    query: {
+                        type: 'string',
+                        description: 'The search query'
+                    }
+                },
+                required: ['query']
+            }
+        }];
+        
         const messages = [
             ...conversationHistory.map((msg, i) => ({
                 role: i % 2 === 0 ? 'user' : 'assistant',
@@ -186,7 +201,7 @@ app.post('/ai/chat', async (req, res) => {
             }
         ];
         
-        const command = new InvokeModelCommand({
+        let command = new InvokeModelCommand({
             modelId,
             contentType: 'application/json',
             accept: 'application/json',
@@ -194,15 +209,75 @@ app.post('/ai/chat', async (req, res) => {
                 anthropic_version: 'bedrock-2023-05-31',
                 max_tokens: 4096,
                 messages,
+                tools,
                 temperature: 0.7
             })
         });
         
-        console.log(`🤖 Calling Bedrock Claude: ${modelId}`);
-        const response = await bedrockClient.send(command);
-        const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+        console.log(`🤖 Calling Bedrock Claude with tools: ${modelId}`);
+        let response = await bedrockClient.send(command);
+        let responseBody = JSON.parse(new TextDecoder().decode(response.body));
         
-        const content = responseBody.content[0].text;
+        // Handle tool use
+        if (responseBody.stop_reason === 'tool_use') {
+            const toolUse = responseBody.content.find(c => c.type === 'tool_use');
+            
+            if (toolUse && toolUse.name === 'web_search') {
+                console.log(`🔍 Web search: ${toolUse.input.query}`);
+                
+                // Use DuckDuckGo HTML (no API key needed)
+                try {
+                    const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(toolUse.input.query)}`;
+                    const searchResponse = await axios.get(searchUrl, {
+                        headers: { 'User-Agent': 'Mozilla/5.0' },
+                        timeout: 5000
+                    });
+                    
+                    // Simple HTML parsing for results
+                    const results = searchResponse.data
+                        .match(/<a class="result__a"[^>]*>([^<]+)<\/a>/g)
+                        ?.slice(0, 5)
+                        .map(m => m.replace(/<[^>]+>/g, ''))
+                        .join('\n') || 'No results found';
+                    
+                    // Continue conversation with tool result
+                    messages.push({
+                        role: 'assistant',
+                        content: responseBody.content
+                    });
+                    messages.push({
+                        role: 'user',
+                        content: [{
+                            type: 'tool_result',
+                            tool_use_id: toolUse.id,
+                            content: `Search results for "${toolUse.input.query}":\n${results}`
+                        }]
+                    });
+                    
+                    command = new InvokeModelCommand({
+                        modelId,
+                        contentType: 'application/json',
+                        accept: 'application/json',
+                        body: JSON.stringify({
+                            anthropic_version: 'bedrock-2023-05-31',
+                            max_tokens: 4096,
+                            messages,
+                            tools,
+                            temperature: 0.7
+                        })
+                    });
+                    
+                    response = await bedrockClient.send(command);
+                    responseBody = JSON.parse(new TextDecoder().decode(response.body));
+                } catch (searchError) {
+                    console.error('Search error:', searchError);
+                }
+            }
+        }
+        
+        const content = responseBody.content.find(c => c.type === 'text')?.text || 
+                       responseBody.content[0]?.text || 
+                       'No response';
         
         res.json({
             success: true,
