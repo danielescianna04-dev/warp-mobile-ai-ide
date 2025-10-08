@@ -257,48 +257,41 @@ app.post('/ai/chat', async (req, res) => {
                 console.log(`🔍 Web search: ${toolUse.input.query}`);
                 
                 try {
-                    // Use DuckDuckGo Instant Answer API (no auth needed)
-                    const searchUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(toolUse.input.query)}&format=json&no_html=1`;
+                    const braveApiKey = process.env.BRAVE_API_KEY;
+                    if (!braveApiKey) {
+                        throw new Error('BRAVE_API_KEY not configured');
+                    }
+                    
+                    const searchUrl = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(toolUse.input.query)}&count=5`;
                     const searchResponse = await axios.get(searchUrl, {
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Subscription-Token': braveApiKey
+                        },
                         timeout: 10000
                     });
                     
                     const data = searchResponse.data;
                     let results = [];
                     
-                    // Get abstract/answer
-                    if (data.Abstract) {
-                        results.push(`${data.Abstract}`);
-                        if (data.AbstractSource) {
-                            results.push(`\n📚 Fonte: ${data.AbstractSource}`);
-                        }
-                    }
-                    
-                    // Get answer if available
-                    if (data.Answer) {
-                        results.push(`✅ ${data.Answer}`);
-                    }
-                    
-                    // Get related topics
-                    if (data.RelatedTopics && data.RelatedTopics.length > 0) {
-                        const topics = [];
-                        data.RelatedTopics.slice(0, 3).forEach(topic => {
-                            if (topic.Text) {
-                                topics.push(`• ${topic.Text}`);
+                    if (data.web?.results && data.web.results.length > 0) {
+                        results.push('🔍 Risultati trovati:\n');
+                        data.web.results.slice(0, 3).forEach((result, i) => {
+                            results.push(`${i + 1}. ${result.title}`);
+                            if (result.description) {
+                                results.push(`   ${result.description}`);
                             }
+                            results.push(`   🔗 ${result.url}\n`);
                         });
-                        if (topics.length > 0) {
-                            results.push(`\n🔗 Informazioni correlate:\n${topics.join('\n')}`);
-                        }
                     }
                     
                     toolResult = results.length > 0 
-                        ? results.join('\n\n')
-                        : `Non ho trovato informazioni specifiche su "${toolUse.input.query}". Posso comunque aiutarti con informazioni generali o rispondere a domande specifiche.`;
+                        ? results.join('\n')
+                        : `Non ho trovato informazioni specifiche su "${toolUse.input.query}".`;
                         
                 } catch (searchError) {
                     console.error('Search error:', searchError.message);
-                    toolResult = `La ricerca non è disponibile al momento. Posso comunque rispondere basandomi sulle mie conoscenze generali.`;
+                    toolResult = `Errore nella ricerca: ${searchError.message}`;
                 }
             }
             
