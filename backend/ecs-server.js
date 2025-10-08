@@ -257,33 +257,26 @@ app.post('/ai/chat', async (req, res) => {
                 console.log(`🔍 Web search: ${toolUse.input.query}`);
                 
                 try {
-                    const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(toolUse.input.query)}`;
+                    // Usa Google Custom Search JSON API (100 query/giorno gratis)
+                    const apiKey = process.env.GOOGLE_SEARCH_API_KEY || 'AIzaSyDozmb2XvYAHjt09q9rRriJo703u0i8vjQ';
+                    const cx = process.env.GOOGLE_SEARCH_CX || '017576662512468239146:omuauf_lfve';
+                    
+                    const searchUrl = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${cx}&q=${encodeURIComponent(toolUse.input.query)}&num=3`;
                     const searchResponse = await axios.get(searchUrl, {
-                        headers: {
-                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-                        },
                         timeout: 10000
                     });
                     
-                    const html = searchResponse.data;
+                    const data = searchResponse.data;
                     const results = [];
                     
-                    // Parse HTML per estrarre risultati
-                    const resultRegex = /<a[^>]*class="result__a"[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>[\s\S]*?<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g;
-                    let match;
-                    let count = 0;
-                    
-                    while ((match = resultRegex.exec(html)) && count < 3) {
-                        const url = match[1];
-                        const title = match[2].trim();
-                        const snippet = match[3].replace(/<[^>]*>/g, '').trim();
-                        
-                        results.push(`${count + 1}. ${title}`);
-                        if (snippet) {
-                            results.push(`   ${snippet}`);
-                        }
-                        results.push(`   🔗 ${url}\n`);
-                        count++;
+                    if (data.items && data.items.length > 0) {
+                        data.items.forEach((item, i) => {
+                            results.push(`${i + 1}. ${item.title}`);
+                            if (item.snippet) {
+                                results.push(`   ${item.snippet}`);
+                            }
+                            results.push(`   🔗 ${item.link}\n`);
+                        });
                     }
                     
                     toolResult = results.length > 0 
