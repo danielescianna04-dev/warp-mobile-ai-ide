@@ -54,9 +54,11 @@ class AIManager {
     String message,
     List<String> conversationHistory, {
     CodeContext? context,
+    String? model,
   }) async {
     try {
       final url = '${AWSConfig.apiBaseUrl}/ai/chat';
+      final selectedModel = model ?? 'claude-3.5';
       
       final response = await http.post(
         Uri.parse(url),
@@ -64,7 +66,7 @@ class AIManager {
         body: json.encode({
           'prompt': message,
           'conversationHistory': conversationHistory,
-          'model': 'claude-3.5',
+          'model': selectedModel,
         }),
       ).timeout(const Duration(minutes: 2));
 

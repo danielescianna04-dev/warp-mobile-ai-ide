@@ -4401,13 +4401,13 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
         final actualModel = _selectedModel == 'auto' 
           ? _getAutoSelectedModel(command)
           : _selectedModel;
-        await AIManager.instance.switchModel(actualModel);
         
         // Simple AI chat
         final chatResponse = await AIManager.instance.chat(
           command,
           [],
           context: CodeContext(language: 'text'),
+          model: actualModel,
         );
         
         setState(() {
