@@ -294,6 +294,7 @@ app.post('/execute-heavy', async (req, res) => {
                 repositoryWorkingDirs.set(repoName, repoDir);
             }
             actualWorkingDir = repositoryWorkingDirs.get(repoName);
+            console.log(`📂 Request start - repoName: ${repoName}, actualWorkingDir from Map: ${actualWorkingDir}`);
             
             // For Flutter commands, check if we need to initialize a Flutter project
             if (command.toLowerCase().includes('flutter') && !fs.existsSync(path.join(repoDir, 'pubspec.yaml'))) {
@@ -336,6 +337,8 @@ app.post('/execute-heavy', async (req, res) => {
                 newDir = path.join(actualWorkingDir, targetDir);
             }
             
+            console.log(`CD Debug - actualWorkingDir: ${actualWorkingDir}, targetDir: ${targetDir}, newDir: ${newDir}`);
+            
             // Check if directory exists
             if (fs.existsSync(newDir) && fs.statSync(newDir).isDirectory()) {
                 repositoryWorkingDirs.set(repoName, newDir);
@@ -353,6 +356,7 @@ app.post('/execute-heavy', async (req, res) => {
                 });
                 return;
             } else {
+                console.log(`CD Failed - Returning actualWorkingDir: ${actualWorkingDir}`);
                 res.json({
                     success: false,
                     output: '',
