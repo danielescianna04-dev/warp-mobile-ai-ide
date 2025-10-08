@@ -132,6 +132,11 @@ app.use((req, res, next) => {
     next();
 });
 
+// Track processes and state
+const nodeServerProcesses = new Map();
+const staticServerProcesses = new Map();
+const repositoryWorkingDirs = new Map();
+
 // Health check
 app.get('/health', (req, res) => {
     res.json({ 
@@ -712,12 +717,6 @@ app.post('/execute-heavy', async (req, res) => {
 });
 
 // Track Node.js server processes
-const nodeServerProcesses = new Map();
-const staticServerProcesses = new Map();
-
-// Track current working directory for each repository
-const repositoryWorkingDirs = new Map();
-
 // Endpoint per avviare server Node.js in background
 app.post('/node/server/start', async (req, res) => {
     const { file, port = 8080, repository = 'node-app' } = req.body;
