@@ -1,10 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:http/http.dart' as http;
 import 'ai_service.dart';
-import 'services/openai_service.dart';
-import 'services/claude_service.dart';
-import 'services/gemini_service.dart';
+import '../../config/aws_config.dart';
 
 /// AI Manager per gestire tutti i servizi AI disponibili
 class AIManager {
@@ -37,47 +36,47 @@ class AIManager {
   /// Initializza tutti i servizi AI
   Future<void> initialize() async {
     if (_initialized) return;
+    _initialized = true;
+    debugPrint('✅ AI services initialized successfully');
+  }
 
+  /// Chat con l'AI usando Bedrock backend
+  Future<AIResponse> chat(
+    String message,
+    List<String> conversationHistory, {
+    CodeContext? context,
+  }) async {
     try {
-      // Carica le variabili d'ambiente
-      await dotenv.load(fileName: '.env');
+      final url = '${AWSConfig.apiBaseUrl}/ai/chat';
       
-      // Registra tutti i servizi AI
-      _registerServices();
-      
-      _initialized = true;
-      debugPrint('AIManager initialized successfully');
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'prompt': message,
+          'conversationHistory': conversationHistory,
+          'model': 'claude-4.5', // Use latest Claude
+        }),
+      ).timeout(const Duration(minutes: 2));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return AIResponse(
+          content: data['content'],
+          model: data['model'] ?? 'claude-4.5',
+          usage: data['usage'],
+        );
+      } else {
+        throw Exception('AI request failed: ${response.statusCode}');
+      }
     } catch (e) {
-      debugPrint('Failed to initialize AIManager: $e');
-      _initialized = true; // Continua anche se le env vars non sono disponibili
+      debugPrint('AI chat error: $e');
+      return AIResponse(
+        content: 'Error: Could not connect to AI service. $e',
+        model: 'error',
+      );
     }
   }
-
-  /// Registra tutti i servizi AI nel factory
-  void _registerServices() {
-    // OpenAI
-    AIServiceFactory.register(AIProvider.openai, () {
-      final apiKey = dotenv.env['OPENAI_API_KEY'];
-      return OpenAIService(apiKey: apiKey);
-    });
-
-    // Claude/Anthropic
-    AIServiceFactory.register(AIProvider.claude, () {
-      final apiKey = dotenv.env['ANTHROPIC_API_KEY'];
-      return ClaudeService(apiKey: apiKey);
-    });
-
-    // Gemini/Google AI
-    AIServiceFactory.register(AIProvider.gemini, () {
-      final apiKey = dotenv.env['GOOGLE_AI_API_KEY'];
-      return GeminiService(apiKey: apiKey);
-    });
-  }
-
-  /// Ottieni il servizio AI corrente
-  AIService? get currentService => _currentService;
-
-  /// Provider AI corrente
   AIProvider get currentProvider => _currentProvider;
 
   /// Cambia il modello AI (e provider se necessario)

@@ -151,7 +151,7 @@ app.get('/health', (req, res) => {
 
 // Bedrock Claude AI endpoint
 app.post('/ai/chat', async (req, res) => {
-    const { prompt, conversationHistory = [], model = 'claude-3-5-sonnet' } = req.body;
+    const { prompt, conversationHistory = [], model = 'claude-4.5' } = req.body;
     
     if (!prompt) {
         return res.status(400).json({ error: 'Prompt is required' });
@@ -163,6 +163,15 @@ app.post('/ai/chat', async (req, res) => {
         const bedrockClient = new BedrockRuntimeClient({ 
             region: process.env.AWS_REGION || 'us-west-2'
         });
+        
+        // Map model names to Bedrock model IDs
+        const modelMap = {
+            'claude-4.5': 'anthropic.claude-4-5-sonnet-20250514-v1:0', // Latest
+            'claude-3.5': 'anthropic.claude-3-5-sonnet-20240620-v1:0',
+            'claude-opus': 'anthropic.claude-3-opus-20240229-v1:0'
+        };
+        
+        const modelId = modelMap[model] || modelMap['claude-4.5'];
         
         // Format conversation for Claude
         const messages = [
@@ -176,8 +185,6 @@ app.post('/ai/chat', async (req, res) => {
             }
         ];
         
-        const modelId = 'anthropic.claude-3-5-sonnet-20240620-v1:0';
-        
         const command = new InvokeModelCommand({
             modelId,
             contentType: 'application/json',
@@ -190,6 +197,7 @@ app.post('/ai/chat', async (req, res) => {
             })
         });
         
+        console.log(`🤖 Calling Bedrock Claude: ${modelId}`);
         const response = await bedrockClient.send(command);
         const responseBody = JSON.parse(new TextDecoder().decode(response.body));
         
