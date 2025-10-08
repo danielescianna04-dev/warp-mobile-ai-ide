@@ -4403,18 +4403,40 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
           : _selectedModel;
         await AIManager.instance.switchModel(actualModel);
         
+        // Gather full context for the agent
+        final reposList = _repositories.map((r) => '  - ${r.name} (${r.url})').join('\n');
+        final currentRepo = _selectedRepository?.name ?? 'none';
+        final workingDir = currentRepo != 'none' ? '/tmp/projects/$currentRepo' : '/tmp';
+        
         // Ask AI to plan the commands needed
         final planningPrompt = '''
 Task: $command
 
-You are an autonomous agent that can execute terminal commands. 
-Analyze the task and respond with a JSON array of commands to execute in sequence.
+You are an autonomous agent with full terminal access. Plan the commands needed to complete this task.
 
-Example format:
-["git clone https://...", "cd project", "npm install", "npm run dev"]
+CONTEXT:
+- Current repository: $currentRepo
+- Working directory: $workingDir
+- Available GitHub repositories:
+${reposList.isNotEmpty ? reposList : '  (no repositories loaded yet)'}
 
-Repository context: ${_selectedRepository?.name ?? 'none'}
-Current directory: /tmp/projects/${_selectedRepository?.name ?? ''}
+CAPABILITIES:
+- Clone any GitHub repo: git clone https://TOKEN@github.com/user/repo.git /tmp/projects/repo-name
+- Navigate: cd /path/to/dir
+- Install dependencies: npm install, pip install, flutter pub get
+- Run servers: npm run dev, python -m http.server, flutter run
+- File operations: ls, cat, mkdir, rm, sed, grep
+- Fix issues: sed -i 's/old/new/' file.txt
+
+IMPORTANT:
+- Use full paths when needed
+- For private repos, the TOKEN is already injected
+- Repository names with dots become underscores (repo.name → repo_name)
+- Always check if directory exists before cd
+- Fix Prisma accelerate issue: sed -i 's/previewFeatures = \\["accelerate"\\]/previewFeatures = []/' prisma/schema.prisma
+
+Respond with a JSON array of commands to execute in sequence.
+Example: ["git clone https://...", "cd /tmp/projects/repo", "npm install", "npm run dev"]
 
 Respond ONLY with the JSON array, no explanation.
 ''';
@@ -4422,7 +4444,7 @@ Respond ONLY with the JSON array, no explanation.
         final planResponse = await AIManager.instance.chat(
           planningPrompt,
           [],
-          context: CodeContext(currentFile: _selectedRepository?.name, language: 'bash'),
+          context: CodeContext(currentFile: currentRepo, language: 'bash'),
         );
         
         // Parse commands from AI response
