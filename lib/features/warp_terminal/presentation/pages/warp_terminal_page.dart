@@ -4404,7 +4404,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
         await AIManager.instance.switchModel(actualModel);
         
         // Gather full context for the agent
-        final reposList = _gitHubRepositories.map((r) => '  - ${r.name} (${r.url})').join('\n');
+        final reposList = _gitHubRepositories.map((r) => '  - ${r.name} (${r.cloneUrl})').join('\n');
         final currentRepo = _selectedRepository?.name ?? 'none';
         final workingDir = currentRepo != 'none' ? '/tmp/projects/$currentRepo' : '/tmp';
         

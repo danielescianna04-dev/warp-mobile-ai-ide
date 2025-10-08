@@ -55,7 +55,7 @@ class AIManager {
         body: json.encode({
           'prompt': message,
           'conversationHistory': conversationHistory,
-          'model': 'claude-4.5', // Use latest Claude
+          'model': 'claude-4.5',
         }),
       ).timeout(const Duration(minutes: 2));
 
@@ -64,7 +64,8 @@ class AIManager {
         return AIResponse(
           content: data['content'],
           model: data['model'] ?? 'claude-4.5',
-          usage: data['usage'],
+          tokensUsed: data['usage']?['total_tokens'] ?? 0,
+          responseTime: Duration.zero,
         );
       } else {
         throw Exception('AI request failed: ${response.statusCode}');
@@ -74,9 +75,12 @@ class AIManager {
       return AIResponse(
         content: 'Error: Could not connect to AI service. $e',
         model: 'error',
+        tokensUsed: 0,
+        responseTime: Duration.zero,
       );
     }
   }
+
   AIProvider get currentProvider => _currentProvider;
 
   /// Cambia il modello AI (e provider se necessario)
@@ -163,26 +167,6 @@ class AIManager {
     
     return await _currentService!.generateCode(
       prompt, 
-      context ?? const CodeContext(),
-    );
-  }
-
-  /// Chat con l'AI usando il servizio corrente
-  Future<AIResponse> chat(
-    String message, 
-    List<String> conversationHistory, 
-    {CodeContext? context}
-  ) async {
-    if (!_initialized) await initialize();
-    if (_currentService == null) await switchProvider(_currentProvider);
-    
-    if (_currentService == null) {
-      throw const AIServiceException('No AI service available');
-    }
-    
-    return await _currentService!.chat(
-      message,
-      conversationHistory,
       context ?? const CodeContext(),
     );
   }
