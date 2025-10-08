@@ -237,7 +237,7 @@ app.post('/ai/chat', async (req, res) => {
             body: JSON.stringify({
                 anthropic_version: 'bedrock-2023-05-31',
                 max_tokens: 8192,
-                system: 'Sei un assistente AI intelligente e versatile. Rispondi sempre in italiano in modo naturale e conversazionale. IMPORTANTE: Quando l\'utente chiede di "cercare", "cerca", "search", "trova informazioni su", "informazioni recenti", "ultime notizie" o simili, DEVI SEMPRE usare il tool web_search per ottenere informazioni aggiornate da internet. Non rispondere mai basandoti solo sulle tue conoscenze quando viene richiesta una ricerca web.',
+                system: 'Sei un assistente AI intelligente e versatile. Rispondi sempre in italiano in modo naturale e conversazionale. IMPORTANTE: Usa SEMPRE il tool web_search quando: 1) Ti vengono chieste informazioni su eventi attuali, notizie recenti, dati aggiornati 2) Ti viene chiesto di cercare qualcosa 3) La domanda riguarda informazioni che potrebbero essere cambiate dopo il tuo training (prezzi, versioni software, statistiche, meteo, sport, politica, tecnologia recente). Usa web_search in modo proattivo per fornire informazioni accurate e aggiornate.',
                 messages,
                 tools,
                 temperature: 0.7
@@ -367,7 +367,7 @@ app.post('/ai/chat', async (req, res) => {
                     body: JSON.stringify({
                         anthropic_version: 'bedrock-2023-05-31',
                         max_tokens: 8192,
-                        system: 'Sei un assistente AI intelligente e versatile. Rispondi sempre in italiano in modo naturale e conversazionale. IMPORTANTE: Quando l\'utente chiede di "cercare", "cerca", "search", "trova informazioni su", "informazioni recenti", "ultime notizie" o simili, DEVI SEMPRE usare il tool web_search per ottenere informazioni aggiornate da internet. Non rispondere mai basandoti solo sulle tue conoscenze quando viene richiesta una ricerca web.',
+                        system: 'Sei un assistente AI intelligente e versatile. Rispondi sempre in italiano in modo naturale e conversazionale. IMPORTANTE: Usa SEMPRE il tool web_search quando: 1) Ti vengono chieste informazioni su eventi attuali, notizie recenti, dati aggiornati 2) Ti viene chiesto di cercare qualcosa 3) La domanda riguarda informazioni che potrebbero essere cambiate dopo il tuo training (prezzi, versioni software, statistiche, meteo, sport, politica, tecnologia recente). Usa web_search in modo proattivo per fornire informazioni accurate e aggiornate.',
                         messages,
                         tools,
                         temperature: 0.7
