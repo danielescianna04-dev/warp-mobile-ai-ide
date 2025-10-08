@@ -166,9 +166,10 @@ app.post('/ai/chat', async (req, res) => {
         
         // Map model names to Bedrock model IDs
         const modelMap = {
-            'claude-4.5': 'anthropic.claude-4-5-sonnet-20250514-v1:0', // Latest
-            'claude-3.5': 'anthropic.claude-3-5-sonnet-20240620-v1:0',
-            'claude-opus': 'anthropic.claude-3-opus-20240229-v1:0'
+            'claude-4.5': 'anthropic.claude-sonnet-4-5-20250929-v1:0',
+            'claude-3.5': 'anthropic.claude-3-5-sonnet-20241022-v2:0',
+            'claude-opus': 'anthropic.claude-3-opus-20240229-v1:0',
+            'claude-haiku': 'anthropic.claude-3-haiku-20240307-v1:0'
         };
         
         const modelId = modelMap[model] || modelMap['claude-4.5'];
