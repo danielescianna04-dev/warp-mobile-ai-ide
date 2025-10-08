@@ -23,6 +23,7 @@
   "license": "MIT",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.62.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.600.0",
     "@google/generative-ai": "^0.24.1",
     "cors": "^2.8.5",
     "dockerode": "^4.0.2",

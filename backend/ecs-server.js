@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const cron = require('node-cron');
 const http = require('http');
+const { BedrockRuntimeClient, InvokeModelCommand } = require('@aws-sdk/client-bedrock-runtime');
 
 
 // Function to get public IP of ECS task using native HTTP
@@ -146,6 +147,68 @@ app.get('/health', (req, res) => {
         lastActivity: new Date(lastActivity).toISOString(),
         environment: 'ecs-fargate'
     });
+});
+
+// Bedrock Claude AI endpoint
+app.post('/ai/chat', async (req, res) => {
+    const { prompt, conversationHistory = [], model = 'claude-3-5-sonnet' } = req.body;
+    
+    if (!prompt) {
+        return res.status(400).json({ error: 'Prompt is required' });
+    }
+    
+    resetIdleTimer();
+    
+    try {
+        const bedrockClient = new BedrockRuntimeClient({ 
+            region: process.env.AWS_REGION || 'us-west-2'
+        });
+        
+        // Format conversation for Claude
+        const messages = [
+            ...conversationHistory.map((msg, i) => ({
+                role: i % 2 === 0 ? 'user' : 'assistant',
+                content: msg
+            })),
+            {
+                role: 'user',
+                content: prompt
+            }
+        ];
+        
+        const modelId = 'anthropic.claude-3-5-sonnet-20240620-v1:0';
+        
+        const command = new InvokeModelCommand({
+            modelId,
+            contentType: 'application/json',
+            accept: 'application/json',
+            body: JSON.stringify({
+                anthropic_version: 'bedrock-2023-05-31',
+                max_tokens: 4096,
+                messages,
+                temperature: 0.7
+            })
+        });
+        
+        const response = await bedrockClient.send(command);
+        const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+        
+        const content = responseBody.content[0].text;
+        
+        res.json({
+            success: true,
+            content,
+            model: modelId,
+            usage: responseBody.usage
+        });
+        
+    } catch (error) {
+        console.error('Bedrock error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
 });
 
 // Proxy with CSS inlining for iOS WebView
