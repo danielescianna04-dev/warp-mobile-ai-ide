@@ -4527,16 +4527,182 @@ Respond ONLY with the JSON array, no explanation.
           
           // Stop if command failed
           if (!result.isSuccess && result.exitCode != 0) {
+            // AUTO-RECOVERY: Ask AI to fix the error
             setState(() {
               _terminalItems.add(
                 TerminalItem(
-                  content: '⚠️ Agent stopped: Command failed with exit code ${result.exitCode}',
-                  type: TerminalItemType.error,
+                  content: '🔧 Agent detected error. Analyzing and fixing...',
+                  type: TerminalItemType.output,
                   timestamp: DateTime.now(),
                 )
               );
             });
-            break;
+            
+            final errorContext = '''
+Command failed: $cmd
+Exit code: ${result.exitCode}
+Error output: ${result.errorDetails ?? result.output}
+
+Task: $command
+Repository: ${_selectedRepository?.name ?? 'none'}
+Working directory: $workingDir
+
+Analyze the error and provide a JSON array of fix commands to resolve it.
+Common fixes:
+- Missing package.json: cd to correct directory
+- Prisma accelerate error: sed -i 's/previewFeatures = \\["accelerate"\\]/previewFeatures = []/' prisma/schema.prisma
+- Missing dependencies: npm install or yarn install
+- Port in use: kill existing process or use different port
+- Missing directory: mkdir -p /path/to/dir
+
+Respond ONLY with JSON array of fix commands, or ["skip"] if unfixable.
+''';
+            
+            final fixResponse = await AIManager.instance.chat(
+              errorContext,
+              [],
+              context: CodeContext(currentFile: _selectedRepository?.name, language: 'bash'),
+            );
+            
+            // Parse fix commands
+            List<String> fixCommands = [];
+            try {
+              final jsonMatch = RegExp(r'\[.*\]', dotAll: true).firstMatch(fixResponse.content);
+              if (jsonMatch != null) {
+                final jsonStr = jsonMatch.group(0)!;
+                final parsed = json.decode(jsonStr) as List;
+                fixCommands = parsed.map((e) => e.toString()).toList();
+              }
+            } catch (e) {
+              print('Failed to parse fix commands: $e');
+            }
+            
+            if (fixCommands.isEmpty || fixCommands.first == 'skip') {
+              setState(() {
+                _terminalItems.add(
+                  TerminalItem(
+                    content: '⚠️ Agent stopped: Could not auto-fix error',
+                    type: TerminalItemType.error,
+                    timestamp: DateTime.now(),
+                  )
+                );
+              });
+              break;
+            }
+            
+            // Execute fix commands
+            setState(() {
+              _terminalItems.add(
+                TerminalItem(
+                  content: '🔧 Applying fixes:\n${fixCommands.map((c) => '  → $c').join('\n')}',
+                  type: TerminalItemType.output,
+                  timestamp: DateTime.now(),
+                )
+              );
+            });
+            
+            bool fixSucceeded = true;
+            for (final fixCmd in fixCommands) {
+              setState(() {
+                _terminalItems.add(
+                  TerminalItem(
+                    content: '${TerminalService().getPrompt()}$fixCmd',
+                    type: TerminalItemType.command,
+                    timestamp: DateTime.now(),
+                  )
+                );
+              });
+              
+              await Future.delayed(const Duration(milliseconds: 300));
+              
+              final fixResult = await TerminalService().executeCommand(fixCmd);
+              
+              setState(() {
+                if ((fixResult.output.isNotEmpty && fixResult.output != 'No output') || 
+                    fixResult.errorDetails != null) {
+                  _terminalItems.add(
+                    TerminalItem(
+                      content: fixResult.output.isNotEmpty ? fixResult.output : (fixResult.errorDetails ?? 'Error'),
+                      type: fixResult.isSuccess ? TerminalItemType.output : TerminalItemType.error,
+                      timestamp: DateTime.now(),
+                    )
+                  );
+                }
+              });
+              
+              if (!fixResult.isSuccess) {
+                fixSucceeded = false;
+                break;
+              }
+            }
+            
+            if (!fixSucceeded) {
+              setState(() {
+                _terminalItems.add(
+                  TerminalItem(
+                    content: '⚠️ Agent stopped: Fix failed',
+                    type: TerminalItemType.error,
+                    timestamp: DateTime.now(),
+                  )
+                );
+              });
+              break;
+            }
+            
+            // Retry original command after fix
+            setState(() {
+              _terminalItems.add(
+                TerminalItem(
+                  content: '🔄 Retrying: $cmd',
+                  type: TerminalItemType.output,
+                  timestamp: DateTime.now(),
+                )
+              );
+              _terminalItems.add(
+                TerminalItem(
+                  content: '${TerminalService().getPrompt()}$cmd',
+                  type: TerminalItemType.command,
+                  timestamp: DateTime.now(),
+                )
+              );
+            });
+            
+            await Future.delayed(const Duration(milliseconds: 500));
+            
+            final retryResult = await TerminalService().executeCommand(cmd);
+            
+            setState(() {
+              if ((retryResult.output.isNotEmpty && retryResult.output != 'No output') || 
+                  retryResult.errorDetails != null) {
+                _terminalItems.add(
+                  TerminalItem(
+                    content: retryResult.output.isNotEmpty ? retryResult.output : (retryResult.errorDetails ?? 'Error'),
+                    type: retryResult.isSuccess ? TerminalItemType.output : TerminalItemType.error,
+                    timestamp: DateTime.now(),
+                    errorDetails: retryResult.errorDetails,
+                    exitCode: retryResult.exitCode,
+                  )
+                );
+              }
+              
+              _updatePreviewFromTerminalService();
+              if (_previewUrl == null) {
+                _checkForRunningApp(retryResult.output);
+              }
+            });
+            
+            if (!retryResult.isSuccess) {
+              setState(() {
+                _terminalItems.add(
+                  TerminalItem(
+                    content: '⚠️ Agent stopped: Retry failed after fix attempt',
+                    type: TerminalItemType.error,
+                    timestamp: DateTime.now(),
+                  )
+                );
+              });
+              break;
+            }
           }
           
           await Future.delayed(const Duration(milliseconds: 300));
