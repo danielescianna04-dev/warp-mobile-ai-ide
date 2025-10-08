@@ -4618,30 +4618,30 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
     // Logica intelligente per selezionare il modello migliore
     final lowerInput = userInput.toLowerCase();
     
-    // Per coding e sviluppo -> Claude 4 Sonnet
+    // Per coding e sviluppo -> Claude 3.5
     if (lowerInput.contains('codice') || lowerInput.contains('code') ||
         lowerInput.contains('flutter') || lowerInput.contains('dart') ||
         lowerInput.contains('debug') || lowerInput.contains('errore') ||
         lowerInput.contains('refactor') || lowerInput.contains('ottimizza')) {
-      return 'claude-4-sonnet';
+      return 'claude-3.5';
     }
     
-    // Per creatività e brainstorming -> GPT-4
+    // Per creatività e brainstorming -> Claude 3.5
     if (lowerInput.contains('crea') || lowerInput.contains('genera') ||
         lowerInput.contains('scrivi') || lowerInput.contains('inventa') ||
         lowerInput.contains('idea') || lowerInput.contains('design')) {
-      return 'gpt-4-turbo';
+      return 'claude-3.5';
     }
     
-    // Per analisi e spiegazioni -> Claude 4 Sonnet
+    // Per analisi e spiegazioni -> Claude 3.5
     if (lowerInput.contains('spiega') || lowerInput.contains('analizza') ||
         lowerInput.contains('cosa') || lowerInput.contains('perché') ||
         lowerInput.contains('come funziona')) {
-      return 'claude-4-sonnet';
+      return 'claude-3.5';
     }
     
-    // Default -> Claude 4 Sonnet (migliore per sviluppo)
-    return 'claude-4-sonnet';
+    // Default -> Claude 3.5
+    return 'claude-3.5';
   }
 
   void _showBeautifulModelSelector() {
