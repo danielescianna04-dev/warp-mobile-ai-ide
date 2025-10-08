@@ -2805,12 +2805,13 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
                       const SizedBox(width: 12),
                       // Command input
                       Expanded(
-                        child: SyntaxTextField(
-                          controller: _commandController,
-                          focusNode: _commandFocusNode,
-                          enabled: !_isLoading,
-                          maxLines: null,
-                          constraints: const BoxConstraints(maxHeight: 120),
+                        child: IgnorePointer(
+                          ignoring: _isLoading,
+                          child: SyntaxTextField(
+                            controller: _commandController,
+                            focusNode: _commandFocusNode,
+                            maxLines: null,
+                            constraints: const BoxConstraints(maxHeight: 120),
                             style: TextStyle(
                               color: AppColors.textPrimary,
                               fontSize: 14,
@@ -2835,6 +2836,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
                             onChanged: _onSmartInputChanged,
                             onSubmitted: _executeCommand,
                           ),
+                        ),
                       ),
                       const SizedBox(width: 12),
                       // Send button unificato
@@ -4395,38 +4397,137 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
           });
         }
       } else {
-        // Execute AI command - usa selezione automatica se necessario
+        // AUTONOMOUS AGENT MODE - Executes commands automatically
         final actualModel = _selectedModel == 'auto' 
           ? _getAutoSelectedModel(command)
           : _selectedModel;
         await AIManager.instance.switchModel(actualModel);
         
-        final context = CodeContext(
-          currentFile: _selectedRepository?.name,
-          language: 'dart',
+        // Ask AI to plan the commands needed
+        final planningPrompt = '''
+Task: $command
+
+You are an autonomous agent that can execute terminal commands. 
+Analyze the task and respond with a JSON array of commands to execute in sequence.
+
+Example format:
+["git clone https://...", "cd project", "npm install", "npm run dev"]
+
+Repository context: ${_selectedRepository?.name ?? 'none'}
+Current directory: /tmp/projects/${_selectedRepository?.name ?? ''}
+
+Respond ONLY with the JSON array, no explanation.
+''';
+        
+        final planResponse = await AIManager.instance.chat(
+          planningPrompt,
+          [],
+          context: CodeContext(currentFile: _selectedRepository?.name, language: 'bash'),
         );
         
-        final conversationHistory = <String>[];
-        for (int i = 0; i < _terminalItems.length - 1; i++) {
-          conversationHistory.add(_terminalItems[i].content);
+        // Parse commands from AI response
+        List<String> commands = [];
+        try {
+          final jsonMatch = RegExp(r'\[.*\]', dotAll: true).firstMatch(planResponse.content);
+          if (jsonMatch != null) {
+            final jsonStr = jsonMatch.group(0)!;
+            final parsed = json.decode(jsonStr) as List;
+            commands = parsed.map((e) => e.toString()).toList();
+          }
+        } catch (e) {
+          print('Failed to parse commands: $e');
         }
         
-        final aiResponse = await AIManager.instance.chat(
-          command,
-          conversationHistory,
-          context: context,
-        );
+        if (commands.isEmpty) {
+          setState(() {
+            _terminalItems.add(
+              TerminalItem(
+                content: '❌ Could not plan commands for this task.\n\nAI Response:\n${planResponse.content}',
+                type: TerminalItemType.error,
+                timestamp: DateTime.now(),
+              )
+            );
+            _isLoading = false;
+          });
+          return;
+        }
         
+        // Show plan
         setState(() {
           _terminalItems.add(
             TerminalItem(
-              content: aiResponse.content,
+              content: '🤖 Agent Plan:\n${commands.map((c) => '  → $c').join('\n')}\n\nExecuting...',
               type: TerminalItemType.output,
               timestamp: DateTime.now(),
             )
           );
-          // Check if AI response mentions running app
-          _checkForRunningApp(aiResponse.content);
+        });
+        
+        // Execute commands sequentially
+        for (int i = 0; i < commands.length; i++) {
+          final cmd = commands[i];
+          
+          setState(() {
+            _terminalItems.add(
+              TerminalItem(
+                content: '${TerminalService().getPrompt()}$cmd',
+                type: TerminalItemType.command,
+                timestamp: DateTime.now(),
+              )
+            );
+          });
+          
+          await Future.delayed(const Duration(milliseconds: 500));
+          
+          TerminalService().setCurrentRepository(_selectedRepository?.name);
+          final result = await TerminalService().executeCommand(cmd);
+          
+          setState(() {
+            if ((result.output.isNotEmpty && result.output != 'No output') || 
+                result.errorDetails != null || 
+                result.exitCode != 0) {
+              _terminalItems.add(
+                TerminalItem(
+                  content: result.output.isNotEmpty ? result.output : (result.errorDetails ?? 'Error'),
+                  type: result.isSuccess ? TerminalItemType.output : TerminalItemType.error,
+                  timestamp: DateTime.now(),
+                  errorDetails: result.errorDetails,
+                  exitCode: result.exitCode,
+                )
+              );
+            }
+            
+            _updatePreviewFromTerminalService();
+            if (_previewUrl == null) {
+              _checkForRunningApp(result.output);
+            }
+          });
+          
+          // Stop if command failed
+          if (!result.isSuccess && result.exitCode != 0) {
+            setState(() {
+              _terminalItems.add(
+                TerminalItem(
+                  content: '⚠️ Agent stopped: Command failed with exit code ${result.exitCode}',
+                  type: TerminalItemType.error,
+                  timestamp: DateTime.now(),
+                )
+              );
+            });
+            break;
+          }
+          
+          await Future.delayed(const Duration(milliseconds: 300));
+        }
+        
+        setState(() {
+          _terminalItems.add(
+            TerminalItem(
+              content: '✅ Agent task completed!',
+              type: TerminalItemType.output,
+              timestamp: DateTime.now(),
+            )
+          );
           _isLoading = false;
         });
       }
