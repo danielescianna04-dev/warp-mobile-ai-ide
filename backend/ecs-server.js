@@ -237,7 +237,7 @@ app.post('/ai/chat', async (req, res) => {
             body: JSON.stringify({
                 anthropic_version: 'bedrock-2023-05-31',
                 max_tokens: 8192,
-                system: 'Sei un assistente AI intelligente e versatile. Rispondi sempre in italiano in modo naturale e conversazionale. Quando usi il tool web_search e non trovi risultati specifici, fornisci comunque una risposta utile basata sulle tue conoscenze generali. Sii sempre disponibile e informativo.',
+                system: 'Sei un assistente AI intelligente e versatile. Rispondi sempre in italiano in modo naturale e conversazionale. IMPORTANTE: Quando l\'utente chiede di "cercare", "cerca", "search", "trova informazioni su", "informazioni recenti", "ultime notizie" o simili, DEVI SEMPRE usare il tool web_search per ottenere informazioni aggiornate da internet. Non rispondere mai basandoti solo sulle tue conoscenze quando viene richiesta una ricerca web.',
                 messages,
                 tools,
                 temperature: 0.7
@@ -367,7 +367,7 @@ app.post('/ai/chat', async (req, res) => {
                     body: JSON.stringify({
                         anthropic_version: 'bedrock-2023-05-31',
                         max_tokens: 8192,
-                        system: 'Sei un assistente AI intelligente e versatile. Rispondi sempre in italiano in modo naturale e conversazionale. Quando usi il tool web_search e non trovi risultati specifici, fornisci comunque una risposta utile basata sulle tue conoscenze generali. Sii sempre disponibile e informativo.',
+                        system: 'Sei un assistente AI intelligente e versatile. Rispondi sempre in italiano in modo naturale e conversazionale. IMPORTANTE: Quando l\'utente chiede di "cercare", "cerca", "search", "trova informazioni su", "informazioni recenti", "ultime notizie" o simili, DEVI SEMPRE usare il tool web_search per ottenere informazioni aggiornate da internet. Non rispondere mai basandoti solo sulle tue conoscenze quando viene richiesta una ricerca web.',
                         messages,
                         tools,
                         temperature: 0.7
