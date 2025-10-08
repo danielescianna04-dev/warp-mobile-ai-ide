@@ -500,8 +500,20 @@ Messaggio user-friendly:''';
       }
     } catch (e) {
       print('❌ AWS command execution error: $e');
+      
+      // Check if error is due to HTML response instead of JSON
+      String errorMessage = 'AWS command execution error: $e';
+      if (e.toString().contains('FormatException') || e.toString().contains('Unexpected character')) {
+        errorMessage = '⚠️ Backend error: Il server ha restituito una risposta non valida.\n\n'
+            'Possibili cause:\n'
+            '• Il backend sta ancora deployando\n'
+            '• Il comando ha causato un timeout\n'
+            '• Errore interno del server\n\n'
+            'Riprova tra qualche secondo.';
+      }
+      
       return CommandResult(
-        output: 'AWS command execution error: $e',
+        output: errorMessage,
         isSuccess: false,
         isClearCommand: false,
       );

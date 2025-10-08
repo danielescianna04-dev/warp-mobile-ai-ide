@@ -321,6 +321,18 @@ app.post('/execute-heavy', async (req, res) => {
         let useSpecialEndpoint = false;
         let friendlyMessage = null;
         
+        // Reset working directory if cloning repository
+        if (command.includes('git clone') && command.includes('rm -rf')) {
+            console.log(`🔄 Resetting working directory for ${repoName} due to clone command`);
+            repositoryWorkingDirs.delete(repoName);
+            // Re-initialize after deletion
+            if (!repositoryWorkingDirs.has(repoName)) {
+                const repoDir = `/tmp/projects/${repoName.replace(/\./g, '_')}`;
+                repositoryWorkingDirs.set(repoName, repoDir);
+                actualWorkingDir = repoDir;
+            }
+        }
+        
         // Handle cd command to change working directory
         if (command.trim().startsWith('cd ')) {
             const targetDir = command.trim().substring(3).trim();
