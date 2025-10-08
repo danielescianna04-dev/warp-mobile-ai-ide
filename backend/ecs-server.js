@@ -236,7 +236,7 @@ app.post('/ai/chat', async (req, res) => {
             accept: 'application/json',
             body: JSON.stringify({
                 anthropic_version: 'bedrock-2023-05-31',
-                max_tokens: 4096,
+                max_tokens: 8192,
                 system: 'Sei un assistente AI intelligente e versatile. Rispondi sempre in italiano in modo naturale e conversazionale. Quando usi il tool web_search e non trovi risultati specifici, fornisci comunque una risposta utile basata sulle tue conoscenze generali. Sii sempre disponibile e informativo.',
                 messages,
                 tools,
@@ -372,7 +372,7 @@ app.post('/ai/chat', async (req, res) => {
                     accept: 'application/json',
                     body: JSON.stringify({
                         anthropic_version: 'bedrock-2023-05-31',
-                        max_tokens: 4096,
+                        max_tokens: 8192,
                         system: 'Sei un assistente AI intelligente e versatile. Rispondi sempre in italiano in modo naturale e conversazionale. Quando usi il tool web_search e non trovi risultati specifici, fornisci comunque una risposta utile basata sulle tue conoscenze generali. Sii sempre disponibile e informativo.',
                         messages,
                         tools,
