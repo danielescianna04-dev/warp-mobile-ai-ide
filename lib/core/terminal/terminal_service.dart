@@ -611,11 +611,9 @@ Messaggio user-friendly:''';
 
       final requestBody = <String, dynamic>{
         'prompt': prompt,
-        'sessionId': _sessionId,
+        'conversationHistory': [],
+        'model': 'claude-3.5',
       };
-
-      if (model != null) requestBody['model'] = model;
-      if (temperature != null) requestBody['temperature'] = temperature;
 
       print('🤖 Sending AI chat request');
       
@@ -634,7 +632,20 @@ Messaggio user-friendly:''';
         final responseData = json.decode(response.body);
         
         if (responseData['success'] == true) {
-          _handleAIChatResponse(responseData['response']);
+          final type = responseData['type'];
+          
+          if (type == 'chat') {
+            // Simple chat response
+            final result = CommandResult(
+              output: '🤖 ${responseData['content']}',
+              isSuccess: true,
+              isClearCommand: false,
+            );
+            terminalOutputStreamController.add(result);
+          } else if (type == 'task') {
+            // Switch to agent mode
+            await _executeAWSAgentTask(prompt);
+          }
         } else {
           print('❌ AI chat error: ${responseData['error']}');
           final result = CommandResult(

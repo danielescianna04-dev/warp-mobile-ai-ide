@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'ai_service.dart';
+import 'services/openai_service.dart';
+import 'services/claude_service.dart';
+import 'services/gemini_service.dart';
 import '../../config/aws_config.dart';
 
 /// AI Manager per gestire tutti i servizi AI disponibili
@@ -36,6 +39,12 @@ class AIManager {
   /// Initializza tutti i servizi AI
   Future<void> initialize() async {
     if (_initialized) return;
+    
+    // Register service factories
+    AIServiceFactory.register(AIProvider.openai, () => OpenAIService());
+    AIServiceFactory.register(AIProvider.claude, () => ClaudeService());
+    AIServiceFactory.register(AIProvider.gemini, () => GeminiService());
+    
     _initialized = true;
     debugPrint('✅ AI services initialized successfully');
   }
@@ -55,7 +64,7 @@ class AIManager {
         body: json.encode({
           'prompt': message,
           'conversationHistory': conversationHistory,
-          'model': 'claude-4.5',
+          'model': 'claude-3.5',
         }),
       ).timeout(const Duration(minutes: 2));
 
@@ -63,7 +72,7 @@ class AIManager {
         final data = json.decode(response.body);
         return AIResponse(
           content: data['content'],
-          model: data['model'] ?? 'claude-4.5',
+          model: data['model'] ?? 'claude-3.5',
           tokensUsed: data['usage']?['total_tokens'] ?? 0,
           responseTime: Duration.zero,
         );

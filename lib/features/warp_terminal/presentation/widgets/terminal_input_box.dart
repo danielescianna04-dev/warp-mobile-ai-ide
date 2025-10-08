@@ -16,6 +16,7 @@ class TerminalInputBox extends StatelessWidget {
   final Widget? modeToggle;
   final Widget? toolsButton;
   final bool useTransparentStyle; // Per preview con glassmorphism
+  final VoidCallback? onEditMode; // Callback per Edit button
   
   const TerminalInputBox({
     super.key,
@@ -32,6 +33,7 @@ class TerminalInputBox extends StatelessWidget {
     this.modeToggle,
     this.toolsButton,
     this.useTransparentStyle = false,
+    this.onEditMode,
   });
 
   @override
@@ -210,30 +212,34 @@ class TerminalInputBox extends StatelessWidget {
   }
   
   Widget _buildDefaultModeToggle(Brightness brightness) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppColors.surface(brightness).withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.touch_app,
-            size: 16,
-            color: AppColors.bodyText(brightness),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            'Edit',
-            style: TextStyle(
-              color: AppColors.titleText(brightness),
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
+    return InkWell(
+      onTap: onEditMode,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: AppColors.surface(brightness).withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.touch_app,
+              size: 16,
+              color: AppColors.bodyText(brightness),
             ),
-          ),
-        ],
+            const SizedBox(width: 6),
+            Text(
+              'Edit',
+              style: TextStyle(
+                color: AppColors.titleText(brightness),
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

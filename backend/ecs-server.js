@@ -172,44 +172,82 @@ app.post('/ai/chat', async (req, res) => {
             'claude-haiku': 'anthropic.claude-3-haiku-20240307-v1:0'
         };
         
-        const modelId = modelMap[model] || modelMap['claude-4.5'];
+        const modelId = modelMap[model] || modelMap['claude-3.5'];
         
-        // Format conversation for Claude
-        const messages = [
-            ...conversationHistory.map((msg, i) => ({
-                role: i % 2 === 0 ? 'user' : 'assistant',
-                content: msg
-            })),
-            {
-                role: 'user',
-                content: prompt
-            }
-        ];
+        // First, ask AI to classify the request
+        const classifyMessages = [{
+            role: 'user',
+            content: `Analyze this user request and respond with ONLY "CHAT" or "TASK":
+- CHAT: Simple questions, greetings, explanations, general conversation
+- TASK: Requests to create, modify, run code, clone repos, execute commands
+
+User request: "${prompt}"
+
+Respond with only one word: CHAT or TASK`
+        }];
         
-        const command = new InvokeModelCommand({
+        const classifyCommand = new InvokeModelCommand({
             modelId,
             contentType: 'application/json',
             accept: 'application/json',
             body: JSON.stringify({
                 anthropic_version: 'bedrock-2023-05-31',
-                max_tokens: 4096,
-                messages,
-                temperature: 0.7
+                max_tokens: 10,
+                messages: classifyMessages,
+                temperature: 0
             })
         });
         
-        console.log(`🤖 Calling Bedrock Claude: ${modelId}`);
-        const response = await bedrockClient.send(command);
-        const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+        const classifyResponse = await bedrockClient.send(classifyCommand);
+        const classifyBody = JSON.parse(new TextDecoder().decode(classifyResponse.body));
+        const classification = classifyBody.content[0].text.trim().toUpperCase();
         
-        const content = responseBody.content[0].text;
+        console.log(`🤖 Request classified as: ${classification}`);
         
-        res.json({
-            success: true,
-            content,
-            model: modelId,
-            usage: responseBody.usage
-        });
+        if (classification === 'CHAT') {
+            // Simple chat response
+            const messages = [
+                ...conversationHistory.map((msg, i) => ({
+                    role: i % 2 === 0 ? 'user' : 'assistant',
+                    content: msg
+                })),
+                {
+                    role: 'user',
+                    content: prompt
+                }
+            ];
+            
+            const command = new InvokeModelCommand({
+                modelId,
+                contentType: 'application/json',
+                accept: 'application/json',
+                body: JSON.stringify({
+                    anthropic_version: 'bedrock-2023-05-31',
+                    max_tokens: 4096,
+                    messages,
+                    temperature: 0.7
+                })
+            });
+            
+            const response = await bedrockClient.send(command);
+            const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+            const content = responseBody.content[0].text;
+            
+            res.json({
+                success: true,
+                type: 'chat',
+                content,
+                model: modelId,
+                usage: responseBody.usage
+            });
+        } else {
+            // Task planning - return indication to use agent mode
+            res.json({
+                success: true,
+                type: 'task',
+                message: 'This requires task execution. Switching to Agent Mode...'
+            });
+        }
         
     } catch (error) {
         console.error('Bedrock error:', error);
@@ -218,6 +256,7 @@ app.post('/ai/chat', async (req, res) => {
             error: error.message
         });
     }
+});
 });
 
 // Proxy with CSS inlining for iOS WebView
