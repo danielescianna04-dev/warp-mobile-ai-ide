@@ -4478,29 +4478,15 @@ Respond ONLY with the JSON array, no explanation.
         for (int i = 0; i < commands.length; i++) {
           final cmd = commands[i];
           
-          // Don't show echo commands in terminal
-          if (!cmd.startsWith('echo ')) {
-            setState(() {
-              _terminalItems.add(
-                TerminalItem(
-                  content: '${TerminalService().getPrompt()}$cmd',
-                  type: TerminalItemType.command,
-                  timestamp: DateTime.now(),
-                )
-              );
-            });
-          }
-          
           await Future.delayed(const Duration(milliseconds: 300));
           
           TerminalService().setCurrentRepository(_selectedRepository?.name);
           final result = await TerminalService().executeCommand(cmd);
           
-          // Only show meaningful output
-          if (!cmd.startsWith('echo ') && 
-              ((result.output.isNotEmpty && result.output != 'No output') || 
-               result.errorDetails != null || 
-               result.exitCode != 0)) {
+          // Show output
+          if ((result.output.isNotEmpty && result.output != 'No output') || 
+              result.errorDetails != null || 
+              result.exitCode != 0) {
             setState(() {
               _terminalItems.add(
                 TerminalItem(

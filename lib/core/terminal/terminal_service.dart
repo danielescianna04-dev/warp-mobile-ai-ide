@@ -632,21 +632,13 @@ Messaggio user-friendly:''';
         final responseData = json.decode(response.body);
         
         if (responseData['success'] == true) {
-          final type = responseData['type'] ?? 'chat';
-          
-          if (type == 'chat') {
-            // Simple chat response
-            final content = responseData['content'] ?? 'No response';
-            final result = CommandResult(
-              output: '🤖 $content',
-              isSuccess: true,
-              isClearCommand: false,
-            );
-            terminalOutputStreamController.add(result);
-          } else if (type == 'task') {
-            // Switch to agent mode
-            await _executeAWSAgentTask(prompt);
-          }
+          final content = responseData['content'] ?? 'No response';
+          final result = CommandResult(
+            output: '🤖 $content',
+            isSuccess: true,
+            isClearCommand: false,
+          );
+          terminalOutputStreamController.add(result);
         } else {
           print('❌ AI chat error: ${responseData['error']}');
           final result = CommandResult(
