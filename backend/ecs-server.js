@@ -330,12 +330,8 @@ app.post('/execute-heavy', async (req, res) => {
         if (command.includes('git clone') && command.includes('rm -rf')) {
             console.log(`🔄 Resetting working directory for ${repoName} due to clone command`);
             repositoryWorkingDirs.delete(repoName);
-            // Re-initialize after deletion
-            if (!repositoryWorkingDirs.has(repoName)) {
-                const repoDir = `/tmp/projects/${repoName.replace(/\./g, '_')}`;
-                repositoryWorkingDirs.set(repoName, repoDir);
-                actualWorkingDir = repoDir;
-            }
+            // Use /tmp as working directory for clone command since we're deleting the repo dir
+            actualWorkingDir = '/tmp';
         }
         
         // Handle cd command to change working directory
