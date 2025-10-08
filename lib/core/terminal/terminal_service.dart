@@ -632,12 +632,13 @@ Messaggio user-friendly:''';
         final responseData = json.decode(response.body);
         
         if (responseData['success'] == true) {
-          final type = responseData['type'];
+          final type = responseData['type'] ?? 'chat';
           
           if (type == 'chat') {
             // Simple chat response
+            final content = responseData['content'] ?? 'No response';
             final result = CommandResult(
-              output: '🤖 ${responseData['content']}',
+              output: '🤖 $content',
               isSuccess: true,
               isClearCommand: false,
             );
@@ -649,7 +650,7 @@ Messaggio user-friendly:''';
         } else {
           print('❌ AI chat error: ${responseData['error']}');
           final result = CommandResult(
-            output: '🤖 AI Chat Error: ${responseData['error']}',
+            output: '🤖 AI Chat Error: ${responseData['error'] ?? 'Unknown error'}',
             isSuccess: false,
             isClearCommand: false,
           );

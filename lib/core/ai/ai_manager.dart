@@ -71,7 +71,7 @@ class AIManager {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         return AIResponse(
-          content: data['content'],
+          content: data['content'] ?? data['message'] ?? 'No response',
           model: data['model'] ?? 'claude-3.5',
           tokensUsed: data['usage']?['total_tokens'] ?? 0,
           responseTime: Duration.zero,
