@@ -6,27 +6,44 @@ import '../../data/models/smart_output_parser.dart';
 class SmartOutputCard extends StatelessWidget {
   final SmartOutput output;
   final VoidCallback? onUrlTap;
+  final bool isUserMessage;
   
   const SmartOutputCard({
     super.key,
     required this.output,
     this.onUrlTap,
+    this.isUserMessage = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
     
+    // Colori diversi per user vs AI
+    final bgColor = isUserMessage
+        ? (brightness == Brightness.dark 
+            ? const Color(0xFF2A2A3E)  // Blu scuro per user
+            : const Color(0xFFE8EAF6))  // Blu chiaro per user
+        : (brightness == Brightness.dark 
+            ? const Color(0xFF1E1E1E)  // Grigio scuro per AI
+            : const Color(0xFFF5F5F5)); // Grigio chiaro per AI
+    
+    final iconColor = isUserMessage
+        ? const Color(0xFF5C6BC0)  // Blu per user
+        : output.gradientColors.first.withValues(alpha: 0.7);
+    
+    final icon = isUserMessage
+        ? Icons.person_outline_rounded
+        : Icons.smart_toy_outlined;
+    
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: brightness == Brightness.dark 
-            ? const Color(0xFF1E1E1E)
-            : const Color(0xFFF5F5F5),
+        color: bgColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: output.gradientColors.first.withValues(alpha: 0.15),
+          color: iconColor.withValues(alpha: 0.15),
           width: 1,
         ),
       ),
@@ -39,8 +56,8 @@ class SmartOutputCard extends StatelessWidget {
             children: [
               // Icona piccola
               Icon(
-                output.icon,
-                color: output.gradientColors.first.withValues(alpha: 0.7),
+                icon,
+                color: iconColor,
                 size: 18,
               ),
               const SizedBox(width: 10),

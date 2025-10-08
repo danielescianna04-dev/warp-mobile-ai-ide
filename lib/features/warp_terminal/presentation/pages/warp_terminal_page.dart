@@ -1717,6 +1717,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
       final smartOutput = SmartOutputParser.parse(item.content);
       return SmartOutputCard(
         output: smartOutput,
+        isUserMessage: false, // AI response
         onUrlTap: smartOutput.url != null ? () {
           if (smartOutput.url!.startsWith('http')) {
             _previewUrl = smartOutput.url;
