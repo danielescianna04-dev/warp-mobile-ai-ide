@@ -257,7 +257,6 @@ Respond with only one word: CHAT or TASK`
         });
     }
 });
-});
 
 // Proxy with CSS inlining for iOS WebView
 app.get('/proxy/:port/*', async (req, res) => {
