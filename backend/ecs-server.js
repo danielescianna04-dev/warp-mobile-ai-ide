@@ -391,10 +391,13 @@ app.post('/execute-heavy', async (req, res) => {
             try {
                 const result = await executeCommand(command, actualWorkingDir);
                 
+                // Combine stdout and stderr for npm install (warnings are in stderr but not errors)
+                const output = result.stdout || result.stderr || '✅ Dependencies installed successfully';
+                
                 res.json({
                     success: result.code === 0,
-                    output: result.stdout || '✅ Dependencies installed successfully',
-                    error: result.stderr,
+                    output: output,
+                    error: result.code !== 0 ? result.stderr : '', // Only show stderr as error if command failed
                     exitCode: result.code,
                     environment: 'ecs-fargate',
                     executionTime: result.executionTime,
