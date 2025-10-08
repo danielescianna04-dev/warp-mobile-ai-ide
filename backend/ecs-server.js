@@ -257,36 +257,37 @@ app.post('/ai/chat', async (req, res) => {
                 console.log(`🔍 Web search: ${toolUse.input.query}`);
                 
                 try {
-                    const braveApiKey = process.env.BRAVE_API_KEY;
-                    if (!braveApiKey) {
-                        throw new Error('BRAVE_API_KEY not configured');
-                    }
-                    
-                    const searchUrl = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(toolUse.input.query)}&count=5`;
+                    const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(toolUse.input.query)}`;
                     const searchResponse = await axios.get(searchUrl, {
                         headers: {
-                            'Accept': 'application/json',
-                            'X-Subscription-Token': braveApiKey
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
                         },
                         timeout: 10000
                     });
                     
-                    const data = searchResponse.data;
-                    let results = [];
+                    const html = searchResponse.data;
+                    const results = [];
                     
-                    if (data.web?.results && data.web.results.length > 0) {
-                        results.push('🔍 Risultati trovati:\n');
-                        data.web.results.slice(0, 3).forEach((result, i) => {
-                            results.push(`${i + 1}. ${result.title}`);
-                            if (result.description) {
-                                results.push(`   ${result.description}`);
-                            }
-                            results.push(`   🔗 ${result.url}\n`);
-                        });
+                    // Parse HTML per estrarre risultati
+                    const resultRegex = /<a[^>]*class="result__a"[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>[\s\S]*?<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g;
+                    let match;
+                    let count = 0;
+                    
+                    while ((match = resultRegex.exec(html)) && count < 3) {
+                        const url = match[1];
+                        const title = match[2].trim();
+                        const snippet = match[3].replace(/<[^>]*>/g, '').trim();
+                        
+                        results.push(`${count + 1}. ${title}`);
+                        if (snippet) {
+                            results.push(`   ${snippet}`);
+                        }
+                        results.push(`   🔗 ${url}\n`);
+                        count++;
                     }
                     
                     toolResult = results.length > 0 
-                        ? results.join('\n')
+                        ? `🔍 Risultati trovati:\n\n${results.join('\n')}`
                         : `Non ho trovato informazioni specifiche su "${toolUse.input.query}".`;
                         
                 } catch (searchError) {
