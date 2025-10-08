@@ -175,20 +175,49 @@ app.post('/ai/chat', async (req, res) => {
         const modelId = modelMap[model] || modelMap['claude-3.5'];
         
         // Define tools
-        const tools = [{
-            name: 'web_search',
-            description: 'Search the internet for current information, news, facts, or any real-time data. Use this when you need up-to-date information beyond your training data.',
-            input_schema: {
-                type: 'object',
-                properties: {
-                    query: {
-                        type: 'string',
-                        description: 'The search query'
-                    }
-                },
-                required: ['query']
+        const tools = [
+            {
+                name: 'web_search',
+                description: 'Search the internet for current information, news, facts, or any real-time data. Use this when you need up-to-date information beyond your training data.',
+                input_schema: {
+                    type: 'object',
+                    properties: {
+                        query: {
+                            type: 'string',
+                            description: 'The search query'
+                        }
+                    },
+                    required: ['query']
+                }
+            },
+            {
+                name: 'github_operation',
+                description: 'Perform GitHub operations: create repository, commit changes, push code, clone repos, check status, view logs.',
+                input_schema: {
+                    type: 'object',
+                    properties: {
+                        operation: {
+                            type: 'string',
+                            enum: ['create_repo', 'clone', 'commit', 'push', 'status', 'log'],
+                            description: 'The GitHub operation to perform'
+                        },
+                        repo_name: {
+                            type: 'string',
+                            description: 'Repository name (for create_repo, clone)'
+                        },
+                        message: {
+                            type: 'string',
+                            description: 'Commit message (for commit)'
+                        },
+                        private: {
+                            type: 'boolean',
+                            description: 'Make repo private (for create_repo, default: false)'
+                        }
+                    },
+                    required: ['operation']
+                }
             }
-        }];
+        ];
         
         const messages = [
             ...conversationHistory.map((msg, i) => ({
@@ -221,11 +250,11 @@ app.post('/ai/chat', async (req, res) => {
         // Handle tool use
         if (responseBody.stop_reason === 'tool_use') {
             const toolUse = responseBody.content.find(c => c.type === 'tool_use');
+            let toolResult = '';
             
             if (toolUse && toolUse.name === 'web_search') {
                 console.log(`🔍 Web search: ${toolUse.input.query}`);
                 
-                // Use DuckDuckGo HTML (no API key needed)
                 try {
                     const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(toolUse.input.query)}`;
                     const searchResponse = await axios.get(searchUrl, {
@@ -233,45 +262,98 @@ app.post('/ai/chat', async (req, res) => {
                         timeout: 5000
                     });
                     
-                    // Simple HTML parsing for results
                     const results = searchResponse.data
                         .match(/<a class="result__a"[^>]*>([^<]+)<\/a>/g)
                         ?.slice(0, 5)
                         .map(m => m.replace(/<[^>]+>/g, ''))
                         .join('\n') || 'No results found';
                     
-                    // Continue conversation with tool result
-                    messages.push({
-                        role: 'assistant',
-                        content: responseBody.content
-                    });
-                    messages.push({
-                        role: 'user',
-                        content: [{
-                            type: 'tool_result',
-                            tool_use_id: toolUse.id,
-                            content: `Search results for "${toolUse.input.query}":\n${results}`
-                        }]
-                    });
-                    
-                    command = new InvokeModelCommand({
-                        modelId,
-                        contentType: 'application/json',
-                        accept: 'application/json',
-                        body: JSON.stringify({
-                            anthropic_version: 'bedrock-2023-05-31',
-                            max_tokens: 4096,
-                            messages,
-                            tools,
-                            temperature: 0.7
-                        })
-                    });
-                    
-                    response = await bedrockClient.send(command);
-                    responseBody = JSON.parse(new TextDecoder().decode(response.body));
+                    toolResult = `Search results for "${toolUse.input.query}":\n${results}`;
                 } catch (searchError) {
                     console.error('Search error:', searchError);
+                    toolResult = 'Search failed';
                 }
+            }
+            
+            if (toolUse && toolUse.name === 'github_operation') {
+                console.log(`🐙 GitHub operation: ${toolUse.input.operation}`);
+                
+                try {
+                    const { operation, repo_name, message, private: isPrivate } = toolUse.input;
+                    const { promisify } = require('util');
+                    const execAsync = promisify(exec);
+                    
+                    switch (operation) {
+                        case 'create_repo':
+                            const visibility = isPrivate ? '--private' : '--public';
+                            const createResult = await execAsync(`gh repo create ${repo_name} ${visibility} --confirm`);
+                            toolResult = `✅ Repository created: ${repo_name}\n${createResult.stdout}`;
+                            break;
+                            
+                        case 'clone':
+                            const cloneResult = await execAsync(`gh repo clone ${repo_name}`);
+                            toolResult = `✅ Repository cloned: ${repo_name}\n${cloneResult.stdout}`;
+                            break;
+                            
+                        case 'commit':
+                            await execAsync('git add .');
+                            const commitResult = await execAsync(`git commit -m "${message || 'Update'}"`);
+                            toolResult = `✅ Changes committed\n${commitResult.stdout}`;
+                            break;
+                            
+                        case 'push':
+                            const pushResult = await execAsync('git push');
+                            toolResult = `✅ Changes pushed\n${pushResult.stdout}`;
+                            break;
+                            
+                        case 'status':
+                            const statusResult = await execAsync('git status');
+                            toolResult = statusResult.stdout;
+                            break;
+                            
+                        case 'log':
+                            const logResult = await execAsync('git log --oneline -10');
+                            toolResult = logResult.stdout;
+                            break;
+                            
+                        default:
+                            toolResult = 'Unknown operation';
+                    }
+                } catch (gitError) {
+                    console.error('GitHub error:', gitError);
+                    toolResult = `❌ Error: ${gitError.message}`;
+                }
+            }
+            
+            if (toolResult) {
+                messages.push({
+                    role: 'assistant',
+                    content: responseBody.content
+                });
+                messages.push({
+                    role: 'user',
+                    content: [{
+                        type: 'tool_result',
+                        tool_use_id: toolUse.id,
+                        content: toolResult
+                    }]
+                });
+                
+                command = new InvokeModelCommand({
+                    modelId,
+                    contentType: 'application/json',
+                    accept: 'application/json',
+                    body: JSON.stringify({
+                        anthropic_version: 'bedrock-2023-05-31',
+                        max_tokens: 4096,
+                        messages,
+                        tools,
+                        temperature: 0.7
+                    })
+                });
+                
+                response = await bedrockClient.send(command);
+                responseBody = JSON.parse(new TextDecoder().decode(response.body));
             }
         }
         
