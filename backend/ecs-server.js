@@ -547,10 +547,9 @@ app.post('/execute-heavy', async (req, res) => {
             // Start server as persistent process
             let serverProcess;
             
-            // For npm/yarn dev commands, use the original command
+            // For npm/yarn dev commands, use shell to execute
             if (cmd.match(/^(npm|yarn)\s+(run\s+)?dev/)) {
-                const parts = cmd.split(/\s+/);
-                serverProcess = spawn(parts[0], parts.slice(1), {
+                serverProcess = spawn('sh', ['-c', cmd], {
                     cwd: actualWorkingDir,
                     detached: false,
                     stdio: ['ignore', 'pipe', 'pipe'],
