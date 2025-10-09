@@ -314,13 +314,6 @@ app.post('/workstation/execute', async (req, res) => {
         const parent = `projects/${PROJECT_ID}/locations/${LOCATION}/workstationClusters/${CLUSTER}/workstationConfigs/${CONFIG}`;
         const workstationPath = `${parent}/workstations/${workstationName}`;
         
-        // Genera access token per il workstation
-        const [tokenResponse] = await workstationsClient.generateAccessToken({
-            workstation: workstationPath,
-        });
-        
-        const token = tokenResponse.accessToken;
-        
         // Ottieni l'host del workstation
         const [workstation] = await workstationsClient.getWorkstation({
             name: workstationPath
@@ -328,42 +321,35 @@ app.post('/workstation/execute', async (req, res) => {
         
         const host = workstation.host;
         
-        // Esegui comando via HTTP POST al workstation
-        // I workstation espongono un'API su porta 80 per eseguire comandi
-        const workstationUrl = `https://${host}`;
-        
         console.log(`⚡ Executing command in ${workstationName}: ${command}`);
         
-        // Usa l'API del workstation per eseguire il comando
-        // Nota: questo richiede che il workstation abbia un endpoint per eseguire comandi
-        // Per ora, usiamo un approccio semplificato con exec via node
-        const { exec } = require('child_process');
-        const { promisify } = require('util');
-        const execAsync = promisify(exec);
+        // Chiama exec server nel workstation (porta 3000)
+        const execUrl = `https://${host}:3000/exec`;
         
-        // Esegui comando usando gcloud CLI (deve essere installato nel container Cloud Run)
-        // Alternativa: usa SSH diretto se disponibile
-        try {
-            const gcloudCmd = `gcloud workstations ssh ${workstationName} --cluster=${CLUSTER} --region=${LOCATION} --project=${PROJECT_ID} --command="${command.replace(/"/g, '\\"')}"`;
-            const { stdout, stderr } = await execAsync(gcloudCmd, { timeout: 30000 });
-            
+        const execResponse = await axios.post(execUrl, 
+            { command },
+            { 
+                timeout: 30000,
+                validateStatus: () => true // Accetta qualsiasi status
+            }
+        );
+        
+        if (execResponse.data && execResponse.data.success !== false) {
             res.json({ 
                 success: true, 
-                output: stdout || stderr || 'Command executed successfully'
+                output: execResponse.data.output || execResponse.data.error || 'Command executed'
             });
-        } catch (execError) {
-            // Fallback: ritorna messaggio che il comando è stato accodato
-            console.error('Exec error:', execError.message);
+        } else {
             res.json({ 
                 success: true, 
-                output: `Command sent to workstation: ${command}\n\nNote: Direct execution requires SSH access. Use the workstation URL to run commands interactively:\n${workstationUrl}`
+                output: execResponse.data.error || 'Command executed with errors'
             });
         }
     } catch (error) {
         console.error('Execute error:', error.message);
         res.json({ 
             success: true, 
-            output: `Command queued: ${command}\n(Direct execution in development - use workstation URL for interactive terminal)` 
+            output: `Command sent: ${command}\n\nNote: Exec server may not be ready yet. Try again in a few seconds or use the Terminal button to access the web IDE.`
         });
     }
 });

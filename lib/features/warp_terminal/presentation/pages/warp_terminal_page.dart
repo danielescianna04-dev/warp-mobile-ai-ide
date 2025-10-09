@@ -4567,7 +4567,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
     
     try {
       if (_isTerminalMode) {
-        // Esegui nel workstation se disponibile, altrimenti locale
+        // Esegui nel workstation se disponibile
         if (_currentWorkstation != null) {
           final output = await WorkstationService.executeCommand(
             workstationName: _currentWorkstation!.name,
@@ -4589,7 +4589,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
           setState(() {
             _terminalItems.add(
               TerminalItem(
-                content: '⏳ Workstation in avvio...\n\n💡 Per eseguire comandi:\n1. Passa alla modalità AI (toggle in alto)\n2. Chiedi all\'AI di eseguire comandi\n\nOppure apri il workstation URL per terminal completo.',
+                content: '⏳ Workstation in avvio... Riprova tra qualche secondo.',
                 type: TerminalItemType.output,
                 timestamp: DateTime.now(),
               )
@@ -4601,7 +4601,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
           setState(() {
             _terminalItems.add(
               TerminalItem(
-                content: '💡 Seleziona un repository GitHub per eseguire comandi nel cloud.\nOppure passa alla modalità AI (icona in alto).',
+                content: '💡 Seleziona un repository GitHub per eseguire comandi nel cloud.',
                 type: TerminalItemType.output,
                 timestamp: DateTime.now(),
               )

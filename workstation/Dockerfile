@@ -65,12 +65,20 @@ RUN curl -fsSL https://get.docker.com | sh
 
 # Tools utili
 RUN apt-get update && apt-get install -y \
-    vim nano htop tree jq \
+    vim nano htop tree jq supervisor \
     && rm -rf /var/lib/apt/lists/*
 
 # Crea user non-root
 RUN useradd -m -s /bin/bash user \
     && chown -R user:user /home/user
+
+# Copia exec server
+COPY exec-server.js /home/user/exec-server.js
+RUN chown user:user /home/user/exec-server.js
+
+# Supervisor config per avviare exec server automaticamente
+RUN mkdir -p /etc/supervisor/conf.d
+COPY supervisord.conf /etc/supervisor/conf.d/exec-server.conf
 
 USER user
 WORKDIR /home/user/workspace
@@ -78,4 +86,5 @@ WORKDIR /home/user/workspace
 # Pre-warm Flutter
 RUN flutter doctor || true
 
-CMD ["/bin/bash"]
+# Avvia supervisor che gestisce exec server
+CMD ["/usr/bin/supervisord", "-n", "-c", "/etc/supervisor/supervisord.conf"]
