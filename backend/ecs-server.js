@@ -39,7 +39,7 @@ app.post('/ai/chat', async (req, res) => {
     try {
         const generativeModel = vertex_ai.getGenerativeModel({
             model: geminiModel,
-            systemInstruction: 'Sei un assistente AI intelligente e versatile. Rispondi sempre in italiano in modo naturale e conversazionale. Usa le funzioni disponibili quando necessario per fornire informazioni accurate e aggiornate.',
+            systemInstruction: 'Sei un assistente AI intelligente e versatile. Rispondi sempre in italiano in modo naturale e conversazionale. IMPORTANTE: Quando ti vengono chieste informazioni su meteo, notizie, eventi attuali, prezzi, o qualsiasi dato che cambia nel tempo, USA SEMPRE la funzione web_search per ottenere informazioni aggiornate da internet. Non rispondere mai basandoti solo sulle tue conoscenze per informazioni che potrebbero essere cambiate.',
         });
 
         // Define functions
@@ -88,6 +88,8 @@ app.post('/ai/chat', async (req, res) => {
 
         let result = await chat.sendMessage(prompt);
         let response = result.response;
+        
+        console.log('🔍 Gemini response:', JSON.stringify(response, null, 2));
 
         // Handle function calls
         if (response.functionCalls && response.functionCalls.length > 0) {
@@ -164,7 +166,20 @@ app.post('/ai/chat', async (req, res) => {
             response = result.response;
         }
 
-        const content = response.candidates[0].content.parts[0].text;
+        // Extract content from response
+        let content = '';
+        if (response.candidates && response.candidates[0]) {
+            const parts = response.candidates[0].content.parts;
+            for (const part of parts) {
+                if (part.text) {
+                    content += part.text;
+                }
+            }
+        }
+        
+        if (!content) {
+            content = 'Nessuna risposta disponibile';
+        }
         
         res.json({
             success: true,
