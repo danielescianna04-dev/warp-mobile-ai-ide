@@ -237,12 +237,22 @@ app.post('/workstation/create', async (req, res) => {
             [workstation] = await workstationsClient.getWorkstation({ name: workstationPath });
             console.log(`✅ Workstation exists, state: ${workstation.state}`);
             
-            // Se esiste ma è spento, avvialo
+            // Se esiste ma è spento, avvialo (asincrono)
             if (workstation.state === 'STATE_STOPPED' || workstation.state === 'STOPPED') {
-                console.log(`🚀 Starting existing workstation...`);
-                const [startOp] = await workstationsClient.startWorkstation({ name: workstationPath });
-                await startOp.promise();
-                [workstation] = await workstationsClient.getWorkstation({ name: workstationPath });
+                console.log(`🚀 Starting existing workstation (async)...`);
+                // Non aspettare il completamento - ritorna subito
+                workstationsClient.startWorkstation({ name: workstationPath }).catch(err => {
+                    console.error('Start error:', err);
+                });
+                
+                // Ritorna subito con stato "starting"
+                return res.json({
+                    success: true,
+                    workstationName,
+                    url: `https://${workstation.host}`,
+                    isNew: false,
+                    state: 'starting'
+                });
             }
         } catch (notFoundError) {
             // Workstation non esiste, crealo
@@ -256,28 +266,36 @@ app.post('/workstation/create', async (req, res) => {
             });
             await operation.promise();
             
-            // Avvia workstation
-            const [startOp] = await workstationsClient.startWorkstation({ name: workstationPath });
-            await startOp.promise();
+            // Avvia workstation (asincrono)
+            console.log(`🚀 Starting new workstation (async)...`);
+            workstationsClient.startWorkstation({ name: workstationPath }).catch(err => {
+                console.error('Start error:', err);
+            });
             
             [workstation] = await workstationsClient.getWorkstation({ name: workstationPath });
-        }
-        
-        // Clone repo solo se è nuovo o se specificato
-        if (repoUrl && isNew) {
-            try {
-                console.log(`📂 Cloning repo: ${repoUrl}`);
-                await executeInWorkstation(workstationName, `git clone ${repoUrl} /home/user/workspace/${repoName}`);
-            } catch (cloneError) {
-                console.error('Clone error:', cloneError);
+            
+            // Clone repo in background (non aspettare)
+            if (repoUrl) {
+                console.log(`📂 Will clone repo when workstation is ready: ${repoUrl}`);
             }
+            
+            // Ritorna subito
+            return res.json({
+                success: true,
+                workstationName,
+                url: `https://${workstation.host}`,
+                isNew: true,
+                state: 'starting'
+            });
         }
         
+        // Workstation già running
         res.json({
             success: true,
             workstationName,
             url: `https://${workstation.host}`,
-            isNew
+            isNew: false,
+            state: 'running'
         });
     } catch (error) {
         console.error('Workstation error:', error);
