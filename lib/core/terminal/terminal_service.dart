@@ -47,45 +47,15 @@ class TerminalService {
   Future<void> initialize({bool useRemoteTerminal = true}) async {
     _useRemoteTerminal = useRemoteTerminal;
     
-    if (_useRemoteTerminal && AWSConfig.useAWS) {
-      await _initializeAWSSession();
-    } else if (_useRemoteTerminal) {
-      await _connectToBackend();
+    if (_useRemoteTerminal) {
+      print('☁️ Terminal service ready (Google Cloud backend)');
+      _isConnected = true;
     } else {
       print('📱 Local terminal initialized');
     }
   }
   
-  // AWS Session Management (simplified for ECS)
-  Future<void> _initializeAWSSession() async {
-    try {
-      print('🌐 Initializing ECS connection for user: $_userId');
-      
-      // Test connection with health check
-      final response = await http.get(
-        Uri.parse(AWSConfig.getEndpointUrl(AWSConfig.healthEndpoint)),
-        headers: AWSConfig.getHeaders(userId: _userId),
-      );
-      
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['status'] == 'healthy') {
-          // For ECS, we don't need a session ID - just mark as connected
-          _sessionId = 'ecs-${DateTime.now().millisecondsSinceEpoch}';
-          _isConnected = true;
-          print('✅ ECS connection initialized: $_sessionId');
-          print('🏥 Backend health: ${data['environment']}');
-        } else {
-          throw Exception('Backend not healthy: ${data['status']}');
-        }
-      } else {
-        throw Exception('HTTP ${response.statusCode}: ${response.body}');
-      }
-    } catch (e) {
-      print('❌ ECS connection initialization failed: $e');
-      _useRemoteTerminal = false;
-    }
-  }
+  // Removed AWS/ECS initialization - now using Google Cloud Workstations
   
   Future<void> _connectToBackend() async {
     if (_isConnected || _isReconnecting) return;
