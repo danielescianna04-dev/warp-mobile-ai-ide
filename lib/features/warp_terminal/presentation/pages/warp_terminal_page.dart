@@ -6215,10 +6215,22 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
     _scrollToBottom();
     
     // Start workstation silently in background if repository is selected
+    print('🔍 Debug _loadChatSession:');
+    print('   _selectedRepository: ${_selectedRepository?.name ?? "NULL"}');
+    print('   _currentWorkstation: ${_currentWorkstation?.name ?? "NULL"}');
+    print('   chat.repositoryName: ${chat.repositoryName ?? "NULL"}');
+    
     if (_selectedRepository != null && _currentWorkstation == null) {
       print('🔄 Chat caricata con repository: ${_selectedRepository!.name}');
       print('🚀 Avvio automatico workstation...');
       _createWorkstationSilently();
+    } else {
+      if (_selectedRepository == null) {
+        print('⚠️ Nessun repository selezionato - workstation non avviato');
+      }
+      if (_currentWorkstation != null) {
+        print('✅ Workstation già attivo: ${_currentWorkstation!.name}');
+      }
     }
   }
 
