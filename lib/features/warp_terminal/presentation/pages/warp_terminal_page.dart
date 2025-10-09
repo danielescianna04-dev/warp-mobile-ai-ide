@@ -6166,6 +6166,9 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
   }
 
   void _loadChatSession(ChatSession chat) async {
+    print('🔵 _loadChatSession chiamato per: ${chat.title}');
+    print('   Repository nella chat: ${chat.repositoryName ?? "NESSUNO"}');
+    
     // Stop server if switching to different repository
     if (_selectedRepository != null && chat.repositoryName != _selectedRepository!.name) {
       try {
