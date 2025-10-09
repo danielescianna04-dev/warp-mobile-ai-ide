@@ -1519,11 +1519,15 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
         onTap: () {
+          print('🖱️ Click su repository: ${repo.name}');
           setState(() {
             _selectedRepository = isSelected ? null : repo;
           });
           if (!isSelected) {
             _showSnackBar('📁 Selezionata repository: ${repo.name}');
+            print('🚀 Avvio workstation per repository: ${repo.name}');
+            // Avvia workstation in background
+            _createWorkstationSilently();
           }
         },
         child: Container(
