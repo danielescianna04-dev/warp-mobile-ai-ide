@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../config/aws_config.dart';
@@ -24,6 +25,11 @@ class WorkstationService {
         'repoName': repoName,
         if (repoUrl != null) 'repoUrl': repoUrl,
       }),
+    ).timeout(
+      const Duration(minutes: 5), // Timeout aumentato a 5 minuti
+      onTimeout: () {
+        throw TimeoutException('Workstation creation timeout - potrebbe essere ancora in corso');
+      },
     );
 
     print('📥 Response status: ${response.statusCode}');
