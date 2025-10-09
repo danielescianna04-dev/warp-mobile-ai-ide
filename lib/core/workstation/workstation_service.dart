@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import '../../config/aws_config.dart';
 
 class WorkstationService {
-  static const String baseUrl = AwsConfig.apiBaseUrl;
+  static const String baseUrl = AWSConfig.apiBaseUrl;
 
   /// Crea e avvia una workstation per un repository
   static Future<WorkstationInfo> createWorkstation({
