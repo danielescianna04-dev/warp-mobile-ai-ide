@@ -4301,45 +4301,32 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
     _initializeTerminal();
     _setupTerminalOutputListener();
     _initializeDeepLinkHandler();
-    _createWorkstationIfNeeded();
+    // Workstation creation commented out for now - will be triggered manually
+    // _createWorkstationIfNeeded();
   }
   
-  /// Crea workstation automaticamente se c'è un repository selezionato
+  /// Crea workstation per un repository (da chiamare manualmente)
   Future<void> _createWorkstationIfNeeded() async {
-    final currentChat = _chats.firstWhere(
-      (chat) => chat.id == _currentChatId,
-      orElse: () => _chats.first,
-    );
+    if (_currentWorkstation != null || _isCreatingWorkstation) return;
     
-    if (currentChat.repositoryName != null && _currentWorkstation == null) {
-      setState(() => _isCreatingWorkstation = true);
+    setState(() => _isCreatingWorkstation = true);
+    
+    try {
+      final workstation = await WorkstationService.createWorkstation(
+        userId: 'user-${DateTime.now().millisecondsSinceEpoch}',
+        repoName: 'test-repo',
+      );
       
-      try {
-        final workstation = await WorkstationService.createWorkstation(
-          userId: 'flutter-user-${currentChat.id}',
-          repoName: currentChat.repositoryName!,
-        );
-        
-        setState(() {
-          _currentWorkstation = workstation;
-          _isCreatingWorkstation = false;
-        });
-        
-        _addTerminalOutput(
-          '🚀 Workstation creata: ${workstation.name}',
-          isSuccess: true,
-        );
-        _addTerminalOutput(
-          '🌐 URL: ${workstation.url}',
-          isSuccess: true,
-        );
-      } catch (e) {
-        setState(() => _isCreatingWorkstation = false);
-        _addTerminalOutput(
-          '❌ Errore creazione workstation: $e',
-          isError: true,
-        );
-      }
+      setState(() {
+        _currentWorkstation = workstation;
+        _isCreatingWorkstation = false;
+      });
+      
+      print('🚀 Workstation creata: ${workstation.name}');
+      print('🌐 URL: ${workstation.url}');
+    } catch (e) {
+      setState(() => _isCreatingWorkstation = false);
+      print('❌ Errore creazione workstation: $e');
     }
   }
   

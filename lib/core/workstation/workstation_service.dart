@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../config/aws_config.dart';
+import '../../config/aws_config.dart';
 
 class WorkstationService {
   static const String baseUrl = AwsConfig.apiBaseUrl;
