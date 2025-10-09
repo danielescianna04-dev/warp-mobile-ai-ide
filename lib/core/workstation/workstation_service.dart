@@ -11,6 +11,11 @@ class WorkstationService {
     required String repoName,
     String? repoUrl,
   }) async {
+    print('📡 Chiamata API: POST /workstation/create');
+    print('   userId: $userId');
+    print('   repoName: $repoName');
+    if (repoUrl != null) print('   repoUrl: $repoUrl');
+    
     final response = await http.post(
       Uri.parse('$baseUrl/workstation/create'),
       headers: {'Content-Type': 'application/json'},
@@ -21,13 +26,17 @@ class WorkstationService {
       }),
     );
 
+    print('📥 Response status: ${response.statusCode}');
+    
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
+      print('✅ Workstation creato con successo');
       return WorkstationInfo(
         name: data['workstationName'],
         url: data['url'],
       );
     } else {
+      print('❌ Errore creazione: ${response.body}');
       throw Exception('Failed to create workstation: ${response.body}');
     }
   }
@@ -37,6 +46,10 @@ class WorkstationService {
     required String workstationName,
     required String command,
   }) async {
+    print('⚡ Esecuzione comando nel workstation');
+    print('   workstation: $workstationName');
+    print('   comando: $command');
+    
     final response = await http.post(
       Uri.parse('$baseUrl/workstation/execute'),
       headers: {'Content-Type': 'application/json'},
@@ -46,10 +59,16 @@ class WorkstationService {
       }),
     );
 
+    print('📥 Response status: ${response.statusCode}');
+    
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
-      return data['output'] ?? '';
+      final output = data['output'] ?? '';
+      print('✅ Comando eseguito');
+      if (output.isNotEmpty) print('📄 Output: ${output.substring(0, output.length > 100 ? 100 : output.length)}...');
+      return output;
     } else {
+      print('❌ Errore esecuzione: ${response.body}');
       throw Exception('Failed to execute command: ${response.body}');
     }
   }

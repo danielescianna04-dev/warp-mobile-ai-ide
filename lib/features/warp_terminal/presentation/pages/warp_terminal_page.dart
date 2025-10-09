@@ -4357,9 +4357,14 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
     if (_currentWorkstation != null || _isCreatingWorkstation) return;
     if (_selectedRepository == null) return;
     
+    print('🚀 Avvio workstation in background...');
+    print('📦 Repository: ${_selectedRepository!.name}');
+    print('🔗 Clone URL: ${_selectedRepository!.cloneUrl}');
+    
     setState(() => _isCreatingWorkstation = true);
     
     try {
+      print('⏳ Creazione workstation in corso...');
       final workstation = await WorkstationService.createWorkstation(
         userId: 'user-${DateTime.now().millisecondsSinceEpoch}',
         repoName: _selectedRepository!.name,
@@ -4371,8 +4376,10 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
         _isCreatingWorkstation = false;
       });
       
-      print('🚀 Workstation avviato in background: ${workstation.name}');
-      print('📦 Repository clonato: ${_selectedRepository!.cloneUrl}');
+      print('✅ Workstation pronto: ${workstation.name}');
+      print('🌐 URL: ${workstation.url}');
+      print('📂 Repository clonato in /home/user/workspace/${_selectedRepository!.name}');
+      print('🎯 Ora puoi eseguire comandi tramite AI');
     } catch (e) {
       setState(() => _isCreatingWorkstation = false);
       print('❌ Errore avvio workstation: $e');
@@ -6209,6 +6216,8 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
     
     // Start workstation silently in background if repository is selected
     if (_selectedRepository != null && _currentWorkstation == null) {
+      print('🔄 Chat caricata con repository: ${_selectedRepository!.name}');
+      print('🚀 Avvio automatico workstation...');
       _createWorkstationSilently();
     }
   }
