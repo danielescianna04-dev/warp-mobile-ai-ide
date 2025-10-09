@@ -4476,10 +4476,11 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
         // Prova a eseguire un comando semplice per verificare se è pronto
         final output = await WorkstationService.executeCommand(
           workstationName: _currentWorkstation!.name,
-          command: 'echo "ready"',
+          command: 'pwd',
         );
         
-        if (output.contains('ready')) {
+        // Se il comando ritorna un path valido, il workstation è pronto
+        if (output.contains('/home') || output.contains('/workspace') || (!output.contains('STARTING') && !output.contains('not ready') && !output.contains('Timeout'))) {
           // Workstation pronto!
           timer.cancel();
           setState(() {
@@ -4493,7 +4494,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
           });
           _scrollToBottom();
           print('✅ Workstation RUNNING');
-        } else if (output.contains('STARTING') || output.contains('not ready')) {
+        } else {
           // Ancora in avvio
           final elapsed = _pollAttempts * 10;
           final progress = (elapsed / 180 * 20).toInt().clamp(0, 20);
