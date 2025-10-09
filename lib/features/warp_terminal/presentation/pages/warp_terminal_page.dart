@@ -582,6 +582,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
   }
 
   Widget _buildSidebar() {
+    print('📂 Sidebar aperta - Chat disponibili: ${_chatHistory.length}');
     final brightness = Theme.of(context).brightness;
     return Drawer(
       backgroundColor: AppColors.surface(brightness),
