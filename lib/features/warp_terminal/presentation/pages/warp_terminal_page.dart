@@ -4393,16 +4393,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
     
     setState(() {
       _isCreatingWorkstation = true;
-      // Mostra messaggio nel terminal
-      _terminalItems.add(
-        TerminalItem(
-          content: '⏳ Connessione al workstation cloud...\n(Primo avvio: 2-3 min, successivi: 20-30 sec)',
-          type: TerminalItemType.system,
-          timestamp: DateTime.now(),
-        )
-      );
     });
-    _scrollToBottom();
     
     try {
       print('⏳ Creazione/avvio workstation in corso...');
@@ -4415,10 +4406,10 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
       setState(() {
         _currentWorkstation = workstation;
         _isCreatingWorkstation = false;
-        // Mostra messaggio di avvio
+        // Mostra messaggio di avvio con progress
         _terminalItems.add(
           TerminalItem(
-            content: '🔄 Workstation in avvio...\nControllo stato ogni 10 secondi...',
+            content: '🔄 Workstation in avvio... (0s / ~180s)\n░░░░░░░░░░░░░░░░░░░░ 0%',
             type: TerminalItemType.system,
             timestamp: DateTime.now(),
           )
