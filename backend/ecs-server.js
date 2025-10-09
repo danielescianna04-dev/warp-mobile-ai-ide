@@ -9,7 +9,7 @@ app.use(express.json());
 const PROJECT_ID = process.env.GOOGLE_CLOUD_PROJECT || 'drape-mobile-ide';
 const LOCATION = 'us-central1';
 
-const vertexAI = new VertexAI({ project: PROJECT_ID, location: LOCATION });
+const vertex_ai = new VertexAI({ project: PROJECT_ID, location: LOCATION });
 
 // Gemini AI endpoint with function calling
 app.post('/ai/chat', async (req, res) => {
@@ -20,7 +20,7 @@ app.post('/ai/chat', async (req, res) => {
     }
     
     try {
-        const generativeModel = vertexAI.getGenerativeModel({
+        const generativeModel = vertex_ai.getGenerativeModel({
             model: model,
             systemInstruction: 'Sei un assistente AI intelligente e versatile. Rispondi sempre in italiano in modo naturale e conversazionale. Usa le funzioni disponibili quando necessario per fornire informazioni accurate e aggiornate.',
         });
