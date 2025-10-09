@@ -79,7 +79,7 @@ app.post('/ai/chat', async (req, res) => {
         };
 
         const chat = generativeModel.startChat({
-            tools: [{ functionDeclarations: Object.values(functions) }],
+            tools: [{ googleSearch: {} }], // Solo Google Search per ora
             history: conversationHistory.map((msg, i) => ({
                 role: i % 2 === 0 ? 'user' : 'model',
                 parts: [{ text: msg }]
