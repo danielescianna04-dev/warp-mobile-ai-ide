@@ -255,6 +255,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
   // Workstation info
   WorkstationInfo? _currentWorkstation;
   bool _isCreatingWorkstation = false;
+  String? _userId; // User ID persistente per workstation
   List<File> _taggedFiles = [];
   String? _currentRecordingPath;
   List<ChatSession> _chatHistory = [];
@@ -4312,8 +4313,22 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
     _initializeTerminal();
     _setupTerminalOutputListener();
     _initializeDeepLinkHandler();
+    _initializeUserId();
     // Workstation creation commented out for now - will be triggered manually
     // _createWorkstationIfNeeded();
+  }
+  
+  /// Inizializza user ID persistente per workstation
+  void _initializeUserId() async {
+    final stored = await _secureStorage.read(key: 'workstation_user_id');
+    if (stored != null) {
+      setState(() => _userId = stored);
+    } else {
+      final newId = DateTime.now().millisecondsSinceEpoch.toString();
+      await _secureStorage.write(key: 'workstation_user_id', value: newId);
+      setState(() => _userId = newId);
+    }
+    print('👤 User ID workstation: $_userId');
   }
   
   /// Crea workstation per un repository (da chiamare manualmente)
