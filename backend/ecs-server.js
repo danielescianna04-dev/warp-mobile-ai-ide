@@ -198,6 +198,71 @@ app.post('/ai/chat', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 8080;
+
+// Workstation management endpoints
+app.post('/workstation/create', async (req, res) => {
+    const { userId, repoName } = req.body;
+    const workstationName = `ws-${userId}-${repoName}`.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    
+    try {
+        const { exec } = require('child_process');
+        const { promisify } = require('util');
+        const execAsync = promisify(exec);
+        
+        // Crea workstation
+        await execAsync(`gcloud workstations create ${workstationName} \
+            --cluster=drape-dev-cluster \
+            --config=drape-dev-config \
+            --region=us-central1 \
+            --quiet`);
+        
+        // Avvia workstation
+        await execAsync(`gcloud workstations start ${workstationName} \
+            --cluster=drape-dev-cluster \
+            --config=drape-dev-config \
+            --region=us-central1 \
+            --quiet`);
+        
+        // Ottieni URL
+        const result = await execAsync(`gcloud workstations describe ${workstationName} \
+            --cluster=drape-dev-cluster \
+            --config=drape-dev-config \
+            --region=us-central1 \
+            --format="value(host)"`);
+        
+        const host = result.stdout.trim();
+        
+        res.json({
+            success: true,
+            workstationName,
+            url: `https://${host}`
+        });
+    } catch (error) {
+        console.error('Workstation error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.post('/workstation/stop', async (req, res) => {
+    const { workstationName } = req.body;
+    
+    try {
+        const { exec } = require('child_process');
+        const { promisify } = require('util');
+        const execAsync = promisify(exec);
+        
+        await execAsync(`gcloud workstations stop ${workstationName} \
+            --cluster=drape-dev-cluster \
+            --config=drape-dev-config \
+            --region=us-central1 \
+            --quiet`);
+        
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 app.listen(PORT, () => {
     console.log(`🚀 Gemini backend running on port ${PORT}`);
 });
