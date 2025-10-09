@@ -96,7 +96,7 @@ class SmartOutputParser {
     return SmartOutput(
       type: SmartOutputType.info,
       title: _extractFirstLine(output),
-      detail: output.length > 100 ? null : output,
+      detail: output, // Mostra tutto il contenuto
       icon: Icons.info_outline,
       gradientColors: [
         AppColors.textSecondary.withValues(alpha: 0.3),

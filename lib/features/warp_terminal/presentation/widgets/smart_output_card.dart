@@ -90,6 +90,20 @@ class SmartOutputCard extends StatelessWidget {
                         ),
                       ),
                     ],
+                    // Mostra detail o rawOutput se presente
+                    if (output.detail != null || output.rawOutput != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        output.detail ?? output.rawOutput ?? '',
+                        style: TextStyle(
+                          color: brightness == Brightness.dark
+                              ? const Color(0xFFB0B0B0)
+                              : const Color(0xFF4A4A4A),
+                          fontSize: 13,
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
