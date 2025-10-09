@@ -323,14 +323,17 @@ app.post('/workstation/execute', async (req, res) => {
         
         console.log(`⚡ Executing command in ${workstationName}: ${command}`);
         
-        // Chiama exec server nel workstation (porta 3000)
-        const execUrl = `https://${host}:3000/exec`;
+        // Chiama exec server nel workstation (porta 80, path /exec)
+        const execUrl = `https://${host}/exec`;
         
         const execResponse = await axios.post(execUrl, 
             { command },
             { 
                 timeout: 30000,
-                validateStatus: () => true // Accetta qualsiasi status
+                validateStatus: () => true, // Accetta qualsiasi status
+                headers: {
+                    'Content-Type': 'application/json'
+                }
             }
         );
         
