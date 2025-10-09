@@ -4415,10 +4415,10 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
       setState(() {
         _currentWorkstation = workstation;
         _isCreatingWorkstation = false;
-        // Mostra successo nel terminal
+        // Mostra messaggio di avvio
         _terminalItems.add(
           TerminalItem(
-            content: '✅ Workstation pronto!\n\n🌐 Terminal web: Tap sull\'icona workstation in alto\n📂 Repository: ${_selectedRepository!.name}\n\n💡 Usa la modalità AI per eseguire comandi',
+            content: '🔄 Workstation in avvio...\nControllo stato ogni 10 secondi...',
             type: TerminalItemType.system,
             timestamp: DateTime.now(),
           )
@@ -4426,9 +4426,12 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
       });
       _scrollToBottom();
       
-      print('✅ Workstation pronto: ${workstation.name}');
+      print('✅ Workstation creato: ${workstation.name}');
       print('🌐 URL: ${workstation.url}');
-      print('🎯 Ora puoi eseguire comandi tramite AI');
+      print('🎯 Polling stato...');
+      
+      // Avvia polling dello stato
+      _pollWorkstationStatus();
     } catch (e) {
       setState(() {
         _isCreatingWorkstation = false;
@@ -4448,6 +4451,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
   @override
   void dispose() {
     _autoDetectDebounce?.cancel();
+    _workstationPollTimer?.cancel();
     _commandController.dispose();
     _commandFocusNode.dispose();
     _outputScrollController.dispose();
@@ -4459,6 +4463,83 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
+  }
+  
+  Timer? _workstationPollTimer;
+  int _pollAttempts = 0;
+  
+  void _pollWorkstationStatus() async {
+    _pollAttempts = 0;
+    _workstationPollTimer?.cancel();
+    
+    _workstationPollTimer = Timer.periodic(const Duration(seconds: 10), (timer) async {
+      if (_currentWorkstation == null) {
+        timer.cancel();
+        return;
+      }
+      
+      _pollAttempts++;
+      print('🔍 Polling workstation status (attempt $_pollAttempts)...');
+      
+      try {
+        // Prova a eseguire un comando semplice per verificare se è pronto
+        final output = await WorkstationService.executeCommand(
+          workstationName: _currentWorkstation!.name,
+          command: 'echo "ready"',
+        );
+        
+        if (output.contains('ready')) {
+          // Workstation pronto!
+          timer.cancel();
+          setState(() {
+            _terminalItems.add(
+              TerminalItem(
+                content: '✅ Workstation pronto!\n📂 Repository: ${_selectedRepository!.name}\n\n💡 Ora puoi eseguire comandi (es: ls -la)',
+                type: TerminalItemType.system,
+                timestamp: DateTime.now(),
+              )
+            );
+          });
+          _scrollToBottom();
+          print('✅ Workstation RUNNING');
+        } else if (output.contains('STARTING') || output.contains('not ready')) {
+          // Ancora in avvio
+          final elapsed = _pollAttempts * 10;
+          final progress = (elapsed / 180 * 20).toInt().clamp(0, 20);
+          setState(() {
+            // Aggiorna l'ultimo messaggio
+            if (_terminalItems.isNotEmpty && _terminalItems.last.content.contains('Workstation in avvio')) {
+              _terminalItems.removeLast();
+            }
+            _terminalItems.add(
+              TerminalItem(
+                content: '🔄 Workstation in avvio... (${elapsed}s / ~180s)\n${'█' * progress}${'░' * (20 - progress)} ${(progress * 5)}%',
+                type: TerminalItemType.system,
+                timestamp: DateTime.now(),
+              )
+            );
+          });
+          _scrollToBottom();
+        }
+        
+        // Stop dopo 5 minuti
+        if (_pollAttempts >= 30) {
+          timer.cancel();
+          setState(() {
+            _terminalItems.add(
+              TerminalItem(
+                content: '⚠️ Timeout: workstation sta impiegando più del previsto.\nProva a eseguire un comando per verificare.',
+                type: TerminalItemType.system,
+                timestamp: DateTime.now(),
+              )
+            );
+          });
+          _scrollToBottom();
+        }
+      } catch (e) {
+        print('❌ Poll error: $e');
+      }
+    });
   }
 
   void _onFocusChange() {
