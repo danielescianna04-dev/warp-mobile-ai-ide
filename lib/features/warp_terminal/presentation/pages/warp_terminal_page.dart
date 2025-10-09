@@ -954,7 +954,10 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
     final isGitHubChat = chat.repositoryId != null;
     
     return InkWell(
-      onTap: () => _loadChatSession(chat),
+      onTap: () {
+        print('🖱️ Click su chat: ${chat.title}');
+        _loadChatSession(chat);
+      },
       borderRadius: BorderRadius.circular(8),
       child: Container(
         width: double.infinity,
@@ -1151,7 +1154,10 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
-          onTap: () => _loadChatSession(chat),
+          onTap: () {
+            print('🖱️ Click su chat (search): ${chat.title}');
+            _loadChatSession(chat);
+          },
           child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
