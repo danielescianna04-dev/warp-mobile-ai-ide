@@ -5964,6 +5964,8 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
       margin: const EdgeInsets.only(bottom: 2),
       child: InkWell(
         onTap: () async {
+          print('🖱️ Click su repository GitHub sidebar: ${repo.name}');
+          
           // Stop any running server for the old repository
           if (_selectedRepository != null && _selectedRepository!.name != repo.name) {
             try {
@@ -5983,51 +5985,12 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
             _currentChatTitle = null;
           });
           Navigator.pop(context);
-          _showSnackBar('Clonazione ${repo.name}...');
           
-          // Clone repository automatically - use token for private repos
-          final repoName = repo.name.replaceAll('.', '_');
-          String cloneUrl = repo.cloneUrl;
+          print('🚀 Avvio workstation per repository: ${repo.name}');
+          // Avvia workstation in background
+          _createWorkstationSilently();
           
-          // If private repository, use token
-          if (repo.isPrivate && _gitHubToken != null && _gitHubToken!.isNotEmpty) {
-            // Convert https://github.com/user/repo.git to https://token@github.com/user/repo.git
-            cloneUrl = cloneUrl.replaceFirst('https://github.com/', 'https://$_gitHubToken@github.com/');
-          }
-          
-          final cloneCommand = 'rm -rf /tmp/projects/$repoName && git clone $cloneUrl /tmp/projects/$repoName';
-          
-          // Show command in terminal
-          setState(() {
-            _terminalItems.add(
-              TerminalItem(
-                content: 'git clone ${repo.name}',
-                type: TerminalItemType.command,
-                timestamp: DateTime.now(),
-              )
-            );
-            _isLoading = true;
-          });
-          
-          // Execute clone
-          final result = await TerminalService().executeCommand(cloneCommand);
-          
-          // Show result
-          setState(() {
-            if (result.output.isNotEmpty || result.errorDetails != null) {
-              _terminalItems.add(
-                TerminalItem(
-                  content: result.isSuccess ? 'Repository clonato con successo' : (result.errorDetails ?? 'Errore durante la clonazione'),
-                  type: result.isSuccess ? TerminalItemType.system : TerminalItemType.error,
-                  timestamp: DateTime.now(),
-                  errorDetails: result.errorDetails,
-                  exitCode: result.exitCode,
-                )
-              );
-            }
-            _isLoading = false;
-          });
-          
+          _showSnackBar('Repository ${repo.name} selezionato - workstation in avvio...');
           _scrollToBottom();
         },
         borderRadius: BorderRadius.circular(8),
