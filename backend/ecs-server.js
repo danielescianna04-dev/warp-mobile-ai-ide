@@ -199,43 +199,46 @@ app.post('/ai/chat', async (req, res) => {
 
 const PORT = process.env.PORT || 8080;
 
-// Workstation management endpoints
+// Workstation management con API client
+const { WorkstationsClient } = require('@google-cloud/workstations').v1;
+const workstationsClient = new WorkstationsClient();
+
+const CLUSTER = 'drape-dev-cluster';
+const CONFIG = 'drape-dev-config';
+
 app.post('/workstation/create', async (req, res) => {
     const { userId, repoName } = req.body;
-    const workstationName = `ws-${userId}-${repoName}`.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    const workstationName = `ws-${userId}-${repoName}`.toLowerCase().replace(/[^a-z0-9-]/g, '-').substring(0, 63);
     
     try {
-        const { exec } = require('child_process');
-        const { promisify } = require('util');
-        const execAsync = promisify(exec);
+        const parent = `projects/${PROJECT_ID}/locations/${LOCATION}/workstationClusters/${CLUSTER}/workstationConfigs/${CONFIG}`;
         
         // Crea workstation
-        await execAsync(`gcloud workstations create ${workstationName} \
-            --cluster=drape-dev-cluster \
-            --config=drape-dev-config \
-            --region=us-central1 \
-            --quiet`);
+        const [operation] = await workstationsClient.createWorkstation({
+            parent,
+            workstationId: workstationName,
+            workstation: {}
+        });
+        
+        await operation.promise();
         
         // Avvia workstation
-        await execAsync(`gcloud workstations start ${workstationName} \
-            --cluster=drape-dev-cluster \
-            --config=drape-dev-config \
-            --region=us-central1 \
-            --quiet`);
+        const workstationPath = `${parent}/workstations/${workstationName}`;
+        const [startOp] = await workstationsClient.startWorkstation({
+            name: workstationPath
+        });
         
-        // Ottieni URL
-        const result = await execAsync(`gcloud workstations describe ${workstationName} \
-            --cluster=drape-dev-cluster \
-            --config=drape-dev-config \
-            --region=us-central1 \
-            --format="value(host)"`);
+        await startOp.promise();
         
-        const host = result.stdout.trim();
+        // Ottieni info workstation
+        const [workstation] = await workstationsClient.getWorkstation({
+            name: workstationPath
+        });
         
         res.json({
             success: true,
             workstationName,
-            url: `https://${host}`
+            url: `https://${workstation.host}`
         });
     } catch (error) {
         console.error('Workstation error:', error);
@@ -247,15 +250,14 @@ app.post('/workstation/stop', async (req, res) => {
     const { workstationName } = req.body;
     
     try {
-        const { exec } = require('child_process');
-        const { promisify } = require('util');
-        const execAsync = promisify(exec);
+        const parent = `projects/${PROJECT_ID}/locations/${LOCATION}/workstationClusters/${CLUSTER}/workstationConfigs/${CONFIG}`;
+        const workstationPath = `${parent}/workstations/${workstationName}`;
         
-        await execAsync(`gcloud workstations stop ${workstationName} \
-            --cluster=drape-dev-cluster \
-            --config=drape-dev-config \
-            --region=us-central1 \
-            --quiet`);
+        const [operation] = await workstationsClient.stopWorkstation({
+            name: workstationPath
+        });
+        
+        await operation.promise();
         
         res.json({ success: true });
     } catch (error) {
