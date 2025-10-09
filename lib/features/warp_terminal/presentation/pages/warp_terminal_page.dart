@@ -4320,12 +4320,35 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
       setState(() {
         _currentWorkstation = workstation;
         _isCreatingWorkstation = false;
+        _terminalItems.add(
+          TerminalItem(
+            content: '✅ Workstation creata: ${workstation.name}',
+            type: TerminalItemType.output,
+            timestamp: DateTime.now(),
+          )
+        );
+        _terminalItems.add(
+          TerminalItem(
+            content: '🌐 URL: ${workstation.url}',
+            type: TerminalItemType.output,
+            timestamp: DateTime.now(),
+          )
+        );
       });
       
       print('🚀 Workstation creata: ${workstation.name}');
       print('🌐 URL: ${workstation.url}');
     } catch (e) {
-      setState(() => _isCreatingWorkstation = false);
+      setState(() {
+        _isCreatingWorkstation = false;
+        _terminalItems.add(
+          TerminalItem(
+            content: '❌ Errore creazione workstation: $e',
+            type: TerminalItemType.error,
+            timestamp: DateTime.now(),
+          )
+        );
+      });
       print('❌ Errore creazione workstation: $e');
     }
   }
@@ -4360,8 +4383,24 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
     
     // Comando speciale per creare workstation
     if (command.trim() == 'create-workspace') {
-      _createWorkstationIfNeeded();
+      setState(() {
+        _terminalItems.add(
+          TerminalItem(
+            content: '$ create-workspace',
+            type: TerminalItemType.command,
+            timestamp: DateTime.now(),
+          )
+        );
+        _terminalItems.add(
+          TerminalItem(
+            content: '🔄 Creazione workstation in corso...',
+            type: TerminalItemType.output,
+            timestamp: DateTime.now(),
+          )
+        );
+      });
       _commandController.clear();
+      await _createWorkstationIfNeeded();
       return;
     }
     
