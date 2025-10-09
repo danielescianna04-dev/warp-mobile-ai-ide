@@ -4386,7 +4386,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
       setState(() {
         _terminalItems.add(
           TerminalItem(
-            content: '$ create-workspace',
+            content: '\$ create-workspace',
             type: TerminalItemType.command,
             timestamp: DateTime.now(),
           )
