@@ -217,7 +217,7 @@ const { WorkstationsClient } = require('@google-cloud/workstations').v1;
 const workstationsClient = new WorkstationsClient();
 
 const CLUSTER = 'drape-dev-cluster';
-const CONFIG = 'drape-dev-config';
+const CONFIG = 'drape-custom-config'; // Container custom ottimizzato
 
 app.post('/workstation/create', async (req, res) => {
     const { userId, repoName, repoUrl } = req.body;
