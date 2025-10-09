@@ -6,6 +6,11 @@ const { VertexAI } = require('@google-cloud/vertexai');
 const app = express();
 app.use(express.json());
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+    res.json({ status: 'ok', service: 'drape-ai-backend' });
+});
+
 const PROJECT_ID = process.env.GOOGLE_CLOUD_PROJECT || 'drape-mobile-ide';
 const LOCATION = 'us-central1';
 
@@ -19,9 +24,21 @@ app.post('/ai/chat', async (req, res) => {
         return res.status(400).json({ error: 'Prompt is required' });
     }
     
+    // Map old Claude/GPT models to Gemini
+    const modelMap = {
+        'claude-3.5': 'gemini-2.0-flash-exp',
+        'claude-4.5': 'gemini-2.0-flash-exp',
+        'claude-opus': 'gemini-2.0-flash-exp',
+        'claude-haiku': 'gemini-2.0-flash-exp',
+        'gpt-4': 'gemini-2.0-flash-exp',
+        'gpt-5': 'gemini-2.0-flash-exp'
+    };
+    
+    const geminiModel = modelMap[model] || model;
+    
     try {
         const generativeModel = vertex_ai.getGenerativeModel({
-            model: model,
+            model: geminiModel,
             systemInstruction: 'Sei un assistente AI intelligente e versatile. Rispondi sempre in italiano in modo naturale e conversazionale. Usa le funzioni disponibili quando necessario per fornire informazioni accurate e aggiornate.',
         });
 
