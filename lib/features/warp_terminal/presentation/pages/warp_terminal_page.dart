@@ -402,6 +402,52 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
         ],
       ),
       actions: [
+        // Workstation button - quando attivo
+        if (_currentWorkstation != null)
+          Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  // Apri workstation URL
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => PreviewWebScreen(url: _currentWorkstation!.url),
+                    ),
+                  );
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.terminal_rounded,
+                        color: Colors.green,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Terminal',
+                        style: TextStyle(
+                          color: Colors.green,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
         // Preview button - Minimal refined
         if (_previewUrl != null)
           Padding(
@@ -4418,7 +4464,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
         // Mostra successo nel terminal
         _terminalItems.add(
           TerminalItem(
-            content: '✅ Workstation pronto!\n🌐 ${workstation.url}\n📂 Repository: ${_selectedRepository!.name}',
+            content: '✅ Workstation pronto!\n\n🌐 Terminal web: Tap sull\'icona workstation in alto\n📂 Repository: ${_selectedRepository!.name}\n\n💡 Usa la modalità AI per eseguire comandi',
             type: TerminalItemType.system,
             timestamp: DateTime.now(),
           )
@@ -4543,7 +4589,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
           setState(() {
             _terminalItems.add(
               TerminalItem(
-                content: '⏳ Workstation in avvio... Usa la modalità AI per eseguire comandi.',
+                content: '⏳ Workstation in avvio...\n\n💡 Per eseguire comandi:\n1. Passa alla modalità AI (toggle in alto)\n2. Chiedi all\'AI di eseguire comandi\n\nOppure apri il workstation URL per terminal completo.',
                 type: TerminalItemType.output,
                 timestamp: DateTime.now(),
               )
