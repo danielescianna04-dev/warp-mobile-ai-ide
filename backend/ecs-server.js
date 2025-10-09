@@ -314,10 +314,18 @@ app.post('/workstation/execute', async (req, res) => {
         const parent = `projects/${PROJECT_ID}/locations/${LOCATION}/workstationClusters/${CLUSTER}/workstationConfigs/${CONFIG}`;
         const workstationPath = `${parent}/workstations/${workstationName}`;
         
-        // Ottieni l'host del workstation
+        // Ottieni lo stato del workstation
         const [workstation] = await workstationsClient.getWorkstation({
             name: workstationPath
         });
+        
+        // Check se è running
+        if (workstation.state !== 'STATE_RUNNING' && workstation.state !== 'RUNNING') {
+            return res.json({ 
+                success: true, 
+                output: `⏳ Workstation is ${workstation.state}. Please wait a moment and try again.`
+            });
+        }
         
         const host = workstation.host;
         
@@ -352,7 +360,7 @@ app.post('/workstation/execute', async (req, res) => {
         console.error('Execute error:', error.message);
         res.json({ 
             success: true, 
-            output: `Command sent: ${command}\n\nNote: Exec server may not be ready yet. Try again in a few seconds or use the Terminal button to access the web IDE.`
+            output: `⏳ Workstation not ready yet. Please wait a moment and try again.\n\nError: ${error.message}`
         });
     }
 });
