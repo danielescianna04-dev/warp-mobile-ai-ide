@@ -4358,6 +4358,13 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
   void _executeCommand(String command) async {
     if (command.trim().isEmpty) return;
     
+    // Comando speciale per creare workstation
+    if (command.trim() == 'create-workspace') {
+      _createWorkstationIfNeeded();
+      _commandController.clear();
+      return;
+    }
+    
     if (!_hasInteracted) {
       setState(() {
         _hasInteracted = true;
