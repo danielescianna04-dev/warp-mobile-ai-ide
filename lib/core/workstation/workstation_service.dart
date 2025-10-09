@@ -9,6 +9,7 @@ class WorkstationService {
   static Future<WorkstationInfo> createWorkstation({
     required String userId,
     required String repoName,
+    String? repoUrl,
   }) async {
     final response = await http.post(
       Uri.parse('$baseUrl/workstation/create'),
@@ -16,6 +17,7 @@ class WorkstationService {
       body: jsonEncode({
         'userId': userId,
         'repoName': repoName,
+        if (repoUrl != null) 'repoUrl': repoUrl,
       }),
     );
 
@@ -27,6 +29,28 @@ class WorkstationService {
       );
     } else {
       throw Exception('Failed to create workstation: ${response.body}');
+    }
+  }
+
+  /// Esegue un comando nella workstation
+  static Future<String> executeCommand({
+    required String workstationName,
+    required String command,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/workstation/execute'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'workstationName': workstationName,
+        'command': command,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['output'] ?? '';
+    } else {
+      throw Exception('Failed to execute command: ${response.body}');
     }
   }
 

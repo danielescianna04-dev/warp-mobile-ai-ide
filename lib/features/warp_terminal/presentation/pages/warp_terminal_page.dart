@@ -4352,6 +4352,32 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
       print('❌ Errore creazione workstation: $e');
     }
   }
+
+  Future<void> _createWorkstationSilently() async {
+    if (_currentWorkstation != null || _isCreatingWorkstation) return;
+    if (_selectedRepository == null) return;
+    
+    setState(() => _isCreatingWorkstation = true);
+    
+    try {
+      final workstation = await WorkstationService.createWorkstation(
+        userId: 'user-${DateTime.now().millisecondsSinceEpoch}',
+        repoName: _selectedRepository!.name,
+        repoUrl: _selectedRepository!.cloneUrl,
+      );
+      
+      setState(() {
+        _currentWorkstation = workstation;
+        _isCreatingWorkstation = false;
+      });
+      
+      print('🚀 Workstation avviato in background: ${workstation.name}');
+      print('📦 Repository clonato: ${_selectedRepository!.cloneUrl}');
+    } catch (e) {
+      setState(() => _isCreatingWorkstation = false);
+      print('❌ Errore avvio workstation: $e');
+    }
+  }
   
   @override
   void dispose() {
@@ -4429,51 +4455,62 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
     
     try {
       if (_isTerminalMode) {
-        // Set repository context before executing command
-        TerminalService().setCurrentRepository(_selectedRepository?.name);
-        
-        // Execute real terminal command
-        final result = await TerminalService().executeCommand(command);
-        
-        if (result.isClearCommand) {
+        // Esegui nel workstation se disponibile, altrimenti locale
+        if (_currentWorkstation != null) {
+          final output = await WorkstationService.executeCommand(
+            workstationName: _currentWorkstation!.name,
+            command: command,
+          );
+          
           setState(() {
-            _terminalItems.clear();
-            _previewUrl = null; // Reset preview when clearing
+            _terminalItems.add(
+              TerminalItem(
+                content: output.isNotEmpty ? output : 'Command executed',
+                type: TerminalItemType.output,
+                timestamp: DateTime.now(),
+              )
+            );
             _isLoading = false;
           });
         } else {
-          setState(() {
-            // Only add terminal item if there's something to show
-            if ((result.output.isNotEmpty && result.output != 'No output') || 
-                result.errorDetails != null || 
-                result.exitCode != 0) {
-              _terminalItems.add(
-                TerminalItem(
-                  content: result.output.isNotEmpty ? result.output : (result.errorDetails ?? 'Error'),
-                  type: result.isSuccess ? TerminalItemType.output : TerminalItemType.error,
-                  timestamp: DateTime.now(),
-                  errorDetails: result.errorDetails,
-                  exitCode: result.exitCode,
-                )
-              );
-            }
-            
-            // Se NON c'è repository selezionato e è flutter run, mostra SOLO demo
-            if (command.trim() == 'flutter run' && _selectedRepository == null) {
-              _openDemoPreview();
-            } else {
-              // Altrimenti controlla per server reali
-              // Check for web server from TerminalService (Docker backend)
-              _updatePreviewFromTerminalService();
-              
-              // Fallback: check output for patterns (local mode)
-              if (_previewUrl == null) {
-                _checkForRunningApp(result.output);
+          // Esecuzione locale (fallback)
+          TerminalService().setCurrentRepository(_selectedRepository?.name);
+          final result = await TerminalService().executeCommand(command);
+          
+          if (result.isClearCommand) {
+            setState(() {
+              _terminalItems.clear();
+              _previewUrl = null;
+              _isLoading = false;
+            });
+          } else {
+            setState(() {
+              if ((result.output.isNotEmpty && result.output != 'No output') || 
+                  result.errorDetails != null || 
+                  result.exitCode != 0) {
+                _terminalItems.add(
+                  TerminalItem(
+                    content: result.output.isNotEmpty ? result.output : (result.errorDetails ?? 'Error'),
+                    type: result.isSuccess ? TerminalItemType.output : TerminalItemType.error,
+                    timestamp: DateTime.now(),
+                    errorDetails: result.errorDetails,
+                    exitCode: result.exitCode,
+                  )
+                );
               }
-            }
-            
-            _isLoading = false;
-          });
+              
+              if (command.trim() == 'flutter run' && _selectedRepository == null) {
+                _openDemoPreview();
+              } else {
+                _updatePreviewFromTerminalService();
+                if (_previewUrl == null) {
+                  _checkForRunningApp(result.output);
+                }
+              }
+              
+              _isLoading = false;
+            });
+          }
         }
       } else {
         // AI CHAT MODE - Normal conversation
@@ -6183,6 +6220,11 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
     });
     Navigator.pop(context);
     _scrollToBottom();
+    
+    // Start workstation silently in background if repository is selected
+    if (_selectedRepository != null && _currentWorkstation == null) {
+      _createWorkstationSilently();
+    }
   }
 
   void _saveChatSession() {

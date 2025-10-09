@@ -207,7 +207,7 @@ const CLUSTER = 'drape-dev-cluster';
 const CONFIG = 'drape-dev-config';
 
 app.post('/workstation/create', async (req, res) => {
-    const { userId, repoName } = req.body;
+    const { userId, repoName, repoUrl } = req.body;
     const workstationName = `ws-${userId}-${repoName}`.toLowerCase().replace(/[^a-z0-9-]/g, '-').substring(0, 63);
     
     try {
@@ -235,6 +235,15 @@ app.post('/workstation/create', async (req, res) => {
             name: workstationPath
         });
         
+        // Clone repo se URL fornito
+        if (repoUrl) {
+            try {
+                await executeInWorkstation(workstationName, `git clone ${repoUrl} /home/user/workspace/${repoName}`);
+            } catch (cloneError) {
+                console.error('Clone error:', cloneError);
+            }
+        }
+        
         res.json({
             success: true,
             workstationName,
@@ -245,6 +254,39 @@ app.post('/workstation/create', async (req, res) => {
         res.status(500).json({ success: false, error: error.message });
     }
 });
+
+app.post('/workstation/execute', async (req, res) => {
+    const { workstationName, command } = req.body;
+    
+    if (!workstationName || !command) {
+        return res.status(400).json({ error: 'workstationName and command required' });
+    }
+    
+    try {
+        const output = await executeInWorkstation(workstationName, command);
+        res.json({ success: true, output });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+async function executeInWorkstation(workstationName, command) {
+    const parent = `projects/${PROJECT_ID}/locations/${LOCATION}/workstationClusters/${CLUSTER}/workstationConfigs/${CONFIG}`;
+    const workstationPath = `${parent}/workstations/${workstationName}`;
+    
+    // Usa gcloud per eseguire comando via SSH
+    return new Promise((resolve, reject) => {
+        exec(`gcloud workstations ssh ${workstationName} --cluster=${CLUSTER} --region=${LOCATION} --command="${command}"`, 
+            (error, stdout, stderr) => {
+                if (error) {
+                    reject(new Error(stderr || error.message));
+                } else {
+                    resolve(stdout);
+                }
+            }
+        );
+    });
+}
 
 app.post('/workstation/stop', async (req, res) => {
     const { workstationName } = req.body;
