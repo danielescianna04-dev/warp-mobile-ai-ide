@@ -55,19 +55,26 @@ class AIManager {
     List<String> conversationHistory, {
     CodeContext? context,
     String? model,
+    String? workstationName,
   }) async {
     try {
       final url = '${AWSConfig.apiBaseUrl}/ai/chat';
       final selectedModel = model ?? 'claude-3.5';
       
+      final body = {
+        'prompt': message,
+        'conversationHistory': conversationHistory,
+        'model': selectedModel,
+      };
+      
+      if (workstationName != null) {
+        body['workstationName'] = workstationName;
+      }
+      
       final response = await http.post(
         Uri.parse(url),
         headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'prompt': message,
-          'conversationHistory': conversationHistory,
-          'model': selectedModel,
-        }),
+        body: json.encode(body),
       ).timeout(const Duration(minutes: 2));
 
       if (response.statusCode == 200) {

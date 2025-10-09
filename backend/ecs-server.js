@@ -18,7 +18,7 @@ const vertex_ai = new VertexAI({ project: PROJECT_ID, location: LOCATION });
 
 // Gemini AI endpoint with function calling
 app.post('/ai/chat', async (req, res) => {
-    const { prompt, conversationHistory = [], model = 'gemini-2.0-flash' } = req.body;
+    const { prompt, conversationHistory = [], model = 'gemini-2.0-flash', workstationName } = req.body;
     
     if (!prompt) {
         return res.status(400).json({ error: 'Prompt is required' });
@@ -37,49 +37,37 @@ app.post('/ai/chat', async (req, res) => {
     const geminiModel = modelMap[model] || model;
     
     try {
+        const systemInstruction = workstationName 
+            ? `Sei un assistente AI per sviluppatori. Hai accesso a un workstation cloud dove puoi eseguire comandi. Il workstation è: ${workstationName}. Quando l'utente chiede di eseguire comandi, installare pacchetti, o fare operazioni di sviluppo, usa la funzione execute_command. Rispondi sempre in italiano.`
+            : 'Sei un assistente AI intelligente e versatile. Rispondi sempre in italiano in modo naturale e conversazionale.';
+
         const generativeModel = vertex_ai.getGenerativeModel({
             model: geminiModel,
-            systemInstruction: 'Sei un assistente AI intelligente e versatile. Rispondi sempre in italiano in modo naturale e conversazionale. IMPORTANTE: Quando ti vengono chieste informazioni su meteo, notizie, eventi attuali, prezzi, o qualsiasi dato che cambia nel tempo, USA SEMPRE la funzione web_search per ottenere informazioni aggiornate da internet. Non rispondere mai basandoti solo sulle tue conoscenze per informazioni che potrebbero essere cambiate.',
+            systemInstruction,
         });
 
         // Define functions
-        const functions = {
-            web_search: {
-                name: 'web_search',
-                description: 'Cerca informazioni su internet per dati attuali, notizie, fatti o informazioni in tempo reale.',
-                parameters: {
-                    type: 'object',
-                    properties: {
-                        query: {
-                            type: 'string',
-                            description: 'La query di ricerca'
-                        }
-                    },
-                    required: ['query']
-                }
-            },
-            github_operation: {
-                name: 'github_operation',
-                description: 'Esegui operazioni GitHub: crea repository, commit, push, clone, status, log.',
-                parameters: {
-                    type: 'object',
-                    properties: {
-                        operation: {
-                            type: 'string',
-                            enum: ['create_repo', 'clone', 'commit', 'push', 'status', 'log'],
-                            description: 'Operazione GitHub da eseguire'
+        const tools = workstationName ? [
+            {
+                functionDeclarations: [{
+                    name: 'execute_command',
+                    description: 'Esegui un comando bash nel workstation cloud dello sviluppatore',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            command: {
+                                type: 'string',
+                                description: 'Il comando bash da eseguire (es: npm install, git status, ls -la)'
+                            }
                         },
-                        repo_name: { type: 'string', description: 'Nome repository' },
-                        message: { type: 'string', description: 'Messaggio commit' },
-                        private: { type: 'boolean', description: 'Repo privato' }
-                    },
-                    required: ['operation']
-                }
+                        required: ['command']
+                    }
+                }]
             }
-        };
+        ] : [{ googleSearch: {} }];
 
         const chat = generativeModel.startChat({
-            tools: [{ googleSearch: {} }], // Solo Google Search per ora
+            tools,
             history: conversationHistory.map((msg, i) => ({
                 role: i % 2 === 0 ? 'user' : 'model',
                 parts: [{ text: msg }]
@@ -91,10 +79,35 @@ app.post('/ai/chat', async (req, res) => {
         
         console.log('🔍 Gemini response:', JSON.stringify(response, null, 2));
 
+        // Extract function call from response
+        let functionCall = null;
+        if (response.candidates && response.candidates[0]) {
+            const parts = response.candidates[0].content.parts;
+            for (const part of parts) {
+                if (part.functionCall) {
+                    functionCall = part.functionCall;
+                    break;
+                }
+            }
+        }
+
         // Handle function calls
-        if (response.functionCalls && response.functionCalls.length > 0) {
-            const functionCall = response.functionCalls[0];
+        if (functionCall) {
             let functionResult = '';
+
+            if (functionCall.name === 'execute_command') {
+                console.log(`⚡ Execute: ${functionCall.args.command}`);
+                try {
+                    const { command } = functionCall.args;
+                    const parent = `projects/${PROJECT_ID}/locations/${LOCATION}/workstationClusters/${CLUSTER}/workstationConfigs/${CONFIG}`;
+                    const workstationPath = `${parent}/workstations/${workstationName}`;
+                    
+                    // Per ora simula esecuzione - in produzione usare SSH/exec API
+                    functionResult = `✅ Comando eseguito: ${command}\n(Output simulato - integrazione completa in sviluppo)`;
+                } catch (error) {
+                    functionResult = `❌ Errore: ${error.message}`;
+                }
+            }
 
             if (functionCall.name === 'web_search') {
                 console.log(`🔍 Web search: ${functionCall.args.query}`);

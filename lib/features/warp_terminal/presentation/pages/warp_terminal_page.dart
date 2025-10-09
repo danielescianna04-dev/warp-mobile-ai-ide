@@ -4524,6 +4524,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
           [],
           context: CodeContext(language: 'text'),
           model: actualModel,
+          workstationName: _currentWorkstation?.name,
         );
         
         setState(() {
