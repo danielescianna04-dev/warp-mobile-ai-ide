@@ -4472,45 +4472,30 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
             );
             _isLoading = false;
           });
+        } else if (_selectedRepository != null) {
+          // Repository selezionato ma workstation non ancora pronto
+          setState(() {
+            _terminalItems.add(
+              TerminalItem(
+                content: '⏳ Workstation in avvio... Usa la modalità AI per eseguire comandi.',
+                type: TerminalItemType.output,
+                timestamp: DateTime.now(),
+              )
+            );
+            _isLoading = false;
+          });
         } else {
-          // Esecuzione locale (fallback)
-          TerminalService().setCurrentRepository(_selectedRepository?.name);
-          final result = await TerminalService().executeCommand(command);
-          
-          if (result.isClearCommand) {
-            setState(() {
-              _terminalItems.clear();
-              _previewUrl = null;
-              _isLoading = false;
-            });
-          } else {
-            setState(() {
-              if ((result.output.isNotEmpty && result.output != 'No output') || 
-                  result.errorDetails != null || 
-                  result.exitCode != 0) {
-                _terminalItems.add(
-                  TerminalItem(
-                    content: result.output.isNotEmpty ? result.output : (result.errorDetails ?? 'Error'),
-                    type: result.isSuccess ? TerminalItemType.output : TerminalItemType.error,
-                    timestamp: DateTime.now(),
-                    errorDetails: result.errorDetails,
-                    exitCode: result.exitCode,
-                  )
-                );
-              }
-              
-              if (command.trim() == 'flutter run' && _selectedRepository == null) {
-                _openDemoPreview();
-              } else {
-                _updatePreviewFromTerminalService();
-                if (_previewUrl == null) {
-                  _checkForRunningApp(result.output);
-                }
-              }
-              
-              _isLoading = false;
-            });
-          }
+          // Nessun repository - suggerisci di selezionarne uno
+          setState(() {
+            _terminalItems.add(
+              TerminalItem(
+                content: '💡 Seleziona un repository GitHub per eseguire comandi nel cloud.\nOppure passa alla modalità AI (icona in alto).',
+                type: TerminalItemType.output,
+                timestamp: DateTime.now(),
+              )
+            );
+            _isLoading = false;
+          });
         }
       } else {
         // AI CHAT MODE - Normal conversation
