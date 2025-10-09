@@ -4372,7 +4372,18 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
     print('📦 Repository: ${_selectedRepository!.name}');
     print('🔗 Clone URL: ${_selectedRepository!.cloneUrl}');
     
-    setState(() => _isCreatingWorkstation = true);
+    setState(() {
+      _isCreatingWorkstation = true;
+      // Mostra messaggio nel terminal
+      _terminalItems.add(
+        TerminalItem(
+          content: '⏳ Avvio workstation cloud per ${_selectedRepository!.name}...\nQuesto può richiedere 2-3 minuti.',
+          type: TerminalItemType.system,
+          timestamp: DateTime.now(),
+        )
+      );
+    });
+    _scrollToBottom();
     
     try {
       print('⏳ Creazione workstation in corso...');
@@ -4385,14 +4396,33 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
       setState(() {
         _currentWorkstation = workstation;
         _isCreatingWorkstation = false;
+        // Mostra successo nel terminal
+        _terminalItems.add(
+          TerminalItem(
+            content: '✅ Workstation pronto!\n🌐 ${workstation.url}\n📂 Repository clonato e pronto per l\'uso',
+            type: TerminalItemType.system,
+            timestamp: DateTime.now(),
+          )
+        );
       });
+      _scrollToBottom();
       
       print('✅ Workstation pronto: ${workstation.name}');
       print('🌐 URL: ${workstation.url}');
       print('📂 Repository clonato in /home/user/workspace/${_selectedRepository!.name}');
       print('🎯 Ora puoi eseguire comandi tramite AI');
     } catch (e) {
-      setState(() => _isCreatingWorkstation = false);
+      setState(() {
+        _isCreatingWorkstation = false;
+        _terminalItems.add(
+          TerminalItem(
+            content: '❌ Errore avvio workstation: $e',
+            type: TerminalItemType.error,
+            timestamp: DateTime.now(),
+          )
+        );
+      });
+      _scrollToBottom();
       print('❌ Errore avvio workstation: $e');
     }
   }
