@@ -4368,7 +4368,11 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
     if (_currentWorkstation != null || _isCreatingWorkstation) return;
     if (_selectedRepository == null) return;
     
-    print('🚀 Avvio workstation in background...');
+    // Usa userId fisso per workstation persistente
+    final userId = _userId ?? 'default';
+    
+    print('🚀 Avvio workstation persistente...');
+    print('👤 User ID: $userId');
     print('📦 Repository: ${_selectedRepository!.name}');
     print('🔗 Clone URL: ${_selectedRepository!.cloneUrl}');
     
@@ -4377,7 +4381,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
       // Mostra messaggio nel terminal
       _terminalItems.add(
         TerminalItem(
-          content: '⏳ Avvio workstation cloud per ${_selectedRepository!.name}...\nQuesto può richiedere 2-3 minuti.',
+          content: '⏳ Connessione al workstation cloud...\n(Primo avvio: 2-3 min, successivi: 20-30 sec)',
           type: TerminalItemType.system,
           timestamp: DateTime.now(),
         )
@@ -4386,9 +4390,9 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
     _scrollToBottom();
     
     try {
-      print('⏳ Creazione workstation in corso...');
+      print('⏳ Creazione/avvio workstation in corso...');
       final workstation = await WorkstationService.createWorkstation(
-        userId: 'user-${DateTime.now().millisecondsSinceEpoch}',
+        userId: userId,
         repoName: _selectedRepository!.name,
         repoUrl: _selectedRepository!.cloneUrl,
       );
@@ -4399,7 +4403,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
         // Mostra successo nel terminal
         _terminalItems.add(
           TerminalItem(
-            content: '✅ Workstation pronto!\n🌐 ${workstation.url}\n📂 Repository clonato e pronto per l\'uso',
+            content: '✅ Workstation pronto!\n🌐 ${workstation.url}\n📂 Repository: ${_selectedRepository!.name}',
             type: TerminalItemType.system,
             timestamp: DateTime.now(),
           )
@@ -4409,7 +4413,6 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
       
       print('✅ Workstation pronto: ${workstation.name}');
       print('🌐 URL: ${workstation.url}');
-      print('📂 Repository clonato in /home/user/workspace/${_selectedRepository!.name}');
       print('🎯 Ora puoi eseguire comandi tramite AI');
     } catch (e) {
       setState(() {

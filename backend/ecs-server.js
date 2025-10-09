@@ -221,36 +221,52 @@ const CONFIG = 'drape-dev-config';
 
 app.post('/workstation/create', async (req, res) => {
     const { userId, repoName, repoUrl } = req.body;
-    const workstationName = `ws-${userId}-${repoName}`.toLowerCase().replace(/[^a-z0-9-]/g, '-').substring(0, 63);
+    // Nome fisso per utente - riutilizzabile
+    const workstationName = `ws-user-${userId}`.toLowerCase().replace(/[^a-z0-9-]/g, '-').substring(0, 63);
     
     try {
         const parent = `projects/${PROJECT_ID}/locations/${LOCATION}/workstationClusters/${CLUSTER}/workstationConfigs/${CONFIG}`;
-        
-        // Crea workstation
-        const [operation] = await workstationsClient.createWorkstation({
-            parent,
-            workstationId: workstationName,
-            workstation: {}
-        });
-        
-        await operation.promise();
-        
-        // Avvia workstation
         const workstationPath = `${parent}/workstations/${workstationName}`;
-        const [startOp] = await workstationsClient.startWorkstation({
-            name: workstationPath
-        });
         
-        await startOp.promise();
+        let workstation;
+        let isNew = false;
         
-        // Ottieni info workstation
-        const [workstation] = await workstationsClient.getWorkstation({
-            name: workstationPath
-        });
+        // Check se workstation esiste già
+        try {
+            console.log(`🔍 Checking if workstation exists: ${workstationName}`);
+            [workstation] = await workstationsClient.getWorkstation({ name: workstationPath });
+            console.log(`✅ Workstation exists, state: ${workstation.state}`);
+            
+            // Se esiste ma è spento, avvialo
+            if (workstation.state === 'STATE_STOPPED' || workstation.state === 'STOPPED') {
+                console.log(`🚀 Starting existing workstation...`);
+                const [startOp] = await workstationsClient.startWorkstation({ name: workstationPath });
+                await startOp.promise();
+                [workstation] = await workstationsClient.getWorkstation({ name: workstationPath });
+            }
+        } catch (notFoundError) {
+            // Workstation non esiste, crealo
+            console.log(`📦 Creating new workstation: ${workstationName}`);
+            isNew = true;
+            
+            const [operation] = await workstationsClient.createWorkstation({
+                parent,
+                workstationId: workstationName,
+                workstation: {}
+            });
+            await operation.promise();
+            
+            // Avvia workstation
+            const [startOp] = await workstationsClient.startWorkstation({ name: workstationPath });
+            await startOp.promise();
+            
+            [workstation] = await workstationsClient.getWorkstation({ name: workstationPath });
+        }
         
-        // Clone repo se URL fornito
-        if (repoUrl) {
+        // Clone repo solo se è nuovo o se specificato
+        if (repoUrl && isNew) {
             try {
+                console.log(`📂 Cloning repo: ${repoUrl}`);
                 await executeInWorkstation(workstationName, `git clone ${repoUrl} /home/user/workspace/${repoName}`);
             } catch (cloneError) {
                 console.error('Clone error:', cloneError);
@@ -260,7 +276,8 @@ app.post('/workstation/create', async (req, res) => {
         res.json({
             success: true,
             workstationName,
-            url: `https://${workstation.host}`
+            url: `https://${workstation.host}`,
+            isNew
         });
     } catch (error) {
         console.error('Workstation error:', error);
