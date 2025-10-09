@@ -18,6 +18,7 @@ import '../../../../core/ai/ai_models.dart';
 import '../../../../core/ai/ai_manager.dart';
 import '../../../../core/ai/ai_service.dart';
 import '../../../../core/terminal/terminal_service.dart';
+import '../../../../core/workstation/workstation_service.dart';
 import '../../../../core/terminal/autocomplete_service.dart';
 import '../../../../core/terminal/syntax_text_field.dart';
 import '../../../../core/github/github_service.dart' as github_service;
@@ -250,6 +251,10 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
   // Timer per il debouncing del riconoscimento automatico
   Timer? _autoDetectDebounce;
   List<File> _attachedImages = [];
+  
+  // Workstation info
+  WorkstationInfo? _currentWorkstation;
+  bool _isCreatingWorkstation = false;
   List<File> _taggedFiles = [];
   String? _currentRecordingPath;
   List<ChatSession> _chatHistory = [];
@@ -4296,6 +4301,46 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
     _initializeTerminal();
     _setupTerminalOutputListener();
     _initializeDeepLinkHandler();
+    _createWorkstationIfNeeded();
+  }
+  
+  /// Crea workstation automaticamente se c'è un repository selezionato
+  Future<void> _createWorkstationIfNeeded() async {
+    final currentChat = _chats.firstWhere(
+      (chat) => chat.id == _currentChatId,
+      orElse: () => _chats.first,
+    );
+    
+    if (currentChat.repositoryName != null && _currentWorkstation == null) {
+      setState(() => _isCreatingWorkstation = true);
+      
+      try {
+        final workstation = await WorkstationService.createWorkstation(
+          userId: 'flutter-user-${currentChat.id}',
+          repoName: currentChat.repositoryName!,
+        );
+        
+        setState(() {
+          _currentWorkstation = workstation;
+          _isCreatingWorkstation = false;
+        });
+        
+        _addTerminalOutput(
+          '🚀 Workstation creata: ${workstation.name}',
+          isSuccess: true,
+        );
+        _addTerminalOutput(
+          '🌐 URL: ${workstation.url}',
+          isSuccess: true,
+        );
+      } catch (e) {
+        setState(() => _isCreatingWorkstation = false);
+        _addTerminalOutput(
+          '❌ Errore creazione workstation: $e',
+          isError: true,
+        );
+      }
+    }
   }
   
   @override
