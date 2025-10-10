@@ -4329,6 +4329,27 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
       setState(() => _userId = newId);
     }
     print('👤 User ID workstation: $_userId');
+    
+    // Carica workstation salvato
+    await _loadSavedWorkstation();
+  }
+  
+  Future<void> _loadSavedWorkstation() async {
+    final name = await _secureStorage.read(key: 'workstation_name');
+    final url = await _secureStorage.read(key: 'workstation_url');
+    
+    if (name != null && url != null) {
+      setState(() {
+        _currentWorkstation = WorkstationInfo(name: name, url: url);
+      });
+      print('✅ Workstation caricato da storage: $name');
+    }
+  }
+  
+  Future<void> _saveWorkstation(WorkstationInfo workstation) async {
+    await _secureStorage.write(key: 'workstation_name', value: workstation.name);
+    await _secureStorage.write(key: 'workstation_url', value: workstation.url);
+    print('💾 Workstation salvato: ${workstation.name}');
   }
   
   /// Crea workstation per un repository (da chiamare manualmente)
@@ -4420,6 +4441,9 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
         );
       });
       _scrollToBottom();
+      
+      // Salva workstation in storage persistente
+      await _saveWorkstation(workstation);
       
       print('✅ Workstation creato: ${workstation.name}');
       print('🌐 URL: ${workstation.url}');
