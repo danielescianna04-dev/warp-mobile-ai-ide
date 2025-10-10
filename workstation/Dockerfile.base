@@ -1,0 +1,92 @@
+# BASE IMAGE - Build una volta sola, linguaggi essenziali e stabili
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PATH="/home/user/.local/bin:/home/user/flutter/bin:/usr/local/go/bin:/root/.cargo/bin:${PATH}"
+
+# ===== DIPENDENZE BASE =====
+RUN apt-get update && apt-get install -y \
+    curl wget git unzip xz-utils zip \
+    build-essential cmake ninja-build pkg-config \
+    ca-certificates gnupg software-properties-common \
+    vim nano htop tree jq \
+    && rm -rf /var/lib/apt/lists/*
+
+# ===== NODE.JS 20 LTS =====
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && npm install -g npm@latest yarn pnpm typescript ts-node \
+    && rm -rf /var/lib/apt/lists/*
+
+# ===== PYTHON 3.11 =====
+RUN apt-get update && apt-get install -y \
+    python3.11 python3-pip python3.11-venv python3.11-dev \
+    && ln -sf /usr/bin/python3.11 /usr/bin/python \
+    && pip3 install --upgrade pip setuptools wheel \
+    && rm -rf /var/lib/apt/lists/*
+
+# ===== GO 1.21 =====
+RUN wget -q https://go.dev/dl/go1.21.5.linux-amd64.tar.gz \
+    && tar -C /usr/local -xzf go1.21.5.linux-amd64.tar.gz \
+    && rm go1.21.5.linux-amd64.tar.gz
+
+# ===== RUST =====
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+
+# ===== RUBY 3 =====
+RUN apt-get update && apt-get install -y ruby-full \
+    && gem install bundler \
+    && rm -rf /var/lib/apt/lists/*
+
+# ===== PHP 8.1 =====
+RUN apt-get update && apt-get install -y \
+    php php-cli php-common php-curl php-mbstring php-xml \
+    composer \
+    && rm -rf /var/lib/apt/lists/*
+
+# ===== JAVA 17 =====
+RUN apt-get update && apt-get install -y openjdk-17-jdk \
+    && rm -rf /var/lib/apt/lists/*
+
+# ===== C# / .NET 8 =====
+RUN wget https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb \
+    && dpkg -i packages-microsoft-prod.deb \
+    && rm packages-microsoft-prod.deb \
+    && apt-get update && apt-get install -y dotnet-sdk-8.0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# ===== FLUTTER SDK =====
+RUN git clone https://github.com/flutter/flutter.git -b stable --depth 1 /home/user/flutter \
+    && /home/user/flutter/bin/flutter precache \
+    && /home/user/flutter/bin/flutter config --no-analytics
+ENV PATH="/home/user/flutter/bin/cache/dart-sdk/bin:${PATH}"
+
+# ===== ANDROID SDK =====
+ENV ANDROID_HOME=/opt/android-sdk
+RUN mkdir -p ${ANDROID_HOME}/cmdline-tools \
+    && wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip \
+    && unzip -q commandlinetools-linux-9477386_latest.zip -d ${ANDROID_HOME}/cmdline-tools \
+    && mv ${ANDROID_HOME}/cmdline-tools/cmdline-tools ${ANDROID_HOME}/cmdline-tools/latest \
+    && rm commandlinetools-linux-9477386_latest.zip
+ENV PATH="${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools:${PATH}"
+RUN yes | sdkmanager --licenses || true \
+    && sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0"
+
+# ===== DOCKER CLI =====
+RUN curl -fsSL https://get.docker.com | sh
+
+# ===== TERRAFORM =====
+RUN wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg \
+    && echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/hashicorp.list \
+    && apt-get update && apt-get install -y terraform \
+    && rm -rf /var/lib/apt/lists/*
+
+# Crea user
+RUN useradd -m -s /bin/bash user \
+    && chown -R user:user /home/user
+
+USER user
+WORKDIR /home/user/workspace
+
+# Pre-warm Flutter
+RUN flutter doctor || true
