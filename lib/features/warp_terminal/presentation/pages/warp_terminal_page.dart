@@ -4409,7 +4409,11 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
         // Mostra messaggio di avvio con progress
         _terminalItems.add(
           TerminalItem(
-            content: '🔄 Workstation in avvio... (0s / ~180s)\n░░░░░░░░░░░░░░░░░░░░ 0%',
+            content: '⠋ Workstation in avvio... 0%\n'
+                '┌────────────────────────────────┐\n'
+                '│ ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ │\n'
+                '└────────────────────────────────┘\n'
+                '⏱️  0s / ~180s',
             type: TerminalItemType.system,
             timestamp: DateTime.now(),
           )
@@ -4497,7 +4501,15 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
         } else {
           // Ancora in avvio
           final elapsed = _pollAttempts * 10;
-          final progress = (elapsed / 180 * 20).toInt().clamp(0, 20);
+          final progress = (elapsed / 180 * 100).toInt().clamp(0, 100);
+          final barLength = 30;
+          final filled = (progress / 100 * barLength).toInt();
+          final empty = barLength - filled;
+          
+          // Animazione spinner
+          final frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+          final spinner = frames[_pollAttempts % frames.length];
+          
           setState(() {
             // Aggiorna l'ultimo messaggio
             if (_terminalItems.isNotEmpty && _terminalItems.last.content.contains('Workstation in avvio')) {
@@ -4505,7 +4517,11 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
             }
             _terminalItems.add(
               TerminalItem(
-                content: '🔄 Workstation in avvio... (${elapsed}s / ~180s)\n${'█' * progress}${'░' * (20 - progress)} ${(progress * 5)}%',
+                content: '$spinner Workstation in avvio... $progress%\n'
+                    '┌${'─' * (barLength + 2)}┐\n'
+                    '│ ${'█' * filled}${'░' * empty} │\n'
+                    '└${'─' * (barLength + 2)}┘\n'
+                    '⏱️  ${elapsed}s / ~180s',
                 type: TerminalItemType.system,
                 timestamp: DateTime.now(),
               )
