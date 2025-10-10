@@ -72,9 +72,11 @@ RUN apt-get update && apt-get install -y \
 RUN useradd -m -s /bin/bash user \
     && chown -R user:user /home/user
 
-# Copia exec server
+# Copia exec server e entrypoint
 COPY exec-server.js /home/user/exec-server.js
-RUN chown user:user /home/user/exec-server.js
+COPY entrypoint.sh /home/user/entrypoint.sh
+RUN chown user:user /home/user/exec-server.js /home/user/entrypoint.sh \
+    && chmod +x /home/user/entrypoint.sh
 
 USER user
 WORKDIR /home/user/workspace
@@ -82,5 +84,5 @@ WORKDIR /home/user/workspace
 # Pre-warm Flutter
 RUN flutter doctor || true
 
-# Avvia exec server direttamente
-CMD ["node", "/home/user/exec-server.js"]
+# Usa entrypoint script
+ENTRYPOINT ["/home/user/entrypoint.sh"]
