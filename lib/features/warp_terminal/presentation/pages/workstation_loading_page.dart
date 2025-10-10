@@ -1,76 +1,28 @@
-  }
-}
+import 'package:flutter/material.dart';
+import '../../../../shared/constants/app_colors.dart';
 
-// Workstation Loading Screen Widget
-class _WorkstationLoadingScreen extends StatefulWidget {
+class WorkstationLoadingPage extends StatelessWidget {
+  final int progress;
+  final int elapsed;
   final String repositoryName;
-  final VoidCallback onWorkstationReady;
-  final VoidCallback onCreateWorkstation;
   
-  const _WorkstationLoadingScreen({
+  const WorkstationLoadingPage({
+    super.key,
+    required this.progress,
+    required this.elapsed,
     required this.repositoryName,
-    required this.onWorkstationReady,
-    required this.onCreateWorkstation,
   });
-
-  @override
-  State<_WorkstationLoadingScreen> createState() => _WorkstationLoadingScreenState();
-}
-
-class _WorkstationLoadingScreenState extends State<_WorkstationLoadingScreen> {
-  int _progress = 0;
-  int _elapsed = 0;
-  Timer? _timer;
-  
-  @override
-  void initState() {
-    super.initState();
-    // Avvia workstation
-    widget.onCreateWorkstation();
-    
-    // Simula progress
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      setState(() {
-        _elapsed++;
-        _progress = (_elapsed / 180 * 100).toInt().clamp(0, 100);
-      });
-      
-      // Check ogni 10 secondi se è pronto
-      if (_elapsed % 10 == 0) {
-        _checkIfReady();
-      }
-      
-      // Timeout dopo 5 minuti
-      if (_elapsed >= 300) {
-        timer.cancel();
-      }
-    });
-  }
-  
-  void _checkIfReady() async {
-    // Questo verrà implementato con un check reale
-    // Per ora simula che dopo 180 secondi è pronto
-    if (_elapsed >= 180) {
-      _timer?.cancel();
-      widget.onWorkstationReady();
-    }
-  }
-  
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
     final barLength = 30;
-    final filled = (_progress / 100 * barLength).toInt();
+    final filled = (progress / 100 * barLength).toInt();
     final empty = barLength - filled;
     
+    // Spinner animation frames
     final frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-    final spinner = frames[_elapsed % frames.length];
+    final spinner = frames[(elapsed ~/ 10) % frames.length];
     
     return Scaffold(
       backgroundColor: AppColors.background(brightness),
@@ -80,6 +32,7 @@ class _WorkstationLoadingScreenState extends State<_WorkstationLoadingScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              // Spinner icon
               Text(
                 spinner,
                 style: TextStyle(
@@ -88,6 +41,8 @@ class _WorkstationLoadingScreenState extends State<_WorkstationLoadingScreen> {
                 ),
               ),
               const SizedBox(height: 32),
+              
+              // Title
               Text(
                 'Avvio Workstation',
                 style: TextStyle(
@@ -97,14 +52,18 @@ class _WorkstationLoadingScreenState extends State<_WorkstationLoadingScreen> {
                 ),
               ),
               const SizedBox(height: 8),
+              
+              // Repository name
               Text(
-                widget.repositoryName,
+                repositoryName,
                 style: TextStyle(
                   fontSize: 16,
                   color: AppColors.textSecondary,
                 ),
               ),
               const SizedBox(height: 48),
+              
+              // Progress bar
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
@@ -117,8 +76,9 @@ class _WorkstationLoadingScreenState extends State<_WorkstationLoadingScreen> {
                 ),
                 child: Column(
                   children: [
+                    // Progress percentage
                     Text(
-                      '$_progress%',
+                      '$progress%',
                       style: TextStyle(
                         fontSize: 48,
                         fontWeight: FontWeight.bold,
@@ -126,6 +86,8 @@ class _WorkstationLoadingScreenState extends State<_WorkstationLoadingScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
+                    
+                    // Progress bar
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
@@ -145,6 +107,8 @@ class _WorkstationLoadingScreenState extends State<_WorkstationLoadingScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
+                    
+                    // Timer
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -155,7 +119,7 @@ class _WorkstationLoadingScreenState extends State<_WorkstationLoadingScreen> {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          '${_elapsed}s / ~180s',
+                          '${elapsed}s / ~180s',
                           style: TextStyle(
                             fontSize: 14,
                             color: AppColors.textSecondary,
@@ -167,6 +131,8 @@ class _WorkstationLoadingScreenState extends State<_WorkstationLoadingScreen> {
                 ),
               ),
               const SizedBox(height: 32),
+              
+              // Info text
               Text(
                 'Primo avvio: 2-3 minuti\nSuccessivi: 20-30 secondi',
                 textAlign: TextAlign.center,
