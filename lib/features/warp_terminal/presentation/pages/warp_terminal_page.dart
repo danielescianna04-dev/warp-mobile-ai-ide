@@ -6444,13 +6444,23 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
   }
   
   Future<void> _addAIInitialMessage() async {
-    if (_selectedRepository == null || _userId == null) return;
+    print('🤖 _addAIInitialMessage chiamato');
+    print('   _selectedRepository: ${_selectedRepository?.name}');
+    print('   _userId: $_userId');
+    
+    if (_selectedRepository == null || _userId == null) {
+      print('⚠️ Skipping AI message - missing repository or userId');
+      return;
+    }
     
     try {
+      print('📡 Chiamata AIContextManager.generateInitialMessage...');
       final initialMessage = await AIContextManager.generateInitialMessage(
         userId: _userId!,
         repoName: _selectedRepository!.name,
       );
+      
+      print('📨 Messaggio ricevuto: ${initialMessage.substring(0, 50)}...');
       
       if (initialMessage.isNotEmpty) {
         setState(() {
@@ -6462,10 +6472,13 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
             ),
           );
         });
+        print('✅ Messaggio aggiunto ai terminal items (${_terminalItems.length} items)');
         _scrollToBottom();
+      } else {
+        print('⚠️ Messaggio vuoto ricevuto');
       }
     } catch (e) {
-      print('⚠️ Error generating AI initial message: $e');
+      print('❌ Error generating AI initial message: $e');
     }
   }
 
