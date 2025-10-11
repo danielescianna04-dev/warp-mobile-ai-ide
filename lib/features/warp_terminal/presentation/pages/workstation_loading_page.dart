@@ -94,17 +94,6 @@ class _WorkstationLoadingPageState extends State<WorkstationLoadingPage> with Si
       );
       
       setState(() {
-        _progress = 90;
-        _status = 'Analisi progetto...';
-      });
-      
-      // Analyze project for missing files
-      await WorkstationService.analyzeWorkspace(
-        userId: widget.userId,
-        repoName: widget.repositoryName,
-      );
-      
-      setState(() {
         _progress = 100;
         _status = 'Pronto!';
       });
@@ -114,6 +103,14 @@ class _WorkstationLoadingPageState extends State<WorkstationLoadingPage> with Si
       if (mounted) {
         Navigator.pop(context, true);
       }
+      
+      // Analyze in background after navigation
+      WorkstationService.analyzeWorkspace(
+        userId: widget.userId,
+        repoName: widget.repositoryName,
+      ).catchError((e) {
+        print('⚠️ Background analysis error: $e');
+      });
     } catch (e) {
       setState(() {
         _status = 'Errore: ${e.toString().length > 100 ? e.toString().substring(0, 100) + '...' : e.toString()}';

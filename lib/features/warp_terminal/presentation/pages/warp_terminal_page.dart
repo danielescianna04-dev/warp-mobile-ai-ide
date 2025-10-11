@@ -6215,6 +6215,8 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
           
           if (result == true) {
             _showSnackBar('✅ Workstation pronto per ${repo.name}');
+            // Add AI initial message
+            _addAIInitialMessage();
           }
           _scrollToBottom();
         },
