@@ -17,6 +17,7 @@ import '../../../../shared/providers/theme_provider.dart';
 import '../../../../core/ai/ai_models.dart';
 import '../../../../core/ai/ai_manager.dart';
 import '../../../../core/ai/ai_service.dart';
+import '../../../../core/ai/ai_context_manager.dart';
 import '../../../../core/terminal/terminal_service.dart';
 import '../../../../core/workstation/workstation_service.dart';
 import '../../../../core/terminal/autocomplete_service.dart';
@@ -6429,6 +6430,37 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
       if (_currentWorkstation != null) {
         print('✅ Workstation già attivo: ${_currentWorkstation!.name}');
       }
+    }
+    
+    // Add AI initial message if chat is empty and has repository
+    if (_terminalItems.isEmpty && _selectedRepository != null && _userId != null) {
+      _addAIInitialMessage();
+    }
+  }
+  
+  Future<void> _addAIInitialMessage() async {
+    if (_selectedRepository == null || _userId == null) return;
+    
+    try {
+      final initialMessage = await AIContextManager.generateInitialMessage(
+        userId: _userId!,
+        repoName: _selectedRepository!.name,
+      );
+      
+      if (initialMessage.isNotEmpty) {
+        setState(() {
+          _terminalItems.add(
+            TerminalItem(
+              content: initialMessage,
+              type: TerminalItemType.aiResponse,
+              timestamp: DateTime.now(),
+            ),
+          );
+        });
+        _scrollToBottom();
+      }
+    } catch (e) {
+      print('⚠️ Error generating AI initial message: $e');
     }
   }
 
