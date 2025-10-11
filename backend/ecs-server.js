@@ -305,6 +305,73 @@ app.post('/workspace/init', async (req, res) => {
     }
 });
 
+// Get available AI tools
+app.get('/ai/tools', (req, res) => {
+    res.json({
+        tools: [
+            {
+                name: 'readFile',
+                description: 'Read the content of a file in the workspace',
+                parameters: {
+                    type: 'object',
+                    properties: {
+                        filePath: {
+                            type: 'string',
+                            description: 'Path to the file relative to repository root (e.g., "lib/main.dart")'
+                        }
+                    },
+                    required: ['filePath']
+                }
+            },
+            {
+                name: 'writeFile',
+                description: 'Create or modify a file in the workspace',
+                parameters: {
+                    type: 'object',
+                    properties: {
+                        filePath: {
+                            type: 'string',
+                            description: 'Path to the file relative to repository root'
+                        },
+                        content: {
+                            type: 'string',
+                            description: 'Content to write to the file'
+                        }
+                    },
+                    required: ['filePath', 'content']
+                }
+            },
+            {
+                name: 'listFiles',
+                description: 'List files and directories in a directory',
+                parameters: {
+                    type: 'object',
+                    properties: {
+                        directory: {
+                            type: 'string',
+                            description: 'Directory path relative to repository root (default: ".")'
+                        }
+                    }
+                }
+            },
+            {
+                name: 'executeCommand',
+                description: 'Execute a terminal command in the workspace',
+                parameters: {
+                    type: 'object',
+                    properties: {
+                        command: {
+                            type: 'string',
+                            description: 'Command to execute (e.g., "flutter pub get", "git status")'
+                        }
+                    },
+                    required: ['command']
+                }
+            }
+        ]
+    });
+});
+
 // Read file content (for AI)
 app.post('/workspace/read-file', async (req, res) => {
     const { userId, repoName, filePath } = req.body;

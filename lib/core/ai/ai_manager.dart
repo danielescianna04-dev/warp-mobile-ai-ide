@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'ai_service.dart';
+import 'ai_tool_handler.dart';
 import 'services/openai_service.dart';
 import 'services/claude_service.dart';
 import 'services/gemini_service.dart';
@@ -56,6 +57,9 @@ class AIManager {
     CodeContext? context,
     String? model,
     String? workstationName,
+    String? userId,
+    String? repoName,
+    bool enableTools = false,
   }) async {
     try {
       final url = '${AWSConfig.apiBaseUrl}/ai/chat';
@@ -71,6 +75,11 @@ class AIManager {
         body['workstationName'] = workstationName;
       }
       
+      // Add tools if enabled and repository context available
+      if (enableTools && userId != null && repoName != null) {
+        body['tools'] = AIToolHandler.getToolDefinitions();
+      }
+      
       final response = await http.post(
         Uri.parse(url),
         headers: {'Content-Type': 'application/json'},
@@ -79,6 +88,45 @@ class AIManager {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
+        
+        // Handle tool calls if present
+        if (data['tool_calls'] != null && userId != null && repoName != null) {
+          final toolCalls = data['tool_calls'] as List;
+          final toolResults = <String>[];
+          
+          for (final toolCall in toolCalls) {
+            final toolName = toolCall['function']['name'];
+            final parameters = json.decode(toolCall['function']['arguments']);
+            
+            final result = await AIToolHandler.handleToolCall(
+              toolName: toolName,
+              parameters: parameters,
+              userId: userId,
+              repoName: repoName,
+            );
+            
+            toolResults.add('Tool: $toolName\nResult: $result');
+          }
+          
+          // If there were tool calls, make another request with results
+          if (toolResults.isNotEmpty) {
+            final toolResultsMessage = toolResults.join('\n\n');
+            conversationHistory.add(message);
+            conversationHistory.add(data['content'] ?? '');
+            conversationHistory.add('Tool Results:\n$toolResultsMessage');
+            
+            return chat(
+              'Continue based on the tool results above.',
+              conversationHistory,
+              model: model,
+              workstationName: workstationName,
+              userId: userId,
+              repoName: repoName,
+              enableTools: false, // Don't enable tools in follow-up
+            );
+          }
+        }
+        
         return AIResponse(
           content: data['content'] ?? data['message'] ?? 'No response',
           model: data['model'] ?? 'claude-3.5',

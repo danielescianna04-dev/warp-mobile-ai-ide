@@ -4733,13 +4733,16 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
           ? _getAutoSelectedModel(command)
           : _selectedModel;
         
-        // Simple AI chat
+        // Simple AI chat with tools if repository is selected
         final chatResponse = await AIManager.instance.chat(
           command,
           [],
           context: CodeContext(language: 'text'),
           model: actualModel,
           workstationName: _currentWorkstation?.name,
+          userId: _userId,
+          repoName: _selectedRepository?.name,
+          enableTools: _selectedRepository != null, // Enable tools when repo is selected
         );
         
         setState(() {
