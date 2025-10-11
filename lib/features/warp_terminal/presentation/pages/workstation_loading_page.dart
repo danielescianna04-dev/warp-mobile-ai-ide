@@ -99,10 +99,15 @@ class _WorkstationLoadingPageState extends State<WorkstationLoadingPage> with Si
       });
       
       // Analyze project for missing files
+      print('📡 Chiamata analyzeWorkspace...');
       final analysisResult = await WorkstationService.analyzeWorkspace(
         userId: widget.userId,
         repoName: widget.repositoryName,
       );
+      print('📊 Analysis result ricevuto:');
+      print('   success: ${analysisResult.success}');
+      print('   message: ${analysisResult.message}');
+      print('   missingFiles: ${analysisResult.missingFiles.length}');
       
       setState(() {
         _progress = 100;
