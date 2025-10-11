@@ -4733,10 +4733,33 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
           ? _getAutoSelectedModel(command)
           : _selectedModel;
         
+        // Build conversation history with system context
+        final conversationHistory = <String>[];
+        
+        // Add system context if repository is selected
+        if (_selectedRepository != null && _userId != null) {
+          final systemContext = await AIContextManager.generateInitialContext(
+            userId: _userId!,
+            repoName: _selectedRepository!.name,
+          );
+          if (systemContext.isNotEmpty) {
+            conversationHistory.add('SYSTEM: $systemContext');
+          }
+        }
+        
+        // Add previous messages
+        for (final item in _terminalItems) {
+          if (item.type == TerminalItemType.command) {
+            conversationHistory.add('User: ${item.content}');
+          } else if (item.type == TerminalItemType.output) {
+            conversationHistory.add('Assistant: ${item.content}');
+          }
+        }
+        
         // Simple AI chat with tools if repository is selected
         final chatResponse = await AIManager.instance.chat(
           command,
-          [],
+          conversationHistory,
           context: CodeContext(language: 'text'),
           model: actualModel,
           workstationName: _currentWorkstation?.name,

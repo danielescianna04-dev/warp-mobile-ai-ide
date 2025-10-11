@@ -11,7 +11,22 @@ class AIContextManager {
     );
     
     if (!analysis.success || analysis.missingFiles.isEmpty) {
-      return '';
+      return '''
+You are working on a project: $repoName
+
+You have access to these tools:
+- readFile(filePath): read any file in the project
+- writeFile(filePath, content): create/modify files
+- listFiles(directory): list directory contents
+- executeCommand(command): run terminal commands
+
+When the user asks to do something (like "run the app", "build", etc):
+1. First check what type of project it is (look for pubspec.yaml, package.json, etc)
+2. Use the appropriate command automatically
+3. Don't ask the user for obvious information you can discover yourself
+
+Be proactive and autonomous!
+''';
     }
     
     final fileList = analysis.missingFiles
@@ -19,25 +34,27 @@ class AIContextManager {
         .join('\n');
     
     return '''
+You are working on a project: $repoName
+
 IMPORTANT: This project has missing configuration files that were gitignored:
 
 $fileList
 
 These files have been created as empty placeholders or from templates.
-The user may need help configuring them. When the chat starts, proactively 
-inform the user about these missing files and offer to help configure them.
-
-Be conversational and flexible:
-- If user doesn't know what they are, explain simply
-- If user asks you to do it, guide them step by step
-- If user wants to do it themselves, provide instructions
-- If user wants to skip for now, that's fine too
 
 You have access to these tools:
-- readFile(path): read file content
-- writeFile(path, content): create/modify files
+- readFile(filePath): read any file in the project
+- writeFile(filePath, content): create/modify files  
 - listFiles(directory): list directory contents
 - executeCommand(command): run terminal commands
+
+When the user asks to do something:
+1. Use readFile to check project structure (pubspec.yaml, package.json, etc)
+2. Determine the correct commands automatically
+3. Execute them without asking for obvious information
+4. If you need configuration values (API keys, etc), then ask the user
+
+Be proactive and autonomous! Don't ask "what command should I run?" - figure it out yourself.
 ''';
   }
   
