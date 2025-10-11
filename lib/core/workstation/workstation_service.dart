@@ -60,7 +60,7 @@ class WorkstationService {
           'userId': userId,
           'repoName': repoName,
         }),
-      ).timeout(const Duration(minutes: 2));
+      ).timeout(const Duration(minutes: 5)); // Increased to 5 minutes
 
       final data = json.decode(response.body);
       

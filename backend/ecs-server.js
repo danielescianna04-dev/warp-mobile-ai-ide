@@ -465,61 +465,52 @@ app.post('/workspace/analyze', async (req, res) => {
         
         const bucket = storage.bucket(BUCKET_NAME);
         const workspacePrefix = `${workspaceName}/`;
-        const localPath = path.join(WORKSPACE_DIR, workspaceName);
+        const gitignorePath = `${workspacePrefix}${repoSlug}/.gitignore`;
         
-        // Download workspace
-        await fs.mkdir(localPath, { recursive: true });
-        await downloadDirectory(bucket, workspacePrefix, localPath);
-        
-        const repoPath = path.join(localPath, repoSlug);
         const missingFiles = [];
         
-        // Read .gitignore if exists
-        const gitignorePath = path.join(repoPath, '.gitignore');
+        // Download only .gitignore file (fast!)
         try {
-            const gitignoreContent = await fs.readFile(gitignorePath, 'utf-8');
-            const patterns = gitignoreContent.split('\n')
+            const file = bucket.file(gitignorePath);
+            const [exists] = await file.exists();
+            
+            if (!exists) {
+                console.log(`⚠️ No .gitignore found at ${gitignorePath}`);
+                return res.json({
+                    success: true,
+                    missingFiles: [],
+                    message: 'No .gitignore file found'
+                });
+            }
+            
+            const [gitignoreContent] = await file.download();
+            const patterns = gitignoreContent.toString('utf-8').split('\n')
                 .map(line => line.trim())
                 .filter(line => line && !line.startsWith('#'));
             
-            // Check which files are missing
+            console.log(`📄 Found ${patterns.length} patterns in .gitignore`);
+            
+            // Check which files exist in Cloud Storage
             for (const pattern of patterns) {
                 // Skip directories and wildcards for now
                 if (pattern.endsWith('/') || pattern.includes('*')) continue;
                 
-                const filePath = path.join(repoPath, pattern);
-                try {
-                    await fs.access(filePath);
-                } catch {
-                    // File doesn't exist
+                const filePath = `${workspacePrefix}${repoSlug}/${pattern}`;
+                const [exists] = await bucket.file(filePath).exists();
+                
+                if (!exists) {
                     missingFiles.push({
                         path: pattern,
                         reason: 'gitignored'
                     });
-                    
-                    // Create empty file or from template
-                    const templatePath = filePath + '.template';
-                    try {
-                        await fs.access(templatePath);
-                        await fs.copyFile(templatePath, filePath);
-                        console.log(`📋 Created ${pattern} from template`);
-                    } catch {
-                        // Create empty file
-                        await fs.mkdir(path.dirname(filePath), { recursive: true });
-                        await fs.writeFile(filePath, '');
-                        console.log(`📄 Created empty ${pattern}`);
-                    }
                 }
             }
+            
+            console.log(`✅ Analysis complete: ${missingFiles.length} missing files`);
+            
         } catch (e) {
-            console.log(`⚠️ No .gitignore found: ${e.message}`);
+            console.log(`⚠️ Error reading .gitignore: ${e.message}`);
         }
-        
-        // Upload changes back
-        await uploadDirectory(localPath, bucket, workspacePrefix);
-        
-        // Cleanup
-        await execAsync(`rm -rf ${localPath}`);
         
         res.json({
             success: true,
