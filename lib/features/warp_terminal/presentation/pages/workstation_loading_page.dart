@@ -94,6 +94,17 @@ class _WorkstationLoadingPageState extends State<WorkstationLoadingPage> with Si
       );
       
       setState(() {
+        _progress = 90;
+        _status = 'Analisi progetto...';
+      });
+      
+      // Analyze project for missing files
+      await WorkstationService.analyzeWorkspace(
+        userId: widget.userId,
+        repoName: widget.repositoryName,
+      );
+      
+      setState(() {
         _progress = 100;
         _status = 'Pronto!';
       });
