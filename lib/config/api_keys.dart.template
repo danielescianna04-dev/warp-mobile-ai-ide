@@ -1,0 +1,8 @@
+// Template file for API keys
+// Copy this to api_keys.dart and fill in your keys
+class ApiKeys {
+  static const String groqApiKey = '';
+  static const String openaiApiKey = '';
+  static const String anthropicApiKey = '';
+  static const String geminiApiKey = '';
+}
