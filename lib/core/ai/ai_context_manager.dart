@@ -51,7 +51,15 @@ You have access to these tools:
       repoName: repoName,
     );
     
+    print('📊 Analysis result:');
+    print('   success: ${analysis.success}');
+    print('   missingFiles count: ${analysis.missingFiles.length}');
+    if (analysis.missingFiles.isNotEmpty) {
+      print('   files: ${analysis.missingFiles.map((f) => f.path).take(5).join(", ")}');
+    }
+    
     if (!analysis.success || analysis.missingFiles.isEmpty) {
+      print('⚠️ Returning empty message - no missing files or analysis failed');
       return '';
     }
     
