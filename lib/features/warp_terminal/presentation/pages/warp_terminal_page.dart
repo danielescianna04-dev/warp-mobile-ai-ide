@@ -33,6 +33,7 @@ import '../widgets/command_card.dart';
 import '../../data/models/terminal_item.dart';
 import '../../data/models/smart_output_parser.dart';
 import 'preview_web_screen.dart';
+import 'workstation_loading_page.dart';
 import '../../../settings/presentation/pages/settings_page.dart';
 import '../../../settings/data/models/user_settings.dart';
 import '../../../create_app/presentation/pages/create_app_wizard_page.dart';
@@ -52,6 +53,7 @@ class TerminalItem {
   final DateTime timestamp;
   final String? errorDetails; // Full error output (stderr)
   final int? exitCode; // Command exit code
+  final String? previewUrl; // Preview URL for server commands
 
   TerminalItem({
     required this.content,
@@ -59,6 +61,7 @@ class TerminalItem {
     required this.timestamp,
     this.errorDetails,
     this.exitCode,
+    this.previewUrl,
   });
 }
 
@@ -1519,16 +1522,29 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
       margin: const EdgeInsets.only(bottom: 6),
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
-        onTap: () {
+        onTap: () async {
           print('🖱️ Click su repository: ${repo.name}');
-          setState(() {
-            _selectedRepository = isSelected ? null : repo;
-          });
           if (!isSelected) {
-            _showSnackBar('📁 Selezionata repository: ${repo.name}');
-            print('🚀 Avvio workstation per repository: ${repo.name}');
-            // Avvia workstation in background
-            _createWorkstationSilently();
+            setState(() {
+              _selectedRepository = repo;
+            });
+            final result = await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => WorkstationLoadingPage(
+                  repositoryName: repo.name,
+                  repositoryUrl: repo.cloneUrl,
+                  userId: _userId.toString(),
+                ),
+              ),
+            );
+            if (result == true) {
+              _showSnackBar('✅ Workstation pronto!');
+            }
+          } else {
+            setState(() {
+              _selectedRepository = null;
+            });
           }
         },
         child: Container(
@@ -1732,15 +1748,46 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
     // Per gli output (non comandi), usa le smart cards
     if (item.type == TerminalItemType.output || item.type == TerminalItemType.system) {
       final smartOutput = SmartOutputParser.parse(item.content);
-      return SmartOutputCard(
-        output: smartOutput,
-        isUserMessage: false, // AI response
-        onUrlTap: smartOutput.url != null ? () {
-          if (smartOutput.url!.startsWith('http')) {
-            _previewUrl = smartOutput.url;
-            setState(() {});
-          }
-        } : null,
+      
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SmartOutputCard(
+            output: smartOutput,
+            isUserMessage: false, // AI response
+            onUrlTap: smartOutput.url != null ? () {
+              if (smartOutput.url!.startsWith('http')) {
+                _previewUrl = smartOutput.url;
+                setState(() {});
+              }
+            } : null,
+          ),
+          // Preview button if available
+          if (item.previewUrl != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => PreviewWebScreen(url: item.previewUrl!),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.open_in_browser, size: 20),
+                label: const Text('🌐 Visualizza Preview'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+        ],
       );
     }
     
@@ -4502,13 +4549,14 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
       
       try {
         // Prova a eseguire un comando semplice per verificare se è pronto
-        final output = await WorkstationService.executeCommand(
-          workstationName: _currentWorkstation!.name,
+        final result = await WorkstationService.executeCommand(
+          userId: _userId.toString(),
           command: 'pwd',
+          repoName: _selectedRepository?.name,
         );
         
         // Se il comando ritorna un path valido, il workstation è pronto
-        if (output.contains('/home') || output.contains('/workspace') || (!output.contains('STARTING') && !output.contains('not ready') && !output.contains('Timeout'))) {
+        if (result.output.contains('/home') || result.output.contains('/workspace') || (!result.output.contains('STARTING') && !result.output.contains('not ready') && !result.output.contains('Timeout'))) {
           // Workstation pronto!
           timer.cancel();
           setState(() {
@@ -4636,17 +4684,19 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
       if (_isTerminalMode) {
         // Esegui nel workstation se disponibile
         if (_currentWorkstation != null) {
-          final output = await WorkstationService.executeCommand(
-            workstationName: _currentWorkstation!.name,
+          final result = await WorkstationService.executeCommand(
+            userId: _userId.toString(),
             command: command,
+            repoName: _selectedRepository?.name,
           );
           
           setState(() {
             _terminalItems.add(
               TerminalItem(
-                content: output.isNotEmpty ? output : 'Command executed',
+                content: result.output.isNotEmpty ? result.output : 'Command executed',
                 type: TerminalItemType.output,
                 timestamp: DateTime.now(),
+                previewUrl: result.previewUrl,
               )
             );
             _isLoading = false;
@@ -6147,11 +6197,21 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
           });
           Navigator.pop(context);
           
-          print('🚀 Avvio workstation per repository: ${repo.name}');
-          // Avvia workstation in background
-          _createWorkstationSilently();
+          // Apri pagina di loading workstation
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => WorkstationLoadingPage(
+                repositoryName: repo.name,
+                repositoryUrl: repo.cloneUrl,
+                userId: _userId.toString(),
+              ),
+            ),
+          );
           
-          _showSnackBar('Repository ${repo.name} selezionato - workstation in avvio...');
+          if (result == true) {
+            _showSnackBar('✅ Workstation pronto per ${repo.name}');
+          }
           _scrollToBottom();
         },
         borderRadius: BorderRadius.circular(8),

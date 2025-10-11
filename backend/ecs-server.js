@@ -1,10 +1,17 @@
 const express = require('express');
 const { exec } = require('child_process');
+const { promisify } = require('util');
+const execAsync = promisify(exec);
 const axios = require('axios');
 const { VertexAI } = require('@google-cloud/vertexai');
+const { Storage } = require('@google-cloud/storage');
+const path = require('path');
+const fs = require('fs').promises;
 
 const app = express();
 app.use(express.json());
+
+const storage = new Storage();
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -209,6 +216,598 @@ app.post('/ai/chat', async (req, res) => {
         });
     }
 });
+
+// Cloud Run + Storage instant execution
+const BUCKET_NAME = `${PROJECT_ID}-workspaces`;
+const WORKSPACE_DIR = '/tmp/workspace';
+
+// Initialize workspace for user
+app.post('/workspace/init', async (req, res) => {
+    const { userId, repoUrl, repoName } = req.body;
+    const workspaceName = `user-${userId}`;
+    const repoSlug = (repoName || repoUrl?.split('/').pop()?.replace('.git', '') || 'default').toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    
+    try {
+        console.log(`🚀 Initializing workspace: ${workspaceName}, repo: ${repoSlug}`);
+        
+        // Create bucket if not exists
+        try {
+            await storage.createBucket(BUCKET_NAME, {
+                location: LOCATION,
+                storageClass: 'STANDARD',
+            });
+            console.log(`✅ Bucket created: ${BUCKET_NAME}`);
+        } catch (err) {
+            if (!err.message.includes('already exists') && !err.message.includes('already own it')) {
+                console.log(`⚠️ Bucket error (ignoring): ${err.message}`);
+            }
+        }
+        
+        const bucket = storage.bucket(BUCKET_NAME);
+        const workspacePrefix = `${workspaceName}/`;
+        const repoPrefix = `${workspaceName}/${repoSlug}/`;
+        
+        // Check if this specific repo exists
+        const [repoFiles] = await bucket.getFiles({ prefix: repoPrefix, maxResults: 1 });
+        
+        if (repoFiles.length === 0 && repoUrl) {
+            // Clone repository into subdirectory
+            console.log(`📦 Cloning ${repoSlug}...`);
+            const localPath = path.join(WORKSPACE_DIR, workspaceName);
+            const repoPath = path.join(localPath, repoSlug);
+            
+            // Cleanup any existing directory
+            try {
+                await execAsync(`rm -rf ${repoPath}`, { timeout: 30000 });
+            } catch (e) {
+                console.log(`⚠️ Cleanup warning: ${e.message}`);
+            }
+            
+            await fs.mkdir(localPath, { recursive: true });
+            
+            await execAsync(`cd ${localPath} && git clone --depth 1 --progress ${repoUrl} ${repoSlug}`, {
+                timeout: 600000, // 10 minutes for large repos
+                maxBuffer: 100 * 1024 * 1024 // 100MB buffer
+            });
+            
+            console.log(`✅ Clone complete`);
+            
+            // Upload to storage with progress
+            console.log(`☁️ Uploading files to Cloud Storage...`);
+            await uploadDirectory(localPath, bucket, workspacePrefix);
+            
+            // Cleanup
+            await execAsync(`rm -rf ${localPath}`);
+            
+            console.log(`✅ Repository ready: ${repoSlug}`);
+            
+            res.json({
+                success: true,
+                workspaceName,
+                repoName: repoSlug,
+                message: 'Repository cloned and uploaded successfully'
+            });
+        } else {
+            res.json({
+                success: true,
+                workspaceName,
+                repoName: repoSlug,
+                message: 'Repository already in workspace'
+            });
+        }
+        
+    } catch (error) {
+        console.error('Workspace init error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+// Read file content (for AI)
+app.post('/workspace/read-file', async (req, res) => {
+    const { userId, repoName, filePath } = req.body;
+    const workspaceName = `user-${userId}`;
+    const repoSlug = (repoName || 'default').toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    
+    try {
+        const bucket = storage.bucket(BUCKET_NAME);
+        const workspacePrefix = `${workspaceName}/`;
+        const localPath = path.join(WORKSPACE_DIR, workspaceName);
+        
+        await fs.mkdir(localPath, { recursive: true });
+        await downloadDirectory(bucket, workspacePrefix, localPath);
+        
+        const fullPath = path.join(localPath, repoSlug, filePath);
+        const content = await fs.readFile(fullPath, 'utf-8');
+        
+        await execAsync(`rm -rf ${localPath}`);
+        
+        res.json({ success: true, content });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Write file content (for AI)
+app.post('/workspace/write-file', async (req, res) => {
+    const { userId, repoName, filePath, content } = req.body;
+    const workspaceName = `user-${userId}`;
+    const repoSlug = (repoName || 'default').toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    
+    try {
+        const bucket = storage.bucket(BUCKET_NAME);
+        const workspacePrefix = `${workspaceName}/`;
+        const localPath = path.join(WORKSPACE_DIR, workspaceName);
+        
+        await fs.mkdir(localPath, { recursive: true });
+        await downloadDirectory(bucket, workspacePrefix, localPath);
+        
+        const fullPath = path.join(localPath, repoSlug, filePath);
+        await fs.mkdir(path.dirname(fullPath), { recursive: true });
+        await fs.writeFile(fullPath, content, 'utf-8');
+        
+        await uploadDirectory(localPath, bucket, workspacePrefix);
+        await execAsync(`rm -rf ${localPath}`);
+        
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// List files in directory (for AI)
+app.post('/workspace/list-files', async (req, res) => {
+    const { userId, repoName, directory = '.' } = req.body;
+    const workspaceName = `user-${userId}`;
+    const repoSlug = (repoName || 'default').toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    
+    try {
+        const bucket = storage.bucket(BUCKET_NAME);
+        const workspacePrefix = `${workspaceName}/`;
+        const localPath = path.join(WORKSPACE_DIR, workspaceName);
+        
+        await fs.mkdir(localPath, { recursive: true });
+        await downloadDirectory(bucket, workspacePrefix, localPath);
+        
+        const fullPath = path.join(localPath, repoSlug, directory);
+        const files = await fs.readdir(fullPath, { withFileTypes: true });
+        
+        const fileList = files.map(f => ({
+            name: f.name,
+            isDirectory: f.isDirectory()
+        }));
+        
+        await execAsync(`rm -rf ${localPath}`);
+        
+        res.json({ success: true, files: fileList });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Analyze project for missing files
+app.post('/workspace/analyze', async (req, res) => {
+    const { userId, repoName } = req.body;
+    const workspaceName = `user-${userId}`;
+    const repoSlug = (repoName || 'default').toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    
+    try {
+        console.log(`🔍 Analyzing project for ${workspaceName}/${repoSlug}`);
+        
+        const bucket = storage.bucket(BUCKET_NAME);
+        const workspacePrefix = `${workspaceName}/`;
+        const localPath = path.join(WORKSPACE_DIR, workspaceName);
+        
+        // Download workspace
+        await fs.mkdir(localPath, { recursive: true });
+        await downloadDirectory(bucket, workspacePrefix, localPath);
+        
+        const repoPath = path.join(localPath, repoSlug);
+        const missingFiles = [];
+        
+        // Read .gitignore if exists
+        const gitignorePath = path.join(repoPath, '.gitignore');
+        try {
+            const gitignoreContent = await fs.readFile(gitignorePath, 'utf-8');
+            const patterns = gitignoreContent.split('\n')
+                .map(line => line.trim())
+                .filter(line => line && !line.startsWith('#'));
+            
+            // Check which files are missing
+            for (const pattern of patterns) {
+                // Skip directories and wildcards for now
+                if (pattern.endsWith('/') || pattern.includes('*')) continue;
+                
+                const filePath = path.join(repoPath, pattern);
+                try {
+                    await fs.access(filePath);
+                } catch {
+                    // File doesn't exist
+                    missingFiles.push({
+                        path: pattern,
+                        reason: 'gitignored'
+                    });
+                    
+                    // Create empty file or from template
+                    const templatePath = filePath + '.template';
+                    try {
+                        await fs.access(templatePath);
+                        await fs.copyFile(templatePath, filePath);
+                        console.log(`📋 Created ${pattern} from template`);
+                    } catch {
+                        // Create empty file
+                        await fs.mkdir(path.dirname(filePath), { recursive: true });
+                        await fs.writeFile(filePath, '');
+                        console.log(`📄 Created empty ${pattern}`);
+                    }
+                }
+            }
+        } catch (e) {
+            console.log(`⚠️ No .gitignore found: ${e.message}`);
+        }
+        
+        // Upload changes back
+        await uploadDirectory(localPath, bucket, workspacePrefix);
+        
+        // Cleanup
+        await execAsync(`rm -rf ${localPath}`);
+        
+        res.json({
+            success: true,
+            missingFiles,
+            message: missingFiles.length > 0 
+                ? `Found ${missingFiles.length} missing configuration files`
+                : 'All configuration files present'
+        });
+        
+    } catch (error) {
+        console.error('Analysis error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+// Execute command in workspace
+app.post('/workspace/execute', async (req, res) => {
+    const { userId, command, repoName } = req.body;
+    const workspaceName = `user-${userId}`;
+    const repoSlug = (repoName || 'default').toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    
+    try {
+        console.log(`⚡ Executing command for ${workspaceName}/${repoSlug}: ${command}`);
+        
+        const bucket = storage.bucket(BUCKET_NAME);
+        const workspacePrefix = `${workspaceName}/`;
+        const localPath = path.join(WORKSPACE_DIR, workspaceName);
+        
+        // Download workspace from storage
+        await fs.mkdir(localPath, { recursive: true });
+        await downloadDirectory(bucket, workspacePrefix, localPath);
+        
+        // Auto-cd into repository directory
+        const repoPath = path.join(localPath, repoSlug);
+        const workingDir = await fs.access(repoPath).then(() => repoPath).catch(() => localPath);
+        
+        // Check if command starts a server
+        const serverPatterns = [
+            { pattern: /python3?\s+-m\s+http\.server\s+(\d+)/, port: 8000 },
+            { pattern: /npm\s+(run\s+)?start/, port: 3000 },
+            { pattern: /npm\s+(run\s+)?dev/, port: 3000 },
+            { pattern: /flutter\s+run/, port: 8080, isFlutter: true },
+            { pattern: /node\s+.*server/, port: 3000 },
+            { pattern: /http-server.*-p\s+(\d+)/, port: 8080 },
+        ];
+        
+        let isServerCommand = false;
+        let port = 8000;
+        let isFlutter = false;
+        let actualCommand = command;
+        
+        for (const { pattern, port: defaultPort, isFlutter: flutter } of serverPatterns) {
+            const match = command.match(pattern);
+            if (match) {
+                isServerCommand = true;
+                port = match[1] ? parseInt(match[1]) : defaultPort;
+                isFlutter = flutter || false;
+                
+                // Transform flutter run to web server mode
+                if (isFlutter) {
+                    actualCommand = `flutter run -d web-server --web-port=${port} --web-hostname=0.0.0.0`;
+                }
+                break;
+            }
+        }
+        
+        if (isServerCommand) {
+            // Start preview server
+            console.log(`🌐 Server command detected, starting preview on port ${port}`);
+            
+            // For preview, use workspace from Cloud Storage (includes gitignored files)
+            // instead of fresh git clone
+            const previewUrl = await startPreviewServer(userId, localPath, repoSlug, port, actualCommand);
+            
+            res.json({
+                success: true,
+                stdout: `Server started successfully!\n\n🌐 Preview URL: ${previewUrl}\n\nServer is running on port ${port}`,
+                stderr: '',
+                exitCode: 0,
+                previewUrl,
+                isServerCommand: true
+            });
+            return;
+        }
+        
+        // Execute command normally in repo directory
+        const { stdout, stderr, error } = await execAsync(command, {
+            cwd: workingDir,
+            timeout: 300000, // 5 min
+            maxBuffer: 10 * 1024 * 1024 // 10MB
+        }).catch(err => ({
+            stdout: err.stdout || '',
+            stderr: err.stderr || '',
+            error: err
+        }));
+        
+        // Upload changes back to storage
+        await uploadDirectory(localPath, bucket, workspacePrefix);
+        
+        // Cleanup
+        await execAsync(`rm -rf ${localPath}`);
+        
+        res.json({
+            success: !error,
+            stdout: stdout || '',
+            stderr: stderr || '',
+            exitCode: error ? error.code : 0
+        });
+        
+    } catch (error) {
+        console.error('Command execution error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message,
+            stdout: '',
+            stderr: error.message
+        });
+    }
+});
+
+// Helper functions
+async function startPreviewServer(userId, localPath, repoSlug, port, command = null) {
+    const serviceName = `preview-user-${userId}`.toLowerCase();
+    const imageUri = `gcr.io/${PROJECT_ID}/${serviceName}`;
+    
+    // Determine base image and command
+    const isFlutter = command && command.includes('flutter');
+    const baseImage = isFlutter ? 'ghcr.io/cirruslabs/flutter:stable' : 'python:3.11-slim';
+    
+    const cmd = command || `python3 -m http.server ${port}`;
+    
+    // Create Dockerfile for the preview
+    const dockerfile = isFlutter 
+        ? `FROM ${baseImage}
+WORKDIR /app
+COPY ${repoSlug}/ .
+RUN flutter config --no-analytics && \
+    find . -name "*.template" -type f | while read template; do \
+        target="\${template%.template}"; \
+        [ ! -f "\$target" ] && cp "\$template" "\$target" && echo "Created \$target from template"; \
+    done && \
+    [ ! -f .env ] && touch .env && \
+    flutter pub get
+EXPOSE ${port}
+CMD ["sh", "-c", "${cmd}"]
+`
+        : `FROM ${baseImage}
+WORKDIR /app
+COPY ${repoSlug}/ .
+EXPOSE ${port}
+CMD ${JSON.stringify(cmd.split(' '))}
+`;
+    
+    console.log(`🐳 Dockerfile:\n${dockerfile}`);
+    
+    await fs.writeFile(path.join(localPath, 'Dockerfile'), dockerfile);
+    
+    // Create tarball
+    const tarballPath = `/tmp/${serviceName}.tar.gz`;
+    await execAsync(`tar -czf ${tarballPath} -C ${localPath} .`, { timeout: 60000 });
+    
+    // Upload tarball to Cloud Storage
+    const bucket = storage.bucket(BUCKET_NAME);
+    const tarballName = `builds/${serviceName}.tar.gz`;
+    await bucket.upload(tarballPath, {
+        destination: tarballName,
+        metadata: { cacheControl: 'no-cache' }
+    });
+    
+    // Cleanup local tarball
+    await fs.unlink(tarballPath);
+    
+    // Use Cloud Build API
+    const { CloudBuildClient } = require('@google-cloud/cloudbuild').v1;
+    const buildClient = new CloudBuildClient();
+    
+    try {
+        console.log(`🔨 Starting Cloud Build for preview...`);
+        
+        // Create build
+        const [operation] = await buildClient.createBuild({
+            projectId: PROJECT_ID,
+            build: {
+                source: {
+                    storageSource: {
+                        bucket: BUCKET_NAME,
+                        object: tarballName,
+                    },
+                },
+                steps: [{
+                    name: 'gcr.io/cloud-builders/docker',
+                    args: ['build', '-t', imageUri, '.'],
+                }],
+                images: [imageUri],
+            },
+        });
+        
+        console.log(`⏳ Build started, waiting for completion...`);
+        const [build] = await operation.promise();
+        console.log(`✅ Build completed: ${build.status}`);
+        
+        // Deploy to Cloud Run using API
+        const { ServicesClient } = require('@google-cloud/run').v2;
+        const runClient = new ServicesClient();
+        
+        const parent = `projects/${PROJECT_ID}/locations/${LOCATION}`;
+        const servicePath = `${parent}/services/${serviceName}`;
+        
+        console.log(`🚀 Deploying to Cloud Run...`);
+        
+        let isNewService = false;
+        
+        try {
+            // Try to get existing service
+            await runClient.getService({ name: servicePath });
+            
+            console.log(`♻️ Updating existing service...`);
+            // Update existing service
+            const [updateOp] = await runClient.updateService({
+                service: {
+                    name: servicePath,
+                    template: {
+                        containers: [{
+                            image: imageUri,
+                            ports: [{ containerPort: port }],
+                            resources: {
+                                limits: {
+                                    memory: '4Gi',
+                                    cpu: '2000m'
+                                }
+                            },
+                            startupProbe: {
+                                httpGet: {
+                                    path: '/',
+                                    port: port
+                                },
+                                timeoutSeconds: 10,
+                                periodSeconds: 10,
+                                failureThreshold: 24 // 24 * 10s = 4 minutes
+                            }
+                        }],
+                    },
+                },
+            });
+            await updateOp.promise();
+        } catch (err) {
+            // Create new service if doesn't exist
+            if (err.code === 5 || err.message.includes('not found')) {
+                console.log(`🆕 Creating new service...`);
+                isNewService = true;
+                const [createOp] = await runClient.createService({
+                    parent,
+                    serviceId: serviceName,
+                    service: {
+                        template: {
+                            containers: [{
+                                image: imageUri,
+                                ports: [{ containerPort: port }],
+                                resources: {
+                                    limits: {
+                                        memory: '4Gi',
+                                        cpu: '2000m'
+                                    }
+                                },
+                                startupProbe: {
+                                    httpGet: {
+                                        path: '/',
+                                        port: port
+                                    },
+                                    timeoutSeconds: 10,
+                                    periodSeconds: 10,
+                                    failureThreshold: 24 // 24 * 10s = 4 minutes
+                                }
+                            }],
+                        },
+                        ingress: 'INGRESS_TRAFFIC_ALL',
+                    },
+                });
+                await createOp.promise();
+            } else {
+                throw err;
+            }
+        }
+        
+        // Make service public if newly created
+        if (isNewService) {
+            console.log(`🔓 Making service public...`);
+            await execAsync(
+                `gcloud run services add-iam-policy-binding ${serviceName} --region=${LOCATION} --member="allUsers" --role="roles/run.invoker"`,
+                { timeout: 30000 }
+            );
+        }
+        
+        // Get service URL
+        const [service] = await runClient.getService({ name: servicePath });
+        const url = service.uri;
+        
+        console.log(`✅ Preview available at: ${url}`);
+        return url;
+        
+    } catch (error) {
+        console.error('Preview server error:', error);
+        throw new Error(`Failed to start preview: ${error.message}`);
+    }
+}
+
+async function uploadDirectory(localPath, bucket, prefix) {
+    const files = await fs.readdir(localPath, { recursive: true, withFileTypes: true });
+    
+    let uploadCount = 0;
+    const totalFiles = files.filter(f => f.isFile()).length;
+    console.log(`📤 Uploading ${totalFiles} files...`);
+    
+    for (const file of files) {
+        if (file.isFile()) {
+            const filePath = path.join(file.path || localPath, file.name);
+            const relativePath = path.relative(localPath, filePath);
+            const destination = path.join(prefix, relativePath).replace(/\\/g, '/');
+            
+            try {
+                await bucket.upload(filePath, {
+                    destination,
+                    metadata: { cacheControl: 'no-cache' },
+                    resumable: true, // Use resumable upload for large files
+                    timeout: 300000 // 5 min per file
+                });
+                
+                uploadCount++;
+                if (uploadCount % 50 === 0) {
+                    console.log(`📤 Uploaded ${uploadCount}/${totalFiles} files...`);
+                }
+            } catch (err) {
+                console.error(`⚠️ Failed to upload ${relativePath}: ${err.message}`);
+            }
+        }
+    }
+    
+    console.log(`✅ Upload complete: ${uploadCount}/${totalFiles} files`);
+}
+
+async function downloadDirectory(bucket, prefix, localPath) {
+    const [files] = await bucket.getFiles({ prefix });
+    
+    for (const file of files) {
+        const relativePath = file.name.substring(prefix.length);
+        if (!relativePath) continue;
+        
+        const destination = path.join(localPath, relativePath);
+        await fs.mkdir(path.dirname(destination), { recursive: true });
+        await file.download({ destination });
+    }
+}
 
 const PORT = process.env.PORT || 8080;
 
