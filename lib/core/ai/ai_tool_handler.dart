@@ -135,7 +135,7 @@ class AIToolHandler {
       repoName: repoName,
     );
     
-    if (result.success) {
+    if (result.exitCode == 0) {
       return result.stdout.isNotEmpty ? result.stdout : 'Command executed successfully';
     } else {
       return 'Error: ${result.stderr}';

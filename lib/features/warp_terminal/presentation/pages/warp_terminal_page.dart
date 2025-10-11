@@ -6455,7 +6455,7 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
           _terminalItems.add(
             TerminalItem(
               content: initialMessage,
-              type: TerminalItemType.aiResponse,
+              type: TerminalItemType.output,
               timestamp: DateTime.now(),
             ),
           );

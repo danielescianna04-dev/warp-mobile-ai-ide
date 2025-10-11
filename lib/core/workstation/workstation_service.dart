@@ -54,7 +54,7 @@ class WorkstationService {
   }) async {
     try {
       final response = await http.post(
-        Uri.parse('$_baseUrl/workspace/analyze'),
+        Uri.parse('$baseUrl/workspace/analyze'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'userId': userId,
