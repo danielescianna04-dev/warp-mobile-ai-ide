@@ -99,7 +99,7 @@ class _WorkstationLoadingPageState extends State<WorkstationLoadingPage> with Si
       });
       
       // Analyze project for missing files
-      await WorkstationService.analyzeWorkspace(
+      final analysisResult = await WorkstationService.analyzeWorkspace(
         userId: widget.userId,
         repoName: widget.repositoryName,
       );
@@ -112,7 +112,7 @@ class _WorkstationLoadingPageState extends State<WorkstationLoadingPage> with Si
       await Future.delayed(const Duration(milliseconds: 500));
       
       if (mounted) {
-        Navigator.pop(context, true);
+        Navigator.pop(context, analysisResult); // Return analysis result
       }
       
       // Analyze in background after navigation

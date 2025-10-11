@@ -44,8 +44,9 @@ You have access to these tools:
   static Future<String> generateInitialMessage({
     required String userId,
     required String repoName,
+    AnalysisResult? cachedAnalysis,
   }) async {
-    final analysis = await WorkstationService.analyzeWorkspace(
+    final analysis = cachedAnalysis ?? await WorkstationService.analyzeWorkspace(
       userId: userId,
       repoName: repoName,
     );

@@ -6213,10 +6213,10 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
             ),
           );
           
-          if (result == true) {
+          if (result != null && result is AnalysisResult) {
             _showSnackBar('✅ Workstation pronto per ${repo.name}');
-            // Add AI initial message
-            _addAIInitialMessage();
+            // Add AI initial message with cached analysis
+            _addAIInitialMessage(cachedAnalysis: result);
           }
           _scrollToBottom();
         },
@@ -6443,10 +6443,11 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
     }
   }
   
-  Future<void> _addAIInitialMessage() async {
+  Future<void> _addAIInitialMessage({AnalysisResult? cachedAnalysis}) async {
     print('🤖 _addAIInitialMessage chiamato');
     print('   _selectedRepository: ${_selectedRepository?.name}');
     print('   _userId: $_userId');
+    print('   cachedAnalysis: ${cachedAnalysis != null ? "presente" : "null"}');
     
     if (_selectedRepository == null || _userId == null) {
       print('⚠️ Skipping AI message - missing repository or userId');
@@ -6458,9 +6459,10 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
       final initialMessage = await AIContextManager.generateInitialMessage(
         userId: _userId!,
         repoName: _selectedRepository!.name,
+        cachedAnalysis: cachedAnalysis,
       );
       
-      print('📨 Messaggio ricevuto: ${initialMessage.substring(0, 50)}...');
+      print('📨 Messaggio ricevuto: ${initialMessage.length > 0 ? initialMessage.substring(0, initialMessage.length > 50 ? 50 : initialMessage.length) : "vuoto"}...');
       
       if (initialMessage.isNotEmpty) {
         setState(() {
