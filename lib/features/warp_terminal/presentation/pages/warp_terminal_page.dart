@@ -18,6 +18,7 @@ import '../../../../core/ai/ai_models.dart';
 import '../../../../core/ai/ai_manager.dart';
 import '../../../../core/ai/ai_service.dart';
 import '../../../../core/ai/ai_context_manager.dart';
+import '../../../../core/ai/ai_action_parser.dart';
 import '../../../../core/terminal/terminal_service.dart';
 import '../../../../core/workstation/workstation_service.dart';
 import '../../../../core/terminal/autocomplete_service.dart';
@@ -4774,10 +4775,21 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
         print('   Content: ${chatResponse.content}');
         print('   Tokens: ${chatResponse.tokensUsed}');
         
+        // Execute any actions in the response
+        String finalContent = chatResponse.content;
+        if (_selectedRepository != null && _userId != null) {
+          finalContent = await AIActionParser.executeActions(
+            aiResponse: chatResponse.content,
+            userId: _userId!,
+            repoName: _selectedRepository!.name,
+          );
+          print('📝 Final content after actions: $finalContent');
+        }
+        
         setState(() {
           _terminalItems.add(
             TerminalItem(
-              content: chatResponse.content,
+              content: finalContent,
               type: TerminalItemType.output,
               timestamp: DateTime.now(),
             )
