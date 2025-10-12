@@ -4768,6 +4768,12 @@ class _WarpTerminalPageState extends State<WarpTerminalPage> with TickerProvider
           enableTools: _selectedRepository != null, // Enable tools when repo is selected
         );
         
+        print('🤖 AI Response:');
+        print('   Model: ${chatResponse.model}');
+        print('   Content length: ${chatResponse.content.length}');
+        print('   Content: ${chatResponse.content}');
+        print('   Tokens: ${chatResponse.tokensUsed}');
+        
         setState(() {
           _terminalItems.add(
             TerminalItem(
